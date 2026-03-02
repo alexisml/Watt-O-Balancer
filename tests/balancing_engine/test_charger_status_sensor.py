@@ -16,9 +16,13 @@ Covers:
 - ev_charging sensor is always on when no status sensor is configured
 - coordinator.ev_charging attribute is updated correctly on each recompute
 - ev_charging diagnostic updates immediately on status change (no meter event needed)
-- ev_charging diagnostic is initialized from the charger status state at startup
+- ev_charging diagnostic is initialized from the charger status state at startup (hot-load path)
+- ev_charging diagnostic is initialized from the charger status state during HA boot (boot path)
 """
 
+from unittest.mock import patch, PropertyMock
+
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -568,3 +572,88 @@ class TestChargerStatusOnStartup:
         ev_charging_id = get_entity_id(hass, entry, "binary_sensor", "ev_charging")
 
         assert hass.states.get(ev_charging_id).state == "on"
+
+
+class TestChargerStatusBootPath:
+    """Verify ev_charging is initialized correctly during the HA boot sequence.
+
+    When an integration loads while HA is still starting (``hass.is_running`` is
+    ``False``), the coordinator defers meter-health evaluation until
+    ``EVENT_HOMEASSISTANT_STARTED``.  The ``ev_charging`` diagnostic must reflect
+    the actual charger status state once that event fires — both when the meter is
+    healthy and when it is unavailable (fallback path).
+    """
+
+    STATUS_ENTITY = "sensor.teison_mini_status_connector"
+
+    def _make_entry(self) -> MockConfigEntry:
+        """Return a config entry with the status sensor configured."""
+        return MockConfigEntry(
+            domain=DOMAIN,
+            data={
+                CONF_POWER_METER_ENTITY: POWER_METER,
+                CONF_VOLTAGE: 230.0,
+                CONF_MAX_SERVICE_CURRENT: 32.0,
+                CONF_CHARGER_STATUS_ENTITY: self.STATUS_ENTITY,
+            },
+            title="EV Load Balancing",
+        )
+
+    async def test_ev_charging_off_at_ha_boot_healthy_meter_suspended_charger(
+        self, hass: HomeAssistant
+    ) -> None:
+        """The ev_charging diagnostic is off immediately after HA completes startup when the charger is already suspended.
+
+        When HA finishes starting with the charger already in SuspendedEVSE and
+        the power meter reporting a valid reading, the operator must see ev_charging
+        as off straight away — not as the stale default on until a later event fires.
+        """
+        entry = self._make_entry()
+        hass.states.async_set(POWER_METER, "1500")
+        hass.states.async_set(self.STATUS_ENTITY, "SuspendedEVSE")
+        entry.add_to_hass(hass)
+
+        with patch.object(
+            type(hass), "is_running", new_callable=PropertyMock, return_value=False
+        ):
+            await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+
+        ev_charging_id = get_entity_id(hass, entry, "binary_sensor", "ev_charging")
+
+        # Before the event fires: ev_charging has not been evaluated yet
+        # (defaults to True / the restored value — could be either, we just need it
+        # to be correct *after* the event)
+
+        hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED, {})
+        await hass.async_block_till_done()
+
+        assert hass.states.get(ev_charging_id).state == "off"
+
+    async def test_ev_charging_off_at_ha_boot_unavailable_meter_suspended_charger(
+        self, hass: HomeAssistant
+    ) -> None:
+        """The ev_charging diagnostic shows off after HA startup when the power meter is unavailable and the charger is suspended.
+
+        When HA finishes starting with the power meter unavailable and the charger
+        already in SuspendedEVSE, the operator must see ev_charging as off — the
+        unavailable-meter condition must not reset the diagnostic to the stale
+        default on.
+        """
+        entry = self._make_entry()
+        hass.states.async_set(POWER_METER, "unavailable")
+        hass.states.async_set(self.STATUS_ENTITY, "SuspendedEVSE")
+        entry.add_to_hass(hass)
+
+        with patch.object(
+            type(hass), "is_running", new_callable=PropertyMock, return_value=False
+        ):
+            await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+
+        ev_charging_id = get_entity_id(hass, entry, "binary_sensor", "ev_charging")
+
+        hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED, {})
+        await hass.async_block_till_done()
+
+        assert hass.states.get(ev_charging_id).state == "off"

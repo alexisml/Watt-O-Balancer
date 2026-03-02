@@ -20,6 +20,9 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_PRIORITY,
+    CONF_CHARGERS,
+    DEFAULT_CHARGER_PRIORITY,
     DOMAIN,
     SERVICE_SET_LIMIT,
 )
@@ -115,7 +118,12 @@ class TestOptionsFlowDuringOperation:
         hass: HomeAssistant,
         mock_config_entry_no_actions: MockConfigEntry,
     ) -> None:
-        """Adding action scripts via options flow makes them fire on the next state transition."""
+        """Action scripts added via options flow fire on the next state transition.
+
+        Scripts are now configured per-charger on the charger_1 step.  After
+        the options flow saves, the coordinator reloads and picks up the new
+        scripts from CONF_CHARGERS[0].
+        """
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, mock_config_entry_no_actions)
 
@@ -128,16 +136,25 @@ class TestOptionsFlowDuringOperation:
         assert float(hass.states.get(current_set_id).state) == 18.0
         assert len(calls) == 0
 
-        # Phase 2: Add action scripts via options flow
+        # Phase 2: Add action scripts via options flow (init → charger_1)
         result = await hass.config_entries.options.async_init(
             mock_config_entry_no_actions.entry_id,
         )
+        # Submit global settings — always advances to charger_1
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={},
+        )
+        assert result["step_id"] == "charger_1"
+
+        # Submit per-charger action scripts
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={
                 CONF_ACTION_SET_CURRENT: SET_CURRENT_SCRIPT,
                 CONF_ACTION_STOP_CHARGING: STOP_CHARGING_SCRIPT,
                 CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
+                CONF_CHARGER_PRIORITY: DEFAULT_CHARGER_PRIORITY,
             },
         )
         assert result["type"] == "create_entry"

@@ -15,7 +15,7 @@ Extend the single-charger integration to support multiple EV chargers sharing th
 
 ## Design decisions (made during implementation)
 
-- **Priority as integer weight 5–100 in steps of 5**: shown as a slider in the HA options UI; relative values matter (e.g. 60/40 distributes 60% to charger 1 and 40% to charger 2). Equal values = equal distribution.
+- **Priority as integer weight 0–100 in steps of 5**: shown as a slider in the HA options UI; relative values matter (e.g. 60/40 distributes 60% to charger 1 and 40% to charger 2). Equal values = equal distribution. A priority of 0 effectively stops that charger (its share is 0, which falls below min_a).
 - **Maximum 3 chargers per power meter**: keeps the UI manageable while covering the majority of real-world use cases. The limit is defined by `MAX_CHARGERS = 3` in `const.py` and enforced in the options flow.
 - **Backward compat via flat-key fallback**: existing single-charger config entries are automatically detected in `_load_chargers()` (no `CONF_CHARGERS` key present → single charger from flat keys). Users who never enable multi-charger mode see no change.
 - **Weighted water-filling algorithm** (`distribute_current_weighted` in `load_balancer.py`): iterative, handles capping and min-current stop conditions with weight re-normalisation on each round. When all weights are equal, produces identical results to the existing `distribute_current` function.

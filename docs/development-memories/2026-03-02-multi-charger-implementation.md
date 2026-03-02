@@ -16,9 +16,9 @@ This PR implements the core multi-charger support covering milestones PR-1, PR-2
 
 ## Priority / weight design
 
-- Each charger has a `priority` integer in range **5–100** in steps of 5 (stored as `CONF_CHARGER_PRIORITY`).
+- Each charger has a `priority` integer in range **0–100** in steps of 5 (stored as `CONF_CHARGER_PRIORITY`).
 - Default priority is **50** (`DEFAULT_CHARGER_PRIORITY`).
-- Priorities are relative weights — only ratios matter. `60 / 40` and `3 / 2` produce identical distribution.
+- Priorities are relative weights — only ratios matter. `60 / 40` and `3 / 2` produce identical distribution. A priority of 0 stops that charger (share < min_a).
 - Shown as a **slider** in the HA options UI (`NumberSelectorMode.SLIDER`).
 
 ## Backward compatibility
@@ -31,14 +31,13 @@ Tests use the legacy flat-key format and pass without modification. The old `_ch
 
 ## Config flow design
 
-The options flow is multi-step when `manage_chargers = True` (optional toggle, defaults False):
+The options flow is always multi-step (init always proceeds to charger_1):
 
 ```
-init → charger_1 → [charger_2 → [charger_3]] → save (CONF_CHARGERS list)
-init (manage_chargers=False) → save flat keys (backward compat)
+init (global settings) → charger_1 → [charger_2 → [charger_3]] → save (CONF_CHARGERS list)
 ```
 
-When saving from charger steps, the legacy flat charger keys are removed from the options dict to avoid confusion. The coordinator always prefers `CONF_CHARGERS` over flat keys.
+The `init` step contains **only global settings** (voltage, max service current, unavailable behavior/fallback). Action scripts, charger status sensor, and priority weights are all per-charger and configured on the dedicated `charger_N` steps. On save, the `CONF_CHARGERS` list is written to options; legacy flat charger keys are removed to avoid ambiguity. The coordinator always prefers `CONF_CHARGERS` over flat keys.
 
 ## Algorithm: weighted water-filling
 
@@ -68,8 +67,8 @@ Edge cases handled:
 ## Testing guide for multi-charger
 
 1. Open the integration settings (Configure button).
-2. Enable "Configure multiple chargers (advanced)" at the bottom of the form.
-3. Configure Charger 1: set action scripts, status sensor, priority (e.g. 70).
+2. On the first form (global settings), verify only voltage, service current, and unavailable-meter behavior are shown. Save.
+3. The form advances to **Charger 1 Configuration**: set action scripts, status sensor, priority (e.g. 70).
 4. Enable "Add a second charger?".
 5. Configure Charger 2: different action scripts, priority (e.g. 30).
 6. Save and reload the integration.

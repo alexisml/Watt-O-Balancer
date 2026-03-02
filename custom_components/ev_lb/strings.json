@@ -39,28 +39,18 @@
     "step": {
       "init": {
         "title": "EV Charger Load Balancing Settings",
-        "description": "Update the integration settings. The power meter sensor cannot be changed after initial setup. Enable 'Configure multiple chargers' to set up priority-based balancing across 2–3 chargers.",
+        "description": "Update the global settings. The power meter sensor cannot be changed after initial setup. After saving, you will configure each charger's action scripts, status sensor, and priority.",
         "data": {
           "voltage": "Supply voltage",
           "max_service_current": "Max service current (breaker rating)",
           "unavailable_behavior": "When power meter is unavailable",
-          "unavailable_fallback_current": "Fallback current (for 'Set a specific current' mode)",
-          "action_set_current": "Set current action (script)",
-          "action_stop_charging": "Stop charging action (script)",
-          "action_start_charging": "Start charging action (script)",
-          "charger_status_entity": "Charger status sensor (optional)",
-          "manage_chargers": "Configure multiple chargers (advanced)"
+          "unavailable_fallback_current": "Fallback current (for 'Set a specific current' mode)"
         },
         "data_description": {
           "voltage": "Nominal supply voltage in Volts (used to convert W ↔ A).",
           "max_service_current": "Service current limit in Amps. Charging will never exceed this limit. You can set this lower than your actual breaker rating to reserve a safety margin — for example, enter 28 A on a 32 A service to keep 4 A free for other loads. It can also represent a subcircuit or any custom power budget.",
           "unavailable_behavior": "What to do when the power meter becomes unavailable: stop charging (safest), ignore and keep last value, or set a specific current (capped at the charger maximum).",
-          "unavailable_fallback_current": "Charging current (A) to use when the meter is unavailable and mode is 'Set a specific current'. This value will be capped at the charger maximum.",
-          "action_set_current": "Script entity called to set the charging current. Receives 'current_a' (float, amps), 'current_w' (float, watts), and 'charger_id' (string) variables.",
-          "action_stop_charging": "Script entity called to stop charging. Receives a 'charger_id' (string) variable.",
-          "action_start_charging": "Script entity called to start/resume charging. Receives a 'charger_id' (string) variable.",
-          "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished.",
-          "manage_chargers": "Enable to configure 2–3 chargers with individual priority weights. When enabled, the settings on this page are saved first and you will be guided through per-charger configuration."
+          "unavailable_fallback_current": "Charging current (A) to use when the meter is unavailable and mode is 'Set a specific current'. This value will be capped at the charger maximum."
         }
       },
       "charger_1": {
@@ -75,7 +65,7 @@
           "add_another_charger": "Add a second charger?"
         },
         "data_description": {
-          "priority": "Priority weight for this charger (5–100, step 5). Higher values receive proportionally more available current. Equal priorities result in equal distribution.",
+          "priority": "Priority weight for this charger (0–100, step 5). Higher values receive proportionally more available current. Equal priorities result in equal distribution.",
           "add_another_charger": "Enable to configure a second charger with its own priority."
         }
       },
@@ -91,7 +81,7 @@
           "add_another_charger": "Add a third charger?"
         },
         "data_description": {
-          "priority": "Priority weight for this charger (5–100, step 5). Higher values receive proportionally more available current. Equal priorities result in equal distribution.",
+          "priority": "Priority weight for this charger (0–100, step 5). Higher values receive proportionally more available current. Equal priorities result in equal distribution.",
           "add_another_charger": "Enable to configure a third charger with its own priority."
         }
       },
@@ -106,7 +96,7 @@
           "priority": "Priority (higher = more current)"
         },
         "data_description": {
-          "priority": "Priority weight for this charger (5–100, step 5). Higher values receive proportionally more available current. Equal priorities result in equal distribution."
+          "priority": "Priority weight for this charger (0–100, step 5). Higher values receive proportionally more available current. Equal priorities result in equal distribution."
         }
       }
     }

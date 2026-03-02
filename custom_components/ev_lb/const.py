@@ -34,9 +34,9 @@ CHARGING_STATE_VALUE = "Charging"
 
 # Multi-charger support
 CONF_CHARGERS = "chargers"              # list of per-charger config dicts
-CONF_CHARGER_PRIORITY = "priority"      # per-charger priority weight (5–100, step 5)
+CONF_CHARGER_PRIORITY = "priority"      # per-charger priority weight (0–100, step 5)
 DEFAULT_CHARGER_PRIORITY = 50
-MIN_CHARGER_PRIORITY = 5
+MIN_CHARGER_PRIORITY = 0
 MAX_CHARGER_PRIORITY = 100
 CHARGER_PRIORITY_STEP = 5
 MAX_CHARGERS = 3                        # maximum chargers per power meter (UI cap)

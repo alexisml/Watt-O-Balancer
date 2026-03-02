@@ -26,9 +26,12 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_PRIORITY,
+    CONF_CHARGERS,
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_VOLTAGE,
+    DEFAULT_CHARGER_PRIORITY,
     DOMAIN,
 )
 from conftest import (
@@ -360,7 +363,11 @@ class TestOptionsFlow:
         hass: HomeAssistant,
         mock_config_entry_no_actions: MockConfigEntry,
     ) -> None:
-        """Updated charger action scripts take effect after saving options."""
+        """Action scripts updated through the options flow take effect immediately.
+
+        Scripts entered on the charger_1 step (per-charger) are stored under
+        CONF_CHARGERS[0] in options; the coordinator picks them up on reload.
+        """
         await setup_integration(hass, mock_config_entry_no_actions)
 
         # Open options flow
@@ -370,22 +377,30 @@ class TestOptionsFlow:
         assert result["type"] == "form"
         assert result["step_id"] == "init"
 
-        # Submit new action scripts
+        # Submit global settings — always advances to charger_1
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={},
+        )
+        assert result["step_id"] == "charger_1"
+
+        # Submit per-charger action scripts
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={
                 CONF_ACTION_SET_CURRENT: SET_CURRENT_SCRIPT,
                 CONF_ACTION_STOP_CHARGING: STOP_CHARGING_SCRIPT,
                 CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
+                CONF_CHARGER_PRIORITY: DEFAULT_CHARGER_PRIORITY,
             },
         )
         assert result["type"] == "create_entry"
 
-        # Verify options are stored
-        options = mock_config_entry_no_actions.options
-        assert options[CONF_ACTION_SET_CURRENT] == SET_CURRENT_SCRIPT
-        assert options[CONF_ACTION_STOP_CHARGING] == STOP_CHARGING_SCRIPT
-        assert options[CONF_ACTION_START_CHARGING] == START_CHARGING_SCRIPT
+        # Verify options are stored in CONF_CHARGERS[0]
+        charger_0 = mock_config_entry_no_actions.options[CONF_CHARGERS][0]
+        assert charger_0[CONF_ACTION_SET_CURRENT] == SET_CURRENT_SCRIPT
+        assert charger_0[CONF_ACTION_STOP_CHARGING] == STOP_CHARGING_SCRIPT
+        assert charger_0[CONF_ACTION_START_CHARGING] == START_CHARGING_SCRIPT
 
 
 # ---------------------------------------------------------------------------

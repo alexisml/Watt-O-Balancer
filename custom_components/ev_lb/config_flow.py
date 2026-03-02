@@ -204,10 +204,8 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
 
 
 # ---------------------------------------------------------------------------
-# Internal constant — not exported; used only by the options flow to signal
-# that the user wants to enter multi-charger management mode.
+# Internal constant — used only by the options flow to chain charger steps.
 # ---------------------------------------------------------------------------
-_CONF_MANAGE_CHARGERS = "manage_chargers"
 _CONF_ADD_ANOTHER = "add_another_charger"
 
 
@@ -253,13 +251,13 @@ def _charger_schema(
 class EvLbOptionsFlow(OptionsFlow):
     """Handle options flow for EV Charger Load Balancing.
 
-    The first step (*init*) manages global settings and optionally redirects
-    to per-charger configuration steps when the user enables multi-charger
-    management.  Up to MAX_CHARGERS chargers can be configured, each with
-    independent action scripts, a status sensor, and a priority weight.
+    The first step (*init*) manages global settings (voltage, service limit,
+    unavailable-meter behaviour).  It always proceeds to *charger_1* so that
+    per-charger action scripts, status sensor, and priority weight are
+    configured on dedicated charger steps rather than mixed with global fields.
 
-    Legacy single-charger config entries (flat action-script keys) continue
-    to work unchanged when the user does not enable multi-charger management.
+    Up to MAX_CHARGERS chargers can be configured via the "add another?"
+    toggle on each charger step.
     """
 
     def __init__(self) -> None:
@@ -271,15 +269,15 @@ class EvLbOptionsFlow(OptionsFlow):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> FlowResult:
-        """Handle the options flow step — global settings and multi-charger opt-in."""
+        """Handle the first step — global settings only.
+
+        Always proceeds to charger_1 so that action scripts and status sensors
+        are configured per charger on dedicated steps.
+        """
         if user_input is not None:
-            manage_chargers = bool(user_input.pop(_CONF_MANAGE_CHARGERS, False))
             self._global_settings = user_input
             self._chargers_data = []
-            if manage_chargers:
-                return await self.async_step_charger_1()
-            # No charger management — save with flat keys (backward compat)
-            return self.async_create_entry(title="", data=self._global_settings)
+            return await self.async_step_charger_1()
 
         # Pre-fill with current values (options take priority, then data)
         current = {**self.config_entry.data, **self.config_entry.options}
@@ -305,39 +303,6 @@ class EvLbOptionsFlow(OptionsFlow):
                         DEFAULT_UNAVAILABLE_FALLBACK_CURRENT,
                     ),
                 ): _FALLBACK_CURRENT_SELECTOR,
-                vol.Optional(
-                    CONF_ACTION_SET_CURRENT,
-                    description={
-                        "suggested_value": current.get(CONF_ACTION_SET_CURRENT),
-                    },
-                ): EntitySelector(
-                    EntitySelectorConfig(domain="script"),
-                ),
-                vol.Optional(
-                    CONF_ACTION_STOP_CHARGING,
-                    description={
-                        "suggested_value": current.get(CONF_ACTION_STOP_CHARGING),
-                    },
-                ): EntitySelector(
-                    EntitySelectorConfig(domain="script"),
-                ),
-                vol.Optional(
-                    CONF_ACTION_START_CHARGING,
-                    description={
-                        "suggested_value": current.get(CONF_ACTION_START_CHARGING),
-                    },
-                ): EntitySelector(
-                    EntitySelectorConfig(domain="script"),
-                ),
-                vol.Optional(
-                    CONF_CHARGER_STATUS_ENTITY,
-                    description={
-                        "suggested_value": current.get(CONF_CHARGER_STATUS_ENTITY),
-                    },
-                ): EntitySelector(
-                    EntitySelectorConfig(domain="sensor"),
-                ),
-                vol.Optional(_CONF_MANAGE_CHARGERS, default=False): BooleanSelector(),
             }
         )
 

@@ -7,6 +7,7 @@ Tests cover:
 - Per-meter duplicate protection (abort if the same meter is already configured)
 - Multiple instances allowed when different power meters are used
 - Power meter EntitySelector is restricted to power device-class sensors
+- Per-charger action scripts and status sensor configured in charger_1 step
 """
 
 import voluptuous as vol
@@ -22,12 +23,15 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_PRIORITY,
     CONF_CHARGER_STATUS_ENTITY,
+    CONF_CHARGERS,
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
+    DEFAULT_CHARGER_PRIORITY,
     DOMAIN,
     UNAVAILABLE_BEHAVIOR_STOP,
 )
@@ -220,51 +224,71 @@ async def test_options_flow_opens_without_error(
 async def test_options_flow_saves_action_scripts(
     hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
 ) -> None:
-    """Test that users can set action scripts via the Configure dialog.
+    """Action scripts configured on charger_1 step are saved in the CONF_CHARGERS list.
 
-    Saving the options form should store the selected scripts so the
-    integration can call them when controlling the charger.
+    The options flow always proceeds from init (global settings) to per-charger
+    steps.  Scripts entered on the charger_1 step are stored under CONF_CHARGERS[0]
+    so the coordinator can call them when controlling that charger.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
 
     result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
     assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
 
+    # Submit global settings — always advances to charger_1
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {},
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "charger_1"
+
+    # Configure per-charger action scripts
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
             CONF_ACTION_SET_CURRENT: "script.ev_lb_set_current",
             CONF_ACTION_STOP_CHARGING: "script.ev_lb_stop_charging",
             CONF_ACTION_START_CHARGING: "script.ev_lb_start_charging",
+            CONF_CHARGER_PRIORITY: DEFAULT_CHARGER_PRIORITY,
         },
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_ACTION_SET_CURRENT] == "script.ev_lb_set_current"
-    assert result["data"][CONF_ACTION_STOP_CHARGING] == "script.ev_lb_stop_charging"
-    assert result["data"][CONF_ACTION_START_CHARGING] == "script.ev_lb_start_charging"
+    charger_0 = result["data"][CONF_CHARGERS][0]
+    assert charger_0[CONF_ACTION_SET_CURRENT] == "script.ev_lb_set_current"
+    assert charger_0[CONF_ACTION_STOP_CHARGING] == "script.ev_lb_stop_charging"
+    assert charger_0[CONF_ACTION_START_CHARGING] == "script.ev_lb_start_charging"
 
 
 async def test_options_flow_saves_charger_status_entity(
     hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
 ) -> None:
-    """Test that users can configure the charger status sensor via the Configure dialog.
+    """Charger status sensor configured on charger_1 step is saved in CONF_CHARGERS[0].
 
-    The charger status entity should be persisted alongside the action scripts
-    so the coordinator can check charging state on every meter update.
+    The charger status entity is per-charger and is configured on the dedicated
+    charger_1 step, not the global init step.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
 
     result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
     assert result["type"] is FlowResultType.FORM
 
+    # Submit global settings — always advances to charger_1
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    assert result["step_id"] == "charger_1"
+
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {CONF_CHARGER_STATUS_ENTITY: "sensor.ocpp_status"},
+        {
+            CONF_CHARGER_STATUS_ENTITY: "sensor.ocpp_status",
+            CONF_CHARGER_PRIORITY: DEFAULT_CHARGER_PRIORITY,
+        },
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_CHARGER_STATUS_ENTITY] == "sensor.ocpp_status"
+    assert result["data"][CONF_CHARGERS][0][CONF_CHARGER_STATUS_ENTITY] == "sensor.ocpp_status"
 
 
 async def test_user_flow_saves_charger_status_entity(hass: HomeAssistant) -> None:
@@ -296,23 +320,31 @@ async def test_user_flow_saves_charger_status_entity(hass: HomeAssistant) -> Non
 async def test_options_flow_saves_voltage_and_service_current(
     hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
 ) -> None:
-    """Test that users can update voltage and max service current via the Configure dialog.
+    """Global electrical parameters updated in the init step are persisted.
 
-    The options form should allow changing core electrical parameters so
-    users can correct mistakes or adapt to a new electrical installation
-    without deleting and re-creating the config entry.
+    The options flow always proceeds init → charger_1.  Voltage and max service
+    current entered on the init step must survive the full flow and appear in
+    the saved options.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
 
     result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
     assert result["type"] is FlowResultType.FORM
 
+    # Submit global settings on init step
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
             CONF_VOLTAGE: 120.0,
             CONF_MAX_SERVICE_CURRENT: 50.0,
         },
+    )
+    assert result["step_id"] == "charger_1"
+
+    # Complete the charger step to save
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_CHARGER_PRIORITY: DEFAULT_CHARGER_PRIORITY},
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -323,10 +355,11 @@ async def test_options_flow_saves_voltage_and_service_current(
 async def test_options_flow_saves_unavailable_behavior(
     hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
 ) -> None:
-    """Test that users can change the unavailable-meter behavior via the Configure dialog.
+    """Unavailable-meter behavior changed in the init step is persisted.
 
-    Changing this setting should allow users to switch between stop, ignore,
-    and set-current modes without recreating the integration.
+    Changing this setting must survive the full init → charger_1 flow so
+    users can switch between stop, ignore, and set-current modes without
+    recreating the integration.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
 
@@ -341,6 +374,12 @@ async def test_options_flow_saves_unavailable_behavior(
             CONF_UNAVAILABLE_BEHAVIOR: "set_current",
             CONF_UNAVAILABLE_FALLBACK_CURRENT: 8.0,
         },
+    )
+    assert result["step_id"] == "charger_1"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_CHARGER_PRIORITY: DEFAULT_CHARGER_PRIORITY},
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY

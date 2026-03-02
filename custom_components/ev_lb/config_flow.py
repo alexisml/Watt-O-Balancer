@@ -377,7 +377,7 @@ class EvLbOptionsFlow(OptionsFlow):
         """Extract charger config dict from user_input (strips flow-control fields)."""
         return {
             k: v for k, v in user_input.items()
-            if k not in (_CONF_ADD_ANOTHER,) and v is not None
+            if k != _CONF_ADD_ANOTHER and v is not None
         }
 
     async def async_step_charger_1(

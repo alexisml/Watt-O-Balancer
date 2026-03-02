@@ -256,7 +256,7 @@ def distribute_current_weighted(
     available_a: float,
     chargers: list[tuple[float, float, float]],
     step_a: float = STEP_DEFAULT,
-) -> list[Optional[float]]:
+) -> list[float | None]:
     """Distribute *available_a* across chargers proportionally to per-charger weights.
 
     Uses an iterative weighted water-filling algorithm:
@@ -287,7 +287,7 @@ def distribute_current_weighted(
     if n == 0:
         return []
 
-    allocations: list[Optional[float]] = [None] * n
+    allocations: list[float | None] = [None] * n
     active: list[int] = list(range(n))
     remaining: float = available_a
 

@@ -284,7 +284,7 @@ class EvLoadBalancerCoordinator:
         )
         for idx, charger in enumerate(self._chargers):
             if charger.status_entity is not None:
-                def _make_handler(charger_idx: int) -> Callable:
+                def _make_handler(charger_idx: int) -> Callable[[Event], None]:
                     @callback
                     def _handler(event: Event) -> None:
                         self._handle_charger_status_change(charger_idx, event)
@@ -642,7 +642,7 @@ class EvLoadBalancerCoordinator:
     # Core computation
     # ------------------------------------------------------------------
 
-    def _is_charger_charging(self, charger: "_ChargerState") -> bool:
+    def _is_charger_charging(self, charger: _ChargerState) -> bool:
         """Return True if *charger*'s status sensor indicates the EV is actively charging.
 
         When no status sensor is configured for the charger, the coordinator

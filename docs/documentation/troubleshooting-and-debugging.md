@@ -301,9 +301,11 @@ The balancer is event-driven and reacts on the same HA event-loop tick as the po
 
 Yes. The ramp-up cooldown defaults to 30 seconds and is adjustable via `number.*_ramp_up_cooldown` in the entity dashboard. The allowed range is 5–300 seconds. Lower values respond faster but risk oscillation on spiky loads; 20–30 s is recommended for most installations.
 
-### Can I use multiple chargers?
+### Can I set up multiple instances for different power meters?
 
-Not yet. The current version supports one charger per instance, and only one instance is allowed. Multi-charger support with per-charger prioritization is planned for Phase 2. See the [multi-charger plan](milestones/02-2026-02-19-multi-charger-plan.md).
+Yes. Each instance monitors one power meter and controls one charger. To balance chargers on separate circuits, add a new integration instance for each circuit — go to **Settings → Devices & Services → Add integration** and select **EV Charger Load Balancing** again. Each instance must use a different power meter sensor; if you select a meter that is already configured the wizard will show an "already configured" error.
+
+Multi-charger support within a single instance (multiple chargers sharing one meter, with per-charger prioritization) is planned for Phase 2. See the [multi-charger plan](milestones/02-2026-02-19-multi-charger-plan.md).
 
 ### Does it support three-phase (multi-phase) installations?
 

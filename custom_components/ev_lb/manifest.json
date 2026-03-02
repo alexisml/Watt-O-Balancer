@@ -1,7 +1,7 @@
 {
   "domain": "ev_lb",
   "name": "EV Charger Load Balancing",
-  "version": "2026.3.0",
+  "version": "2026.3.1",
   "documentation": "https://github.com/alexisml/ha-ev-charger-balancer",
   "issue_tracker": "https://github.com/alexisml/ha-ev-charger-balancer/issues",
   "dependencies": [],

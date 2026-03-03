@@ -108,11 +108,23 @@ Almost all settings can be changed at any time via the **Configure** dialog — 
 | Max service current | ✅ Yes |
 | When power meter is unavailable | ✅ Yes |
 | Fallback current | ✅ Yes |
-| Set current action script | ✅ Yes |
-| Stop charging action script | ✅ Yes |
-| Start charging action script | ✅ Yes |
-| Charger status sensor | ✅ Yes |
+| **Charger action scripts** | ✅ Yes — per charger |
+| **Charger status sensor** | ✅ Yes — per charger |
+| **Charger priority weight** | ✅ Yes — per charger |
+| **Number of chargers** | ✅ Yes — add or remove chargers |
 | **Power meter sensor** | ❌ **No** — see below |
+
+#### Managing chargers (add, modify, remove)
+
+The **Configure** dialog walks through a *global settings* step followed by one step per charger. Each charger step is pre-filled with the current values, so you only need to update the fields that require changes:
+
+| What you want to do | How |
+|---|---|
+| **Modify** a charger's settings | Open Configure → step through to that charger's step → change the fields → save |
+| **Remove** the last charger | Open Configure → step through to the charger you want to be the last one → leave "Add another charger?" un-ticked → save |
+| **Add** a new charger | Open Configure → step through all existing chargers → tick "Add another charger?" on the last one → configure the new charger → save |
+
+> **Note:** The "Add another charger?" toggle only appears when the current number of configured chargers is below the `MAX_CHARGERS` limit (default: 3). To raise the limit, change `MAX_CHARGERS` in `const.py`.
 
 #### Changing the power meter sensor
 

@@ -61,7 +61,7 @@ The integration watches your home's power meter. When total service power change
 - **Hardware-agnostic** — works with any charger controllable via HA scripts (OCPP, Modbus, REST, etc.)
 - **Full observability** — sensors, events, and persistent notifications for monitoring and automations
 
-**Current limitation:** Supports **one charger** per instance. Multi-charger support is planned for [Phase 2](docs/documentation/milestones/02-2026-02-19-multi-charger-plan.md).
+**Multi-charger support:** Up to `MAX_CHARGERS` EV chargers per power meter (default cap: 3), each with a configurable priority weight (0–100). Available current is distributed proportionally to weights; chargers that are capped or paused redistribute their unused headroom. Priority 0 stops that charger. Existing single-charger configurations continue to work without any migration. See [Multi-charger plan](docs/documentation/milestones/02-2026-02-19-multi-charger-plan.md).
 
 ---
 

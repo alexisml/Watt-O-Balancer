@@ -19,6 +19,7 @@ Functions:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Optional
 
 VOLTAGE_DEFAULT: float = 230.0  # Volts
@@ -254,7 +255,7 @@ def distribute_current(
 
 def distribute_current_weighted(
     available_a: float,
-    chargers: list[tuple[float, float, float]],
+    chargers: Sequence[tuple[float, float, float | int]],
     step_a: float = STEP_DEFAULT,
 ) -> list[float | None]:
     """Distribute *available_a* across chargers proportionally to per-charger weights.

@@ -7,4 +7,4 @@ select = ["E", "F", "W"]
 
 [tool.codespell]
 skip = ".git,.venv,dist,build,node_modules"
-ignore-words-list = "hass,ser,momento"
+ignore-words-list = "hass,ser,momento,varios"

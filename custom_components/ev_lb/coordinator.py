@@ -74,7 +74,6 @@ from .load_balancer import (
     clamp_current,
     clamp_to_safe_output,
     compute_fallback_reapply,
-    compute_target_current,
     distribute_current_weighted,
     resolve_balancer_state,
     resolve_fallback_current,

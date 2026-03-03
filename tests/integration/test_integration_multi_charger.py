@@ -595,7 +595,7 @@ class TestMultiChargerMinimumCurrentBoundaries:
         hass: HomeAssistant,
         mock_config_entry_two_chargers: MockConfigEntry,
     ) -> None:
-        """Both chargers remain active and charge at their minimum rate when headroom exactly meets their combined minimum."""
+        """Both chargers remain active at their minimum rate when headroom exactly meets the combined minimum."""
         await setup_integration(hass, mock_config_entry_two_chargers)
         coordinator = hass.data[DOMAIN][mock_config_entry_two_chargers.entry_id]["coordinator"]
 
@@ -744,7 +744,7 @@ class TestMultiChargerMinimumCurrentBoundaries:
         hass: HomeAssistant,
         mock_config_entry_three_chargers: MockConfigEntry,
     ) -> None:
-        """All three chargers remain active and charge at their minimum rate when headroom exactly meets their combined minimum."""
+        """All three chargers remain active at their minimum rate when headroom exactly meets the combined minimum."""
         await setup_integration(hass, mock_config_entry_three_chargers)
         coordinator = hass.data[DOMAIN][mock_config_entry_three_chargers.entry_id]["coordinator"]
 
@@ -763,7 +763,7 @@ class TestMultiChargerMinimumCurrentBoundaries:
         hass: HomeAssistant,
         mock_config_entry_three_chargers: MockConfigEntry,
     ) -> None:
-        """All three chargers stop when available current falls just below the threshold needed for all to charge at minimum."""
+        """All three chargers stop when available current falls below the threshold for all to charge at minimum."""
         await setup_integration(hass, mock_config_entry_three_chargers)
         coordinator = hass.data[DOMAIN][mock_config_entry_three_chargers.entry_id]["coordinator"]
 

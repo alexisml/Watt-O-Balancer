@@ -343,7 +343,7 @@ class TestDistributeCurrentWeightedBasics:
     degrades to equal sharing when all weights are the same."""
 
     def test_empty_charger_list_returns_empty(self):
-        """No chargers configured returns an empty allocation list."""
+        """When no chargers are configured, the system does not allocate any charging current."""
         result = distribute_current_weighted(available_a=30.0, chargers=[])
         assert result == []
 

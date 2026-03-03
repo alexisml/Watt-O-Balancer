@@ -136,6 +136,9 @@
       },
       "overload_loop_interval": {
         "name": "Intervalo de corrección de sobrecarga"
+      },
+      "charger_priority": {
+        "name": "Prioridad del cargador {charger_num}"
       }
     },
     "switch": {

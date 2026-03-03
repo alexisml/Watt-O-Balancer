@@ -351,7 +351,7 @@ class TestReloadIntegration:
         entries = er.async_entries_for_config_entry(
             ent_reg, mock_config_entry.entry_id
         )
-        assert len(entries) == 21
+        assert len(entries) == 22
 
         # Verify at least one entity has a live state after reload
         switch_id = get_entity_id(hass, mock_config_entry, "switch", "enabled")

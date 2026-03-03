@@ -473,6 +473,23 @@ class EvLoadBalancerCoordinator:
 
     # ------------------------------------------------------------------
     # On-demand recompute (triggered by number/switch changes)
+    @callback
+    def async_set_charger_priority(self, charger_index: int, priority: float) -> None:
+        """Update the priority weight for a single charger and recompute.
+
+        Called by the per-charger priority number entities when the user
+        changes a charger's priority on the fly.  The new weight is applied
+        to the in-memory ``_ChargerState`` and the balancing algorithm is
+        re-run immediately against the last known power-meter reading.
+
+        Args:
+            charger_index:  0-based index of the charger in ``self._chargers``.
+            priority:       New priority weight (0–100).
+        """
+        if 0 <= charger_index < len(self._chargers):
+            self._chargers[charger_index].priority = priority
+            self.async_recompute_from_current_state()
+
     # ------------------------------------------------------------------
 
     @callback
@@ -798,7 +815,6 @@ class EvLoadBalancerCoordinator:
         now = self._time_fn()
         finals: list[float] = []
         any_ramp_held = False
-        prev_total = self.current_set_a
 
         for i, (charger, alloc) in enumerate(zip(self._chargers, allocations)):
             target_i = 0.0 if alloc is None else alloc
@@ -910,7 +926,7 @@ class EvLoadBalancerCoordinator:
                 charger.active = final_i > 0
                 charger.current_set_a = final_i
         else:
-            # Fallback / manual path: single current value split equally
+            # Fallback / manual path: single current value split equally across all chargers.
             per_charger_value = current_a / len(self._chargers) if self._chargers else 0.0
             for charger in self._chargers:
                 charger.active = per_charger_value > 0
@@ -1084,13 +1100,16 @@ class EvLoadBalancerCoordinator:
         action cycle so stale retries do not interfere with current actions.
 
         Every action receives a ``charger_id`` variable (the config entry ID)
-        so scripts can address the correct charger.  The ``set_current`` action
-        additionally receives ``current_a`` (amps) and ``current_w`` (watts)
-        so charger scripts can use whichever unit their hardware requires.
+        and a ``charger_num`` variable (1-based charger index) so scripts can
+        address the correct charger — ``charger_num`` is the stable per-charger
+        identifier that distinguishes multiple chargers on the same entry.
+        The ``set_current`` action additionally receives ``current_a`` (amps)
+        and ``current_w`` (watts) so charger scripts can use whichever unit
+        their hardware requires.
         """
         charger_id = self.entry.entry_id
-        for charger, prev_active_i, prev_current_i in zip(
-            self._chargers, prev_charger_actives, prev_charger_currents
+        for charger_num, (charger, prev_active_i, prev_current_i) in enumerate(
+            zip(self._chargers, prev_charger_actives, prev_charger_currents), start=1
         ):
             if not charger.has_actions():
                 continue
@@ -1105,11 +1124,13 @@ class EvLoadBalancerCoordinator:
                     charger.action_start_charging,
                     "start_charging",
                     charger_id=charger_id,
+                    charger_num=charger_num,
                 )
                 await self._call_action(
                     charger.action_set_current,
                     "set_current",
                     charger_id=charger_id,
+                    charger_num=charger_num,
                     current_a=new_current_i,
                     current_w=current_w_i,
                 )
@@ -1119,6 +1140,7 @@ class EvLoadBalancerCoordinator:
                     charger.action_stop_charging,
                     "stop_charging",
                     charger_id=charger_id,
+                    charger_num=charger_num,
                 )
             elif new_active_i and new_current_i != prev_current_i:
                 # Current changed while active — adjust
@@ -1126,6 +1148,7 @@ class EvLoadBalancerCoordinator:
                     charger.action_set_current,
                     "set_current",
                     charger_id=charger_id,
+                    charger_num=charger_num,
                     current_a=new_current_i,
                     current_w=current_w_i,
                 )

@@ -16,10 +16,12 @@ from .const import (
     DEFAULT_RAMP_UP_TIME,
     DOMAIN,
     MAX_CHARGER_CURRENT,
+    MAX_CHARGER_PRIORITY,
     MAX_OVERLOAD_LOOP_INTERVAL,
     MAX_OVERLOAD_TRIGGER_DELAY,
     MAX_RAMP_UP_TIME,
     MIN_CHARGER_CURRENT,
+    MIN_CHARGER_PRIORITY,
     MIN_EV_CURRENT_MAX,
     MIN_EV_CURRENT_MIN,
     MIN_OVERLOAD_LOOP_INTERVAL,
@@ -39,15 +41,20 @@ async def async_setup_entry(
     coordinator: EvLoadBalancerCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
-    async_add_entities(
-        [
-            EvLbMaxChargerCurrentNumber(entry, coordinator),
-            EvLbMinEvCurrentNumber(entry, coordinator),
-            EvLbRampUpTimeNumber(entry, coordinator),
-            EvLbOverloadTriggerDelayNumber(entry, coordinator),
-            EvLbOverloadLoopIntervalNumber(entry, coordinator),
-        ]
-    )
+    entities: list[RestoreNumber] = [
+        EvLbMaxChargerCurrentNumber(entry, coordinator),
+        EvLbMinEvCurrentNumber(entry, coordinator),
+        EvLbRampUpTimeNumber(entry, coordinator),
+        EvLbOverloadTriggerDelayNumber(entry, coordinator),
+        EvLbOverloadLoopIntervalNumber(entry, coordinator),
+    ]
+    # Add one priority number entity per configured charger so priorities can
+    # be adjusted on the fly without reconfiguring the integration.
+    for charger_index, charger in enumerate(coordinator._chargers):
+        entities.append(
+            EvLbChargerPriorityNumber(entry, coordinator, charger_index, charger.priority)
+        )
+    async_add_entities(entities)
 
 
 class EvLbMaxChargerCurrentNumber(RestoreNumber):
@@ -245,3 +252,57 @@ class EvLbOverloadLoopIntervalNumber(RestoreNumber):
         self._attr_native_value = value
         self._coordinator.overload_loop_interval_s = value
         self.async_write_ha_state()
+
+
+class EvLbChargerPriorityNumber(RestoreNumber):
+    """Number entity for the on-the-fly priority weight of a single EV charger.
+
+    Each configured charger gets its own priority entity so the user can
+    redistribute current across chargers at runtime — without opening the
+    Configure dialog or reloading the integration.  A value of 0 prevents
+    that charger from receiving any current (the weighted share falls below
+    the minimum EV current and the charger is stopped).
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "charger_priority"
+    _attr_native_min_value = float(MIN_CHARGER_PRIORITY)
+    _attr_native_max_value = float(MAX_CHARGER_PRIORITY)
+    _attr_native_step = 5.0
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(
+        self,
+        entry: ConfigEntry,
+        coordinator: EvLoadBalancerCoordinator,
+        charger_index: int,
+        initial_priority: float,
+    ) -> None:
+        """Initialise with a 0-based charger index and the configured priority."""
+        charger_num = charger_index + 1
+        self._attr_unique_id = f"{entry.entry_id}_charger_{charger_num}_priority"
+        self._attr_native_value = initial_priority
+        self._attr_translation_placeholders = {"charger_num": str(charger_num)}
+        self._attr_device_info = get_device_info(entry)
+        self._coordinator = coordinator
+        self._charger_index = charger_index
+
+    async def async_added_to_hass(self) -> None:
+        """Restore last known priority on startup and sync with the coordinator."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_number_data()
+        if last and last.native_value is not None:
+            self._attr_native_value = last.native_value
+        # Update the coordinator priority directly without triggering a recompute —
+        # the coordinator is already initialised from config at startup; we only
+        # need to apply any restored override value silently.
+        if 0 <= self._charger_index < len(self._coordinator._chargers):
+            self._coordinator._chargers[self._charger_index].priority = float(
+                self._attr_native_value
+            )
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update the charger priority and recompute current distribution immediately."""
+        self._attr_native_value = value
+        self.async_write_ha_state()
+        self._coordinator.async_set_charger_priority(self._charger_index, value)

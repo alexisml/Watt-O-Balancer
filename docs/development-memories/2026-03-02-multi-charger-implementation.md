@@ -11,8 +11,10 @@ This PR implements the core multi-charger support covering milestones PR-1, PR-2
 
 1. **`distribute_current_weighted`** (`load_balancer.py`) — weighted water-filling algorithm
 2. **`_ChargerState` class** (`coordinator.py`) — per-charger runtime state
-3. **Multi-step options flow** (`config_flow.py`) — up to 3 chargers with priority sliders
+3. **Re-entrant multi-step options flow** (`config_flow.py`) — dynamic N chargers with priority sliders; `MAX_CHARGERS` in `const.py` is the only cap
 4. **`CONF_CHARGERS` data model** (`const.py`) — new config format; old format still supported
+5. **Multi-charger integration tests** (`tests/integration/test_integration_multi_charger.py`) — 29 tests covering equal/weighted distribution, cap redistribution, overload/recovery, per-charger cooldown, per-charger action execution, and minimum-current boundary values
+6. **Per-charger priority `number` entities** (`number.py`) — one `RestoreNumber` per charger allowing on-the-fly priority adjustment without reconfiguration
 
 ## Priority / weight design
 
@@ -31,13 +33,13 @@ Tests use the legacy flat-key format and pass without modification. The old `_ch
 
 ## Config flow design
 
-The options flow is always multi-step (init always proceeds to charger_1):
+The options flow is always multi-step (init always proceeds to the re-entrant `charger` step):
 
 ```
-init (global settings) → charger_1 → [charger_2 → [charger_3]] → save (CONF_CHARGERS list)
+init (global settings) → charger (1) → [charger (2) → [charger (3) → …]] → save (CONF_CHARGERS list)
 ```
 
-The `init` step contains **only global settings** (voltage, max service current, unavailable behavior/fallback). Action scripts, charger status sensor, and priority weights are all per-charger and configured on the dedicated `charger_N` steps. On save, the `CONF_CHARGERS` list is written to options; legacy flat charger keys are removed to avoid ambiguity. The coordinator always prefers `CONF_CHARGERS` over flat keys.
+The `init` step contains **only global settings** (voltage, max service current, unavailable behavior/fallback). Action scripts, charger status sensor, and priority weights are all per-charger and configured on the re-entrant `charger` step. Each iteration injects `{"charger_num": N}` into `description_placeholders` so the UI shows the current charger number. Raising the charger cap only requires changing `MAX_CHARGERS` in `const.py`. On save, the `CONF_CHARGERS` list is written to options; legacy flat charger keys are removed to avoid ambiguity. The coordinator always prefers `CONF_CHARGERS` over flat keys.
 
 ## Algorithm: weighted water-filling
 
@@ -62,7 +64,6 @@ Edge cases handled:
 
 - **Per-charger sensor entities**: `sensor.ev_lb_charger_N_current_set` etc. Currently the aggregate is reported. Deferred to keep the data model stable before adding entities.
 - **Per-charger `max_charger_current` and `min_ev_current`**: These are currently global (same for all chargers). Per-charger limits would require extending the number entities and the charger config schema.
-- **Integration tests for multi-charger scenarios**: Only the algorithm has new unit tests. End-to-end tests (e.g. "two chargers, meter update, verify both action scripts fired") are deferred to PR-4-ph2.
 
 ## Testing guide for multi-charger
 

@@ -164,6 +164,40 @@ def mock_config_entry_two_chargers_weighted() -> MockConfigEntry:
 
 
 @pytest.fixture
+def mock_config_entry_three_chargers() -> MockConfigEntry:
+    """Create a mock config entry with three equal-priority chargers (no action scripts)."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            **_BASE_CONFIG,
+            CONF_CHARGERS: [
+                {CONF_CHARGER_PRIORITY: 50},
+                {CONF_CHARGER_PRIORITY: 50},
+                {CONF_CHARGER_PRIORITY: 50},
+            ],
+        },
+        title="EV Load Balancing",
+    )
+
+
+@pytest.fixture
+def mock_config_entry_three_chargers_weighted() -> MockConfigEntry:
+    """Create a mock config entry with three chargers at 60/30/10 priority weighting, no action scripts."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            **_BASE_CONFIG,
+            CONF_CHARGERS: [
+                {CONF_CHARGER_PRIORITY: 60},
+                {CONF_CHARGER_PRIORITY: 30},
+                {CONF_CHARGER_PRIORITY: 10},
+            ],
+        },
+        title="EV Load Balancing",
+    )
+
+
+@pytest.fixture
 def mock_config_entry_two_chargers_with_actions() -> MockConfigEntry:
     """Create a mock config entry with two equal-priority chargers, each with action scripts."""
     return MockConfigEntry(

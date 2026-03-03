@@ -430,6 +430,27 @@ class TestDistributeCurrentWeightedCapRedistribution:
         assert result[0] == 10.0
         assert result[1] == 18.0
 
+    def test_both_chargers_receive_equal_current_when_high_priority_capped(self):
+        """Lower-priority charger receives the surplus once the high-priority charger reaches its maximum."""
+        # A: max=10 A, weight=60 | B: max=32 A, weight=40 | available=20 A
+        # share_A = 12 A → capped at 10 A; remaining = 10 A → B gets 10 A
+        result = distribute_current_weighted(
+            available_a=20.0, chargers=[(6.0, 10.0, 60), (6.0, 32.0, 40)]
+        )
+        assert result[0] == 10.0
+        assert result[1] == 10.0
+
+    def test_lower_priority_charger_stops_when_high_priority_fills_its_cap(self):
+        """Lower-priority charger stops once the high-priority charger reaches its maximum and no current remains."""
+        # A: max=10 A, weight=60 | B: max=32 A, weight=40 | available=10 A
+        # share_A = 6 A (≥ min 6 A, stable), share_B = 4 A (< min 6 A → stopped)
+        # A alone: remaining = 10 A → capped at max 10 A
+        result = distribute_current_weighted(
+            available_a=10.0, chargers=[(6.0, 10.0, 60), (6.0, 32.0, 40)]
+        )
+        assert result[0] == 10.0
+        assert result[1] is None
+
     def test_low_priority_charger_capped_redistributes_to_high_priority(self):
         """When the low-priority charger hits its max, surplus goes to the high-priority charger."""
         # Available: 28 A; charger A weight=60 max=32 A, charger B weight=40 max=8 A

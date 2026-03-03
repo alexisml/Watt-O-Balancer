@@ -878,7 +878,9 @@ class EvLoadBalancerCoordinator:
         per-charger state is updated before scheduling actions.  When absent
         (fallback / manual override paths), *current_a* is a per-charger value
         supplied by the caller (already clamped to charger limits) and is
-        applied identically to every charger.
+        applied identically to every charger; the aggregate ``current_set_a``
+        is then set to ``per_charger_value × n_chargers`` so state sensors
+        accurately reflect the total current being commanded.
 
         A defense-in-depth safety clamp ensures the output never exceeds
         the service or charger limits, even if upstream logic has a bug.
@@ -924,11 +926,15 @@ class EvLoadBalancerCoordinator:
                 charger.current_set_a = clamped_i
         else:
             # Fallback / manual path: current_a is a per-charger value (already clamped
-            # by the caller); apply the same current to every charger.
+            # by the caller); apply the same current to every charger and recompute the
+            # aggregate so state sensors accurately reflect the total being commanded.
             per_charger_value = min(max(current_a, 0.0), self.max_charger_current)
             for charger in self._chargers:
                 charger.active = per_charger_value > 0
                 charger.current_set_a = per_charger_value
+            # Update current_a to the aggregate total so self.current_set_a below
+            # reflects what is actually being commanded across all chargers.
+            current_a = per_charger_value * n_chargers
 
         self.available_current_a = available_a
         self.current_set_a = current_a

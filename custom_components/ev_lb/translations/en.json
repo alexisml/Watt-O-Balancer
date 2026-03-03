@@ -65,7 +65,7 @@
           "action_set_current": "Script called to set the charging current. Receives variables: current_a (amps), current_w (watts), charger_id (config entry ID), and charger_num (1-based charger index).",
           "action_stop_charging": "Script called when the balancer decides this charger should stop charging. Receives variables: charger_id (config entry ID) and charger_num (1-based charger index).",
           "action_start_charging": "Script called when the balancer decides this charger should start or resume charging. Receives variables: charger_id (config entry ID) and charger_num (1-based charger index).",
-          "charger_status_entity": "Sensor whose state indicates whether this charger is actively charging (e.g. 'charging', 'on', 'true'). Used to avoid over-subtracting headroom while the charger is idle or finished.",
+          "charger_status_entity": "Sensor whose state is exactly 'Charging' when this charger is actively charging. Used to avoid over-subtracting headroom while the charger is idle or finished.",
           "priority": "Priority weight for this charger (0–100, step 5). Higher values receive proportionally more available current. Equal priorities result in equal distribution.",
           "add_another_charger": "Enable to configure another charger with its own priority."
         }

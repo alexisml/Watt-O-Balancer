@@ -65,7 +65,7 @@
           "action_set_current": "Script que se ejecuta para establecer la corriente de carga. Recibe las variables: current_a (amperios), current_w (vatios), charger_id (ID de entrada de configuración) y charger_num (índice del cargador, base 1).",
           "action_stop_charging": "Script que se ejecuta cuando el balanceador decide que este cargador debe dejar de cargar. Recibe las variables: charger_id (ID de entrada de configuración) y charger_num (índice del cargador, base 1).",
           "action_start_charging": "Script que se ejecuta cuando el balanceador decide que este cargador debe iniciar o reanudar la carga. Recibe las variables: charger_id (ID de entrada de configuración) y charger_num (índice del cargador, base 1).",
-          "charger_status_entity": "Sensor cuyo estado indica si este cargador está cargando activamente (p. ej. 'charging', 'on', 'true'). Se usa para evitar restar demasiado margen mientras el cargador está inactivo o ha terminado.",
+          "charger_status_entity": "Sensor cuyo estado es exactamente 'Charging' cuando este cargador está cargando activamente. Se usa para evitar restar demasiado margen mientras el cargador está inactivo o ha terminado.",
           "priority": "Peso de prioridad para este cargador (0–100, paso 5). Los valores más altos reciben proporcionalmente más corriente disponible.",
           "add_another_charger": "Activa para configurar otro cargador con su propia prioridad."
         }

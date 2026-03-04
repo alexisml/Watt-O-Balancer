@@ -929,12 +929,19 @@ class EvLoadBalancerCoordinator:
             # by the caller); apply the same current to every charger and recompute the
             # aggregate so state sensors accurately reflect the total being commanded.
             per_charger_value = min(max(current_a, 0.0), self.max_charger_current)
+            aggregate = per_charger_value * n_chargers
+            # Clamp the aggregate to the service limit: n_chargers × per-charger value can
+            # exceed the service breaker even though each per-charger value is within its
+            # individual maximum.
+            if aggregate > self._max_service_current and self._max_service_current > 0:
+                per_charger_value = self._max_service_current / n_chargers
+                aggregate = self._max_service_current
             for charger in self._chargers:
                 charger.active = per_charger_value > 0
                 charger.current_set_a = per_charger_value
             # Update current_a to the aggregate total so self.current_set_a below
             # reflects what is actually being commanded across all chargers.
-            current_a = per_charger_value * n_chargers
+            current_a = aggregate
 
         self.available_current_a = available_a
         self.current_set_a = current_a

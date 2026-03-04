@@ -438,17 +438,19 @@ class TestChargingTimelapseWithIsChargingSensor:
 class TestTwoChargerEqualPriorityTimelapse:
     """Walk through a realistic 6-step session with two equal-priority chargers.
 
-    The session demonstrates that both chargers are always treated symmetrically:
-    reductions are proportional, stops happen together, and recovery brings
-    both chargers back online.
+    Equal priority means proportional sharing under normal conditions, but when
+    headroom falls below the combined minimum the tie-break rule applies: the
+    lowest-index charger (charger[0]) is served first.  Recovery after a stop
+    therefore brings charger[0] online before charger[1].
 
     Steps
     -----
     1.  Idle → both chargers start at 16 A (capped at max, plenty of headroom).
     2.  Load spike → available drops to 14 A; each charger reduces to 7 A.
-    3.  Bigger spike → available drops below combined minimum (4 A total); both stop.
+    3.  Bigger spike → available drops below combined minimum; both stop.
     4.  Load eases to 9 A; ramp-up cooldown still active → both chargers stay stopped.
-    5.  Ramp-up cooldown expires → both chargers resume (4 A each from 9 A / 2).
+    5.  Ramp-up cooldown expires → tie-break: charger[0] resumes at 9 A, charger[1]
+        stays stopped (0 A remaining is below the 6 A minimum).
     6.  Load drops significantly → both chargers return to their 16 A maximum.
 
     Uses two equal-priority chargers (50/50) with a 16 A maximum per charger and
@@ -652,11 +654,9 @@ class TestTwoChargerWeightedPriorityTimelapse:
         state_id = get_entity_id(hass, entry, "sensor", "balancer_state")
 
         # -------------------------------------------------------------------
-        # Step 1: Abundant headroom → both chargers cap at 16 A max
-        # 100 W → ~31.6 A available → 60%=19A→cap 16A, 40%=13A (>16 surplus given to B: 19-16=3→B=13+3=16?)
-        # Actually: 60%*31.6=18.96→cap 16A, surplus=2.96A→B gets 40%*31.6+2.96=12.64+2.96=15.6→floor 15A
-        # But B max=16 so 15A < 16A → B=15A... hmm let me just verify with the algorithm
-        # Actually wait - we need to re-compute. Let me check what the algorithm gives for 31.6A, (6,16,60), (6,16,40)
+        # Step 1: Abundant headroom → both chargers cap at their 16 A maximum.
+        # Available ≈ 31.6 A; 60 % share ≈ 19 A → capped at 16 A; surplus flows
+        # to B whose 40 % share also reaches the 16 A cap.
         # -------------------------------------------------------------------
         mock_time = 3000.0
         hass.states.async_set(POWER_METER, "100")

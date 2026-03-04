@@ -14,19 +14,6 @@ A single parameterised test method per class walks a table that covers:
 
 Using ``pytest.mark.parametrize`` lets all scenarios share one assertion body
 so new edge cases cost only one table row.
-
-Parameters
-----------
-service_max_a : float
-    Service limit in amperes.
-non_ev_a : float
-    Non-EV household draw in amperes (converted internally to watts for the
-    ``compute_available_current`` call).
-charger_configs : list[tuple[float, float, float | int]]
-    Per-charger ``(min_a, max_a, weight)`` tuples passed directly to
-    ``distribute_current_weighted``.
-expected : list[float | None]
-    Expected per-charger allocation.  ``None`` means the charger is stopped.
 """
 
 import pytest
@@ -44,7 +31,17 @@ def _distribute(
     non_ev_a: float,
     charger_configs: list[tuple[float, float, float | int]],
 ) -> list[float | None]:
-    """Run the full pipeline: meter reading → available current → per-charger allocations."""
+    """Run the full pipeline: meter reading → available current → per-charger allocations.
+
+    Args:
+        service_max_a: Service limit in amperes.
+        non_ev_a: Non-EV household draw in amperes (converted to watts internally).
+        charger_configs: Per-charger ``(min_a, max_a, weight)`` tuples passed to
+            ``distribute_current_weighted``.
+
+    Returns:
+        Per-charger allocation list; ``None`` means the charger is stopped.
+    """
     service_power_w = non_ev_a * _VOLTAGE
     available_a = compute_available_current(service_power_w, service_max_a, _VOLTAGE)
     return distribute_current_weighted(available_a, charger_configs)

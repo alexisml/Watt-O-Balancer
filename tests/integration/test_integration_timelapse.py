@@ -525,9 +525,9 @@ class TestTwoChargerEqualPriorityTimelapse:
         assert float(hass.states.get(current_set_id).state) == 14.0
 
         # -------------------------------------------------------------------
-        # Step 3: Bigger spike → available = 4 A < combined minimum (6 A each)
-        # 4 / 2 = 2 A < 6 A min → tie-break: charger[0] gets 4 A (still < 6!) → both stop
-        # available=4A is below the per-charger minimum (6A) so even charger[0] can't run
+        # Step 3: Bigger spike → available = 4 A; 4 A < minimum 6 A per charger
+        # Tie-break cannot help: even the highest-priority charger needs 6 A to run.
+        # Both chargers stop and record last_reduction_time = T=2020.
         # meter: non_ev = 32 - 4 = 28 A; ev = 14 A; total = 42 A → 9660 W
         # -------------------------------------------------------------------
         mock_time = 2020.0
@@ -540,10 +540,9 @@ class TestTwoChargerEqualPriorityTimelapse:
         assert hass.states.get(active_id).state == "off"
 
         # -------------------------------------------------------------------
-        # Step 4: Load eases to allow 9 A total — ramp-up cooldown still active
-        # 9/2=4.5 A < 6 A min → tie-break: charger[0] needs 6 A, 9≥6→keep; remaining=3<6→charger[1] stop
-        # But ramp-up blocks new start → both still stopped
-        # elapsed = 2038 - 2020 = 18 s < 30 s cooldown
+        # Step 4: Load eases to give 9 A headroom, but ramp-up cooldown still active.
+        # The tie-break would assign charger[0] its full 9 A share, but both chargers
+        # are blocked from restarting: elapsed = 2038 - 2020 = 18 s < 30 s cooldown.
         # -------------------------------------------------------------------
         mock_time = 2038.0
         hass.states.async_set(POWER_METER, meter_for_available(9.0, 0.0))
@@ -554,10 +553,11 @@ class TestTwoChargerEqualPriorityTimelapse:
         assert hass.states.get(active_id).state == "off"
 
         # -------------------------------------------------------------------
-        # Step 5: Ramp-up cooldown expires → charger[0] resumes (9 A)
-        # 9/2=4.5<6 → tie-break: charger[0] gets 9 A; 0 remaining → charger[1] still stopped
-        # elapsed = 2055 - 2020 = 35 s > 30 s → ramp-up allowed
-        # Use 9.01 A to trigger a state change from the last 9.0 A reading
+        # Step 5: Ramp-up cooldown expires → charger[0] resumes at 9 A.
+        # 9.01/2=4.5 < 6 A min → tie-break keeps charger[0] (9.01≥6) and stops charger[1]
+        # (0 A remaining < 6 A min).  charger[0] then receives the full 9 A pool.
+        # elapsed = 2055 - 2020 = 35 s > 30 s → restart allowed.
+        # Use 9.01 A to trigger a new state-change event vs. the previous 9.0 A reading.
         # -------------------------------------------------------------------
         mock_time = 2055.0
         hass.states.async_set(POWER_METER, meter_for_available(9.01, 0.0))

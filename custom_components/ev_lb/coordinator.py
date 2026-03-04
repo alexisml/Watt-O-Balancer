@@ -592,7 +592,7 @@ class EvLoadBalancerCoordinator:
           ``max_charger_current`` and reapplies the per-charger amounts.
         """
         if self._unavailable_behavior == UNAVAILABLE_BEHAVIOR_PER_CHARGER:
-            self._apply_per_charger_fallback()
+            self._apply_per_charger_fallback(reason=REASON_PARAMETER_CHANGE)
             return
 
         target = compute_fallback_reapply(
@@ -633,24 +633,41 @@ class EvLoadBalancerCoordinator:
             return
         self._update_and_notify(0.0, fallback, REASON_FALLBACK_UNAVAILABLE)
 
-    def _apply_per_charger_fallback(self) -> None:
+    def _apply_per_charger_fallback(
+        self, reason: str = REASON_FALLBACK_UNAVAILABLE
+    ) -> None:
         """Apply each charger's individual fallback current when the meter is unavailable.
 
         Each charger's ``fallback_current`` is capped at ``max_charger_current``
         so the result stays within the configured charger limit.
+
+        Args:
+            reason: The reason code forwarded to ``_update_and_notify``.  Pass
+                ``REASON_PARAMETER_CHANGE`` when called during an ongoing meter
+                outage to avoid re-firing fault events and persistent
+                notifications that were already issued when the meter first
+                became unavailable.
         """
         per_charger_finals = [
             min(charger.fallback_current, self.max_charger_current)
             for charger in self._chargers
         ]
         total = sum(per_charger_finals)
-        _LOGGER.warning(
-            "Power meter %s is unavailable — applying per-charger fallback currents %s A",
-            self._power_meter_entity,
-            per_charger_finals,
-        )
+        if reason == REASON_FALLBACK_UNAVAILABLE:
+            _LOGGER.warning(
+                "Power meter %s is unavailable — applying per-charger fallback currents %s A",
+                self._power_meter_entity,
+                per_charger_finals,
+            )
+        else:
+            _LOGGER.debug(
+                "Parameter changed during meter outage — reapplying per-charger fallback "
+                "currents %s A (capped at max_charger_current=%.1f A)",
+                per_charger_finals,
+                self.max_charger_current,
+            )
         self._update_and_notify(
-            0.0, total, REASON_FALLBACK_UNAVAILABLE, per_charger_finals=per_charger_finals
+            0.0, total, reason, per_charger_finals=per_charger_finals
         )
 
     def _resolve_fallback(self) -> float | None:

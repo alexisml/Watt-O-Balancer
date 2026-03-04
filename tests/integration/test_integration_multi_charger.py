@@ -266,7 +266,8 @@ class TestTwoChargersOverloadAndRecovery:
         assert coordinator._chargers[0].active is True
         assert coordinator._chargers[1].active is True
 
-        # Severe overload: 10500 W total.  With both EVs at 9 A (= 4140 W),
+        # Severe overload: 10500 W total.  After the 3000 W step above, both EVs
+        # settled at 9 A each (18 A / 4140 W).  At 10500 W:
         # non-EV draw = (10500 - 4140) / 230 ≈ 27.7 A → available = 32 - 27.7 = 4.3 A.
         # 4.3 A < 6 A min, so neither charger can be served even via tie-break → both stop.
         hass.states.async_set(POWER_METER, "10500")
@@ -530,7 +531,8 @@ class TestTwoChargersActionExecution:
         calls.clear()
 
         # Overload → both should stop
-        # 10500 W: non-EV draw ≈ 27.7 A → available = 4.3 A < 6 A min → both stop.
+        # After the 3000 W step above both EVs settled at 9 A each (18 A / 4140 W).
+        # At 10500 W: non-EV draw = (10500 - 4140) / 230 ≈ 27.7 A → available = 4.3 A < 6 A min → both stop.
         hass.states.async_set(POWER_METER, "10500")
         await hass.async_block_till_done()
         await hass.async_block_till_done()
@@ -617,7 +619,7 @@ class TestMultiChargerMinimumCurrentBoundaries:
         hass: HomeAssistant,
         mock_config_entry_two_chargers: MockConfigEntry,
     ) -> None:
-        """When equal-priority shares are both below minimum, the lower-index charger charges.
+        """When equal-priority shares are both below minimum, the lowest-index charger charges.
 
         With 11 A available and fair share 5.5 A (below the 6 A minimum), the
         priority tie-break serves charger A (index 0) first: 11 A ≥ 6 A min, so
@@ -643,7 +645,7 @@ class TestMultiChargerMinimumCurrentBoundaries:
         hass: HomeAssistant,
         mock_config_entry_two_chargers: MockConfigEntry,
     ) -> None:
-        """With exactly one minimum's worth of headroom, the lower-index charger charges.
+        """With exactly one minimum's worth of headroom, the lowest-index charger charges.
 
         With 6 A available and equal priority, the fair share (3 A each) is
         below the 6 A minimum for both.  The tie-break gives charger A (index 0)

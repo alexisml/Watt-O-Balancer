@@ -413,15 +413,16 @@ class EvLbOptionsFlow(OptionsFlow):
 
             # Re-show the form with the user's previous input so they don't
             # have to re-enter scripts after fixing the duplicate sensor.
+            # Preserve add_another so the user's intent is not lost on retry.
             defaults = dict(entry)
+            add_another_default = add_another
         else:
             defaults = self._existing_charger_defaults(self._current_charger_idx)
-
-        # Default "add another charger" to True when a next charger already exists,
-        # so re-opening the options flow preserves all configured chargers.
-        current = {**self.config_entry.data, **self.config_entry.options}
-        existing_chargers = current.get(CONF_CHARGERS) or []
-        add_another_default = self._current_charger_idx + 1 < len(existing_chargers)
+            # Default "add another charger" to True when a next charger already exists,
+            # so re-opening the options flow preserves all configured chargers.
+            current = {**self.config_entry.data, **self.config_entry.options}
+            existing_chargers = current.get(CONF_CHARGERS) or []
+            add_another_default = self._current_charger_idx + 1 < len(existing_chargers)
 
         return self.async_show_form(
             step_id="charger",

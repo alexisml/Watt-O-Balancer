@@ -19,6 +19,7 @@ Functions:
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Optional
 
@@ -335,6 +336,7 @@ def _apply_weighted_priority_tiebreak(
     active: list[int],
     allocations: list[float | None],
     remaining: float,
+    step_a: float = 1.0,
 ) -> None:
     """Handle below-minimum chargers, applying a priority tie-break when needed.
 
@@ -345,19 +347,42 @@ def _apply_weighted_priority_tiebreak(
     can still be met from ``remaining`` is kept active; the others are stopped.
     Kept chargers will receive their final allocation in the next loop iteration.
 
+    The threshold used is the *achievable minimum* — the smallest multiple of
+    ``step_a`` that is ≥ ``min_a``.  This prevents an infinite loop when
+    ``remaining`` is sufficient to satisfy every raw ``min_a`` but proportional
+    shares, after flooring to ``step_a``, still fall below ``min_a`` (which
+    would cause the outer ``while active`` loop to re-enter the tie-break
+    without making progress).
+
+    If the greedy pass removes no charger (i.e. ``remaining`` satisfies the
+    achievable minimum for every charger), every remaining charger is stopped as
+    a safety fallback — this case should be unreachable with valid inputs, but
+    the guard ensures the outer loop always terminates.
+
     When only some chargers are below minimum (others are stable), the original
     behaviour is preserved: every below-minimum charger is stopped immediately.
     """
     if len(below_min) == len(active):
         # Priority tie-break: serve as many chargers as possible in weight order.
+        # Compare against the achievable minimum (smallest step_a multiple ≥ min_a)
+        # so convergence is guaranteed even when step_a > 1.
         sorted_below = sorted(below_min, key=lambda i: (-chargers[i][2], i))
         temp_remaining = remaining
+        removed_any = False
         for i in sorted_below:
             min_a = chargers[i][0]
-            if temp_remaining >= min_a:
-                temp_remaining -= min_a
+            achievable_min = math.ceil(min_a / step_a) * step_a if step_a > 0.0 else min_a
+            if temp_remaining >= achievable_min:
+                temp_remaining -= achievable_min
                 # Keep i in active; final share assigned in next iteration
             else:
+                allocations[i] = None
+                active.remove(i)
+                removed_any = True
+        if not removed_any:
+            # Safety guard: no charger was pruned, which would cause an infinite
+            # loop.  Stop all remaining active chargers to ensure termination.
+            for i in active[:]:
                 allocations[i] = None
                 active.remove(i)
     else:
@@ -412,7 +437,7 @@ def distribute_current_weighted(
             break
 
         remaining = _settle_weighted_capped(capped, chargers, step_a, active, allocations, remaining)
-        _apply_weighted_priority_tiebreak(below_min, chargers, active, allocations, remaining)
+        _apply_weighted_priority_tiebreak(below_min, chargers, active, allocations, remaining, step_a)
 
     return allocations
 

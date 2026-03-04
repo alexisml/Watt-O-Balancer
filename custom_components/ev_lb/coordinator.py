@@ -934,8 +934,11 @@ class EvLoadBalancerCoordinator:
             # exceed the service breaker even though each per-charger value is within its
             # individual maximum.
             if aggregate > self._max_service_current and self._max_service_current > 0:
-                per_charger_value = self._max_service_current / n_chargers
-                aggregate = self._max_service_current
+                # Floor to whole-amp steps so the per-charger value stays on a
+                # valid increment (fractional amps would violate the 1 A step
+                # behaviour expected by charger scripts).
+                per_charger_value = self._max_service_current // n_chargers
+                aggregate = per_charger_value * n_chargers
             for charger in self._chargers:
                 charger.active = per_charger_value > 0
                 charger.current_set_a = per_charger_value

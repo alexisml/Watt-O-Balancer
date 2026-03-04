@@ -580,7 +580,7 @@ class EvLoadBalancerCoordinator:
         events or persistent notifications — those were already issued when the
         meter first became unavailable.
 
-        Covers all three fallback modes:
+        Covers all four fallback modes:
 
         - **stop**: applies 0 A (idempotent; action scripts only fire when
           transitioning from active to stopped).
@@ -588,7 +588,13 @@ class EvLoadBalancerCoordinator:
           updates the charger if the capped value differs.
         - **ignore**: re-clamps ``current_set_a`` to the new charger limits
           and updates if the value has changed.
+        - **per_charger**: re-caps each charger's fallback at the updated
+          ``max_charger_current`` and reapplies the per-charger amounts.
         """
+        if self._unavailable_behavior == UNAVAILABLE_BEHAVIOR_PER_CHARGER:
+            self._apply_per_charger_fallback()
+            return
+
         target = compute_fallback_reapply(
             self._unavailable_behavior,
             self._unavailable_fallback_a,

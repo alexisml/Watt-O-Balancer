@@ -266,8 +266,10 @@ class TestTwoChargersOverloadAndRecovery:
         assert coordinator._chargers[0].active is True
         assert coordinator._chargers[1].active is True
 
-        # Severe overload: 9000 W → available ≈ 32 - 39.1 = -7.1 A → both stop
-        hass.states.async_set(POWER_METER, "9000")
+        # Severe overload: 10500 W total.  With both EVs at 9 A (= 4140 W),
+        # non-EV draw = (10500 - 4140) / 230 ≈ 27.7 A → available = 32 - 27.7 = 4.3 A.
+        # 4.3 A < 6 A min, so neither charger can be served even via tie-break → both stop.
+        hass.states.async_set(POWER_METER, "10500")
         await hass.async_block_till_done()
 
         assert coordinator._chargers[0].active is False
@@ -528,7 +530,8 @@ class TestTwoChargersActionExecution:
         calls.clear()
 
         # Overload → both should stop
-        hass.states.async_set(POWER_METER, "9000")
+        # 10500 W: non-EV draw ≈ 27.7 A → available = 4.3 A < 6 A min → both stop.
+        hass.states.async_set(POWER_METER, "10500")
         await hass.async_block_till_done()
         await hass.async_block_till_done()
 
@@ -609,52 +612,57 @@ class TestMultiChargerMinimumCurrentBoundaries:
         assert coordinator._chargers[0].active is True
         assert coordinator._chargers[1].active is True
 
-    async def test_two_equal_chargers_just_below_combined_minimum_stops_both(
+    async def test_two_equal_chargers_just_below_combined_minimum_tiebreak_keeps_first(
         self,
         hass: HomeAssistant,
         mock_config_entry_two_chargers: MockConfigEntry,
     ) -> None:
-        """Both chargers stop when the fair share falls 0.5 A below minimum.
+        """When equal-priority shares are both below minimum, the lower-index charger charges.
 
-        With equal priority, neither charger claims preference when current is
-        scarce — both stop rather than one monopolizing the available headroom.
-        Even though 11 A exceeds the single-charger minimum (6 A), the equal
-        distribution algorithm stops both.
+        With 11 A available and fair share 5.5 A (below the 6 A minimum), the
+        priority tie-break serves charger A (index 0) first: 11 A ≥ 6 A min, so
+        charger A keeps running at 11 A.  Only 0 A remains for charger B, which
+        is below the 6 A minimum, so charger B stops.
         """
         await setup_integration(hass, mock_config_entry_two_chargers)
         coordinator = hass.data[DOMAIN][mock_config_entry_two_chargers.entry_id]["coordinator"]
 
-        # available = 11 A (< 12 A combined minimum); fair share = 5.5 A < 6 A → both stop
+        # available = 11 A; fair share = 5.5 A < 6 A min → tie-break → A=11 A, B=stopped
         # non_ev = 21 A; power = 21 × 230 = 4830 W
         hass.states.async_set(POWER_METER, "4830")
         await hass.async_block_till_done()
 
-        assert coordinator._chargers[0].active is False
+        assert coordinator._chargers[0].active is True
+        assert coordinator._chargers[0].current_set_a == 11.0
         assert coordinator._chargers[1].active is False
-        assert coordinator.active is False
+        assert coordinator._chargers[1].current_set_a == 0.0
+        assert coordinator.active is True
 
-    async def test_two_equal_chargers_at_single_minimum_headroom_also_stops_both(
+    async def test_two_equal_chargers_at_single_minimum_headroom_tiebreak_keeps_first(
         self,
         hass: HomeAssistant,
         mock_config_entry_two_chargers: MockConfigEntry,
     ) -> None:
-        """Both chargers stop even when total headroom exactly equals one charger's minimum.
+        """With exactly one minimum's worth of headroom, the lower-index charger charges.
 
-        With equal priority and 6 A available, the fair-share algorithm divides
-        equally (3 A each), which is below the 6 A minimum for either charger.
-        Both stop rather than one charger taking the full 6 A slot.
+        With 6 A available and equal priority, the fair share (3 A each) is
+        below the 6 A minimum for both.  The tie-break gives charger A (index 0)
+        the 6 A: exactly meeting its minimum.  After charger A takes 6 A, 0 A
+        remains, which is below charger B's minimum, so charger B stops.
         """
         await setup_integration(hass, mock_config_entry_two_chargers)
         coordinator = hass.data[DOMAIN][mock_config_entry_two_chargers.entry_id]["coordinator"]
 
-        # available = 6 A = 1 × min; fair share = 3 A < 6 A min → both stop
+        # available = 6 A; fair share = 3 A < 6 A min → tie-break → A=6 A, B=stopped
         # non_ev = 26 A; power = 26 × 230 = 5980 W
         hass.states.async_set(POWER_METER, "5980")
         await hass.async_block_till_done()
 
-        assert coordinator._chargers[0].active is False
+        assert coordinator._chargers[0].active is True
+        assert coordinator._chargers[0].current_set_a == 6.0
         assert coordinator._chargers[1].active is False
-        assert coordinator.active is False
+        assert coordinator._chargers[1].current_set_a == 0.0
+        assert coordinator.active is True
 
     # ------------------------------------------------------------------
     # Two weighted chargers — minimum boundary with priority tie-breaking
@@ -758,22 +766,34 @@ class TestMultiChargerMinimumCurrentBoundaries:
         assert coordinator._chargers[2].current_set_a == 6.0
         assert coordinator.active is True
 
-    async def test_three_equal_chargers_below_combined_minimum_stops_all(
+    async def test_three_equal_chargers_below_combined_minimum_tiebreak_serves_two(
         self,
         hass: HomeAssistant,
         mock_config_entry_three_chargers: MockConfigEntry,
     ) -> None:
-        """All three chargers stop when available current falls below the threshold for all to charge at minimum."""
+        """When equal-priority shares fall below minimum, the two lowest-index chargers charge.
+
+        With 17 A available and fair share 5.67 A (below the 6 A minimum for all
+        three), the tie-break serves chargers by index.  Charger A (index 0) needs
+        6 A: 17 ≥ 6 → kept, leaving 11 A.  Charger B (index 1) needs 6 A: 11 ≥ 6
+        → kept, leaving 5 A.  Charger C (index 2): 5 < 6 → stopped.  With two
+        active chargers and 17 A remaining, each gets floor(8.5) = 8 A.
+        """
         await setup_integration(hass, mock_config_entry_three_chargers)
         coordinator = hass.data[DOMAIN][mock_config_entry_three_chargers.entry_id]["coordinator"]
 
-        # available = 17 A (< 18 A); fair share = 5.67 A → floors to 5 A < 6 A → all stop
+        # available = 17 A; fair share = 5.67 A < 6 A min → tie-break → A=8 A, B=8 A, C=stopped
         # non_ev = 15 A; power = 15 × 230 = 3450 W
         hass.states.async_set(POWER_METER, "3450")
         await hass.async_block_till_done()
 
-        assert all(c.active is False for c in coordinator._chargers)
-        assert coordinator.active is False
+        assert coordinator._chargers[0].active is True
+        assert coordinator._chargers[0].current_set_a == 8.0
+        assert coordinator._chargers[1].active is True
+        assert coordinator._chargers[1].current_set_a == 8.0
+        assert coordinator._chargers[2].active is False
+        assert coordinator._chargers[2].current_set_a == 0.0
+        assert coordinator.active is True
 
     # ------------------------------------------------------------------
     # Three weighted chargers — cascade stop as headroom narrows
@@ -806,19 +826,31 @@ class TestMultiChargerMinimumCurrentBoundaries:
         assert coordinator._chargers[2].active is False
         assert coordinator._chargers[2].current_set_a == 0.0
 
-    async def test_three_weighted_chargers_highest_stops_when_all_shares_below_minimum(
+    async def test_three_weighted_chargers_highest_priority_charges_when_all_shares_below_minimum(
         self,
         hass: HomeAssistant,
         mock_config_entry_three_chargers_weighted: MockConfigEntry,
     ) -> None:
-        """All three chargers stop when every weighted share falls below minimum."""
+        """Highest-priority charger charges alone when all weighted shares fall below minimum.
+
+        With 60/30/10 weights and 9 A available, every proportional share is below
+        the 6 A minimum (A: 5.4 A, B: 2.7 A, C: 0.9 A).  The tie-break serves
+        chargers in descending weight order: charger A (weight 60) gets 9 A ≥ 6 A
+        minimum → kept at 9 A.  Only 3 A remains for charger B, which is below its
+        6 A minimum → stopped.  Charger C is also stopped.
+        """
         await setup_integration(hass, mock_config_entry_three_chargers_weighted)
         coordinator = hass.data[DOMAIN][mock_config_entry_three_chargers_weighted.entry_id]["coordinator"]
 
-        # available = 9 A; 60/30/10: share_A = 5.4 A < 6 → stop (all shares below min)
+        # available = 9 A; 60/30/10: share_A = 5.4 A < 6 → tie-break → A=9 A, B=stopped, C=stopped
         # non_ev = 23 A; power = 23 × 230 = 5290 W
         hass.states.async_set(POWER_METER, "5290")
         await hass.async_block_till_done()
 
-        assert all(c.active is False for c in coordinator._chargers)
-        assert coordinator.active is False
+        assert coordinator._chargers[0].active is True
+        assert coordinator._chargers[0].current_set_a == 9.0
+        assert coordinator._chargers[1].active is False
+        assert coordinator._chargers[1].current_set_a == 0.0
+        assert coordinator._chargers[2].active is False
+        assert coordinator._chargers[2].current_set_a == 0.0
+        assert coordinator.active is True

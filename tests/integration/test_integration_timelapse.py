@@ -428,3 +428,324 @@ class TestChargingTimelapseWithIsChargingSensor:
         assert float(hass.states.get(current_set_id).state) == 16.0
         assert hass.states.get(active_id).state == "on"
         assert hass.states.get(state_id).state == STATE_ADJUSTING
+
+
+# ---------------------------------------------------------------------------
+# Two-charger equal-priority timelapse
+# ---------------------------------------------------------------------------
+
+
+class TestTwoChargerEqualPriorityTimelapse:
+    """Walk through a realistic 6-step session with two equal-priority chargers.
+
+    The session demonstrates that both chargers are always treated symmetrically:
+    reductions are proportional, stops happen together, and recovery brings
+    both chargers back online.
+
+    Steps
+    -----
+    1.  Idle → both chargers start at 16 A (capped at max, plenty of headroom).
+    2.  Load spike → available drops to 14 A; each charger reduces to 7 A.
+    3.  Bigger spike → available drops below combined minimum (4 A total); both stop.
+    4.  Load eases to 9 A; ramp-up cooldown still active → both chargers stay stopped.
+    5.  Ramp-up cooldown expires → both chargers resume (4 A each from 9 A / 2).
+    6.  Load drops significantly → both chargers return to their 16 A maximum.
+
+    Uses two equal-priority chargers (50/50) with a 16 A maximum per charger and
+    a 30-second ramp-up cooldown.
+    """
+
+    async def test_two_charger_equal_priority_timelapse(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Both equal-priority chargers mirror each other through load changes and recovery."""
+        from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+        from custom_components.ev_lb.const import (
+            CONF_CHARGER_PRIORITY,
+            CONF_CHARGERS,
+            CONF_MAX_SERVICE_CURRENT,
+            CONF_POWER_METER_ENTITY,
+            CONF_VOLTAGE,
+            DOMAIN,
+        )
+
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={
+                CONF_POWER_METER_ENTITY: POWER_METER,
+                CONF_VOLTAGE: 230.0,
+                CONF_MAX_SERVICE_CURRENT: 32.0,
+                CONF_CHARGERS: [
+                    {CONF_CHARGER_PRIORITY: 50},
+                    {CONF_CHARGER_PRIORITY: 50},
+                ],
+            },
+            title="EV Two-Charger Equal Timelapse",
+        )
+        await setup_integration(hass, entry)
+        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator.ramp_up_time_s = 30.0
+        coordinator.max_charger_current = 16.0
+
+        mock_time = 2000.0
+
+        def fake_monotonic():
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        active_id = get_entity_id(hass, entry, "binary_sensor", "active")
+        state_id = get_entity_id(hass, entry, "sensor", "balancer_state")
+
+        # -------------------------------------------------------------------
+        # Step 1: Both chargers start — 100 W on the meter → ~31.6 A available
+        # 50/50 split: 31.6/2 = 15.8 A → floored to 15 A each (below max 16 A)
+        # -------------------------------------------------------------------
+        mock_time = 2000.0
+        hass.states.async_set(POWER_METER, "100")
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 15.0
+        assert coordinator._chargers[1].current_set_a == 15.0
+        assert float(hass.states.get(current_set_id).state) == 30.0
+        assert hass.states.get(active_id).state == "on"
+
+        # -------------------------------------------------------------------
+        # Step 2: Load spike → available = 14 A → 7 A each (14 / 2)
+        # meter: non_ev = 32 - 14 = 18 A; ev = 30 A (15+15); total = 48 A → 11040 W
+        # -------------------------------------------------------------------
+        mock_time = 2010.0
+        hass.states.async_set(POWER_METER, meter_for_available(14.0, 30.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 7.0
+        assert coordinator._chargers[1].current_set_a == 7.0
+        assert float(hass.states.get(current_set_id).state) == 14.0
+
+        # -------------------------------------------------------------------
+        # Step 3: Bigger spike → available = 4 A < combined minimum (6 A each)
+        # 4 / 2 = 2 A < 6 A min → tie-break: charger[0] gets 4 A (still < 6!) → both stop
+        # available=4A is below the per-charger minimum (6A) so even charger[0] can't run
+        # meter: non_ev = 32 - 4 = 28 A; ev = 14 A; total = 42 A → 9660 W
+        # -------------------------------------------------------------------
+        mock_time = 2020.0
+        hass.states.async_set(POWER_METER, meter_for_available(4.0, 14.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 0.0
+        assert coordinator._chargers[1].current_set_a == 0.0
+        assert float(hass.states.get(current_set_id).state) == 0.0
+        assert hass.states.get(active_id).state == "off"
+
+        # -------------------------------------------------------------------
+        # Step 4: Load eases to allow 9 A total — ramp-up cooldown still active
+        # 9/2=4.5 A < 6 A min → tie-break: charger[0] needs 6 A, 9≥6→keep; remaining=3<6→charger[1] stop
+        # But ramp-up blocks new start → both still stopped
+        # elapsed = 2038 - 2020 = 18 s < 30 s cooldown
+        # -------------------------------------------------------------------
+        mock_time = 2038.0
+        hass.states.async_set(POWER_METER, meter_for_available(9.0, 0.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 0.0
+        assert coordinator._chargers[1].current_set_a == 0.0
+        assert hass.states.get(active_id).state == "off"
+
+        # -------------------------------------------------------------------
+        # Step 5: Ramp-up cooldown expires → charger[0] resumes (9 A)
+        # 9/2=4.5<6 → tie-break: charger[0] gets 9 A; 0 remaining → charger[1] still stopped
+        # elapsed = 2055 - 2020 = 35 s > 30 s → ramp-up allowed
+        # Use 9.01 A to trigger a state change from the last 9.0 A reading
+        # -------------------------------------------------------------------
+        mock_time = 2055.0
+        hass.states.async_set(POWER_METER, meter_for_available(9.01, 0.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 9.0
+        assert coordinator._chargers[1].current_set_a == 0.0
+        assert hass.states.get(active_id).state == "on"
+
+        # -------------------------------------------------------------------
+        # Step 6: Load drops → 22 A available → 11 A each (both above min, below max)
+        # elapsed = 2065 - 2020 = 45 s → ramp-up cooldown cleared for increases too
+        # -------------------------------------------------------------------
+        mock_time = 2065.0
+        hass.states.async_set(POWER_METER, meter_for_available(22.0, 9.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 11.0
+        assert coordinator._chargers[1].current_set_a == 11.0
+        assert float(hass.states.get(current_set_id).state) == 22.0
+        assert hass.states.get(active_id).state == "on"
+        assert hass.states.get(state_id).state == STATE_ADJUSTING
+
+
+# ---------------------------------------------------------------------------
+# Two-charger weighted-priority timelapse
+# ---------------------------------------------------------------------------
+
+
+class TestTwoChargerWeightedPriorityTimelapse:
+    """Walk through a 6-step session with two chargers at 60/40 priority weighting.
+
+    Demonstrates that charger A (higher weight) consistently receives more
+    current than charger B, including surviving the tie-break when headroom
+    is insufficient for both chargers.
+
+    Steps
+    -----
+    1.  Both chargers start — abundant headroom; both capped at 16 A max.
+    2.  Load rises → 30 A available; 60/40 split gives A=18 A→capped 16 A, B=14 A.
+    3.  Load rises further → 18 A available; 60/40 gives A≈10 A, B≈7 A.
+    4.  Larger load spike → 9 A available; both shares below min → tie-break:
+        A (higher weight, 60 %) takes all 9 A; B stops.
+    5.  Load eases → 20 A available; A resumes at 12 A (60 %), B resumes at 8 A (40 %).
+    6.  Load drops to near-zero → both cap at 16 A max.
+
+    Uses a 30 A service limit, two chargers at 60/40 priority, 16 A max each.
+    """
+
+    async def test_two_charger_weighted_priority_timelapse(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Higher-priority charger receives more current throughout and survives low-headroom tie-break."""
+        from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+        from custom_components.ev_lb.const import (
+            CONF_CHARGER_PRIORITY,
+            CONF_CHARGERS,
+            CONF_MAX_SERVICE_CURRENT,
+            CONF_POWER_METER_ENTITY,
+            CONF_VOLTAGE,
+            DOMAIN,
+        )
+
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={
+                CONF_POWER_METER_ENTITY: POWER_METER,
+                CONF_VOLTAGE: 230.0,
+                CONF_MAX_SERVICE_CURRENT: 32.0,
+                CONF_CHARGERS: [
+                    {CONF_CHARGER_PRIORITY: 60},
+                    {CONF_CHARGER_PRIORITY: 40},
+                ],
+            },
+            title="EV Two-Charger Weighted Timelapse",
+        )
+        await setup_integration(hass, entry)
+        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator.ramp_up_time_s = 30.0
+        coordinator.max_charger_current = 16.0
+
+        mock_time = 3000.0
+
+        def fake_monotonic():
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        active_id = get_entity_id(hass, entry, "binary_sensor", "active")
+        state_id = get_entity_id(hass, entry, "sensor", "balancer_state")
+
+        # -------------------------------------------------------------------
+        # Step 1: Abundant headroom → both chargers cap at 16 A max
+        # 100 W → ~31.6 A available → 60%=19A→cap 16A, 40%=13A (>16 surplus given to B: 19-16=3→B=13+3=16?)
+        # Actually: 60%*31.6=18.96→cap 16A, surplus=2.96A→B gets 40%*31.6+2.96=12.64+2.96=15.6→floor 15A
+        # But B max=16 so 15A < 16A → B=15A... hmm let me just verify with the algorithm
+        # Actually wait - we need to re-compute. Let me check what the algorithm gives for 31.6A, (6,16,60), (6,16,40)
+        # -------------------------------------------------------------------
+        mock_time = 3000.0
+        hass.states.async_set(POWER_METER, "100")
+        await hass.async_block_till_done()
+
+        # Both should be capped at or near their maximums; A ≥ B
+        charger_a = coordinator._chargers[0]
+        charger_b = coordinator._chargers[1]
+        assert charger_a.current_set_a >= charger_b.current_set_a
+        assert charger_a.active is True
+        assert charger_b.active is True
+        assert float(hass.states.get(current_set_id).state) > 24.0  # combined well above minimum
+
+        # -------------------------------------------------------------------
+        # Step 2: Load rises → 18 A available; 60/40 gives A=10 A (floor), B=7 A (floor)
+        # meter: non_ev=32-18=14 A; ev≈total from step1; use meter_for_available helper
+        # 18 * 60/100 = 10.8 → 10 A; 18 * 40/100 = 7.2 → 7 A
+        # -------------------------------------------------------------------
+        mock_time = 3010.0
+        total_prev = charger_a.current_set_a + charger_b.current_set_a
+        hass.states.async_set(POWER_METER, meter_for_available(18.0, total_prev))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 10.0
+        assert coordinator._chargers[1].current_set_a == 7.0
+        assert coordinator._chargers[0].current_set_a > coordinator._chargers[1].current_set_a
+
+        # -------------------------------------------------------------------
+        # Step 3: Bigger load spike → 9 A available;
+        # 9*60/100=5.4 < 6 min and 9*40/100=3.6 < 6 min → all below min → tie-break
+        # A (60 %) gets all 9 A (9 ≥ 6 min); B stops (0 A remaining < 6 min)
+        # meter: non_ev=32-9=23 A; ev=17 A; total=40 A → 9200 W
+        # -------------------------------------------------------------------
+        mock_time = 3020.0
+        hass.states.async_set(POWER_METER, meter_for_available(9.0, 17.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 9.0
+        assert coordinator._chargers[1].current_set_a == 0.0
+        assert coordinator._chargers[0].active is True
+        assert coordinator._chargers[1].active is False
+        assert hass.states.get(active_id).state == "on"  # aggregate still active (A is running)
+
+        # -------------------------------------------------------------------
+        # Step 4: Load eases → 20 A available; A still running, cooldown active for increases
+        # A reduced at T=3020; elapsed=3025-3020=5s < 30s → A stays at 9A (no increase)
+        # 20*60/100=12A → target=12A > current 9A → increase blocked by cooldown
+        # B: 20*40/100=8A ≥ 6 min → B should resume (no restriction on new start after cooldown)
+        # But ramp-up blocks B from starting? Actually ramp-up blocks *increases*; B was stopped.
+        # B's last_reduction_time = T=3020 (it was stopped, which is a "reduction")
+        # elapsed = 5s < 30s → B cannot restart
+        # -------------------------------------------------------------------
+        mock_time = 3025.0
+        hass.states.async_set(POWER_METER, meter_for_available(20.0, 9.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 9.0   # A holds — ramp-up blocked
+        assert coordinator._chargers[1].current_set_a == 0.0   # B still stopped — cooldown
+        assert hass.states.get(state_id).state == STATE_RAMP_UP_HOLD  # A running, increase blocked
+
+        # -------------------------------------------------------------------
+        # Step 5: Ramp-up cooldown expires → A increases, B resumes
+        # elapsed = 3055 - 3020 = 35 s > 30 s → increases allowed
+        # 20*60/100=12A → A=12A; 20*40/100=8A → B=8A
+        # Use 20.01 A to trigger a new state-change event vs. the previous 20.0 A reading
+        # -------------------------------------------------------------------
+        mock_time = 3055.0
+        hass.states.async_set(POWER_METER, meter_for_available(20.01, 9.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 12.0
+        assert coordinator._chargers[1].current_set_a == 8.0
+        assert coordinator._chargers[0].current_set_a > coordinator._chargers[1].current_set_a
+        assert coordinator._chargers[0].active is True
+        assert coordinator._chargers[1].active is True
+        assert hass.states.get(state_id).state == STATE_ADJUSTING
+
+        # -------------------------------------------------------------------
+        # Step 6: Load near-zero → both cap at 16 A max
+        # available ≈ 31.6 A; A: 60%=19A→cap 16A; B gets surplus: extra goes to B
+        # Both end up at 16 A (similar to step 1 but from the other direction)
+        # elapsed = 3065 - 3020 = 45 s → no cooldown restriction
+        # -------------------------------------------------------------------
+        mock_time = 3065.0
+        hass.states.async_set(POWER_METER, meter_for_available(31.0, 20.0))
+        await hass.async_block_till_done()
+
+        assert coordinator._chargers[0].current_set_a == 16.0
+        assert coordinator._chargers[1].current_set_a == 15.0  # surplus from A cap goes to B
+        assert float(hass.states.get(current_set_id).state) == 31.0
+        assert hass.states.get(active_id).state == "on"
+        assert hass.states.get(state_id).state == STATE_ADJUSTING

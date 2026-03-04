@@ -40,14 +40,12 @@
         "data": {
           "voltage": "Voltaje de suministro",
           "max_service_current": "Corriente máxima del servicio (capacidad del interruptor)",
-          "unavailable_behavior": "Cuando el medidor no está disponible",
-          "unavailable_fallback_current": "Corriente de respaldo (para modo 'Establecer una corriente específica')"
+          "unavailable_behavior": "Cuando el medidor no está disponible"
         },
         "data_description": {
           "voltage": "Voltaje nominal de suministro en Volts (usado para convertir W ↔ A).",
           "max_service_current": "Capacidad del interruptor principal en Amperes. La carga nunca excederá este límite. Puedes configurar un valor menor que la capacidad real del interruptor para reservar un margen de seguridad — por ejemplo, ingresa 28 A en un servicio de 32 A para dejar 4 A libres para otros consumos.",
-          "unavailable_behavior": "Qué hacer cuando el medidor de consumo no está disponible: detener la carga (más seguro), ignorar y mantener el último valor, o establecer una corriente específica (limitada a la corriente máxima del cargador).",
-          "unavailable_fallback_current": "Corriente de carga (A) a usar cuando el medidor no está disponible y el modo es 'Establecer una corriente específica'. Este valor se limitará a la corriente máxima del cargador."
+          "unavailable_behavior": "Qué hacer cuando el medidor de consumo no está disponible: detener todos los cargadores (más seguro) o usar la corriente de respaldo individual de cada cargador."
         }
       },
       "charger": {
@@ -59,6 +57,7 @@
           "action_start_charging": "Acción para iniciar carga (script)",
           "charger_status_entity": "Sensor de estado del cargador (opcional)",
           "priority": "Prioridad (mayor = más corriente)",
+          "charger_fallback_current": "Corriente de respaldo",
           "add_another_charger": "¿Agregar otro cargador?"
         },
         "data_description": {
@@ -67,6 +66,7 @@
           "action_start_charging": "Script que se ejecuta cuando el balanceador decide que este cargador debe iniciar o reanudar la carga. Recibe las variables: charger_id (ID de entrada de configuración) y charger_num (índice del cargador, base 1).",
           "charger_status_entity": "Sensor cuyo estado es exactamente 'Charging' cuando este cargador está cargando activamente. Se usa para evitar restar demasiado margen mientras el cargador está inactivo o ha terminado.",
           "priority": "Peso de prioridad para este cargador (0–100, paso 5). Los valores más altos reciben proporcionalmente más corriente disponible.",
+          "charger_fallback_current": "Corriente de carga (A) aplicada a este cargador cuando el medidor no está disponible y el modo de respaldo es 'Usar corriente de respaldo por cargador'. Limitada a la corriente máxima del cargador.",
           "add_another_charger": "Activa para configurar otro cargador con su propia prioridad."
         }
       }

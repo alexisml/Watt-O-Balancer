@@ -34,6 +34,7 @@ from .const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_FALLBACK_CURRENT,
     CONF_CHARGER_PRIORITY,
     CONF_CHARGER_STATUS_ENTITY,
     CONF_CHARGERS,
@@ -43,6 +44,7 @@ from .const import (
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
     CHARGING_STATE_VALUE,
+    DEFAULT_CHARGER_FALLBACK_CURRENT,
     DEFAULT_CHARGER_PRIORITY,
     DEFAULT_MAX_CHARGER_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
@@ -68,6 +70,7 @@ from .const import (
     SIGNAL_UPDATE_FMT,
     STATE_DISABLED,
     STATE_STOPPED,
+    UNAVAILABLE_BEHAVIOR_PER_CHARGER,
 )
 from .load_balancer import (
     apply_ramp_up_limit,
@@ -97,6 +100,7 @@ class _ChargerState:
         "action_start_charging",
         "status_entity",
         "priority",
+        "fallback_current",
         "current_set_a",
         "active",
         "ev_charging",
@@ -110,6 +114,7 @@ class _ChargerState:
         action_start_charging: str | None,
         status_entity: str | None,
         priority: float,
+        fallback_current: float = 0.0,
     ) -> None:
         """Initialise with configuration; runtime fields start at safe defaults."""
         self.action_set_current = action_set_current
@@ -117,6 +122,7 @@ class _ChargerState:
         self.action_start_charging = action_start_charging
         self.status_entity = status_entity
         self.priority = priority
+        self.fallback_current = fallback_current
         # Mutable runtime state
         self.current_set_a: float = 0.0
         self.active: bool = False
@@ -252,6 +258,9 @@ class EvLoadBalancerCoordinator:
                     action_start_charging=c.get(CONF_ACTION_START_CHARGING),
                     status_entity=c.get(CONF_CHARGER_STATUS_ENTITY),
                     priority=float(c.get(CONF_CHARGER_PRIORITY, DEFAULT_CHARGER_PRIORITY)),
+                    fallback_current=float(
+                        c.get(CONF_CHARGER_FALLBACK_CURRENT, DEFAULT_CHARGER_FALLBACK_CURRENT)
+                    ),
                 )
                 for c in cfg[CONF_CHARGERS]
             ]
@@ -608,12 +617,35 @@ class EvLoadBalancerCoordinator:
         Callers are responsible for setting ``meter_healthy = False`` and
         ``fallback_active = True`` before invoking this method.
         """
+        if self._unavailable_behavior == UNAVAILABLE_BEHAVIOR_PER_CHARGER:
+            self._apply_per_charger_fallback()
+            return
         fallback = self._resolve_fallback()
         if fallback is None:
             # Ignore mode — keep last value, just update sensor state
             async_dispatcher_send(self.hass, self.signal_update)
             return
         self._update_and_notify(0.0, fallback, REASON_FALLBACK_UNAVAILABLE)
+
+    def _apply_per_charger_fallback(self) -> None:
+        """Apply each charger's individual fallback current when the meter is unavailable.
+
+        Each charger's ``fallback_current`` is capped at ``max_charger_current``
+        so the result stays within the configured charger limit.
+        """
+        per_charger_finals = [
+            min(charger.fallback_current, self.max_charger_current)
+            for charger in self._chargers
+        ]
+        total = sum(per_charger_finals)
+        _LOGGER.warning(
+            "Power meter %s is unavailable — applying per-charger fallback currents %s A",
+            self._power_meter_entity,
+            per_charger_finals,
+        )
+        self._update_and_notify(
+            0.0, total, REASON_FALLBACK_UNAVAILABLE, per_charger_finals=per_charger_finals
+        )
 
     def _resolve_fallback(self) -> float | None:
         """Determine the fallback current for an unavailable power meter.

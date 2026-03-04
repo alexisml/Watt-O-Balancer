@@ -357,8 +357,8 @@ async def test_options_flow_saves_unavailable_behavior(
     """Unavailable-meter behavior changed in the init step is persisted.
 
     Changing this setting must survive the full init → charger flow so
-    users can switch between stop, ignore, and set-current modes without
-    recreating the integration.
+    users can switch between stop and per-charger modes (legacy ignore/set_current
+    modes remain supported for existing configs but are not shown in the UI).
     """
     mock_config_entry_no_actions.add_to_hass(hass)
 
@@ -370,8 +370,7 @@ async def test_options_flow_saves_unavailable_behavior(
         {
             CONF_VOLTAGE: 230.0,
             CONF_MAX_SERVICE_CURRENT: 32.0,
-            CONF_UNAVAILABLE_BEHAVIOR: "set_current",
-            CONF_UNAVAILABLE_FALLBACK_CURRENT: 8.0,
+            CONF_UNAVAILABLE_BEHAVIOR: "per_charger",
         },
     )
     assert result["step_id"] == "charger"
@@ -382,8 +381,7 @@ async def test_options_flow_saves_unavailable_behavior(
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_UNAVAILABLE_BEHAVIOR] == "set_current"
-    assert result["data"][CONF_UNAVAILABLE_FALLBACK_CURRENT] == 8.0
+    assert result["data"][CONF_UNAVAILABLE_BEHAVIOR] == "per_charger"
 
 
 async def test_options_flow_prefills_current_values(

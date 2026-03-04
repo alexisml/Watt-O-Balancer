@@ -35,7 +35,9 @@ CHARGING_STATE_VALUE = "Charging"
 # Multi-charger support
 CONF_CHARGERS = "chargers"              # list of per-charger config dicts
 CONF_CHARGER_PRIORITY = "priority"      # per-charger priority weight (0–100, step 5)
+CONF_CHARGER_FALLBACK_CURRENT = "charger_fallback_current"  # per-charger fallback current (A)
 DEFAULT_CHARGER_PRIORITY = 50
+DEFAULT_CHARGER_FALLBACK_CURRENT = 6.0  # default per-charger fallback current (A)
 MIN_CHARGER_PRIORITY = 0
 MAX_CHARGER_PRIORITY = 100
 CHARGER_PRIORITY_STEP = 5
@@ -45,6 +47,7 @@ MAX_CHARGERS = 3                        # maximum chargers per power meter (UI c
 UNAVAILABLE_BEHAVIOR_STOP = "stop"
 UNAVAILABLE_BEHAVIOR_IGNORE = "ignore"
 UNAVAILABLE_BEHAVIOR_SET_CURRENT = "set_current"
+UNAVAILABLE_BEHAVIOR_PER_CHARGER = "per_charger"
 DEFAULT_UNAVAILABLE_BEHAVIOR = UNAVAILABLE_BEHAVIOR_STOP
 
 # Default values

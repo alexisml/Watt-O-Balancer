@@ -26,6 +26,7 @@ from .const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_FALLBACK_CURRENT,
     CONF_CHARGER_PRIORITY,
     CONF_CHARGER_STATUS_ENTITY,
     CONF_CHARGERS,
@@ -34,6 +35,7 @@ from .const import (
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
+    DEFAULT_CHARGER_FALLBACK_CURRENT,
     DEFAULT_CHARGER_PRIORITY,
     DEFAULT_MAX_SERVICE_CURRENT,
     DEFAULT_UNAVAILABLE_BEHAVIOR,
@@ -48,8 +50,7 @@ from .const import (
     MIN_CHARGER_PRIORITY,
     MIN_SERVICE_CURRENT,
     MIN_VOLTAGE,
-    UNAVAILABLE_BEHAVIOR_IGNORE,
-    UNAVAILABLE_BEHAVIOR_SET_CURRENT,
+    UNAVAILABLE_BEHAVIOR_PER_CHARGER,
     UNAVAILABLE_BEHAVIOR_STOP,
 )
 from ._log import get_logger
@@ -85,8 +86,7 @@ _UNAVAILABLE_BEHAVIOR_SELECTOR = SelectSelector(
     SelectSelectorConfig(
         options=[
             SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_STOP, label="Stop charging (0 A)"),
-            SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_IGNORE, label="Ignore (keep last value)"),
-            SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_SET_CURRENT, label="Set a specific current"),
+            SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_PER_CHARGER, label="Use per-charger fallback current"),
         ],
         mode=SelectSelectorMode.DROPDOWN,
         translation_key="unavailable_behavior",
@@ -244,6 +244,18 @@ def _charger_schema(
             CONF_CHARGER_PRIORITY,
             default=defaults.get(CONF_CHARGER_PRIORITY, DEFAULT_CHARGER_PRIORITY),
         ): _PRIORITY_SELECTOR,
+        vol.Optional(
+            CONF_CHARGER_FALLBACK_CURRENT,
+            default=defaults.get(CONF_CHARGER_FALLBACK_CURRENT, DEFAULT_CHARGER_FALLBACK_CURRENT),
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=0.0,
+                max=MAX_CHARGER_CURRENT,
+                step=1.0,
+                unit_of_measurement="A",
+                mode=NumberSelectorMode.BOX,
+            ),
+        ),
     }
     if add_another_option:
         fields[vol.Optional(_CONF_ADD_ANOTHER, default=add_another_default)] = BooleanSelector()
@@ -302,13 +314,6 @@ class EvLbOptionsFlow(OptionsFlow):
                     CONF_UNAVAILABLE_BEHAVIOR,
                     default=current.get(CONF_UNAVAILABLE_BEHAVIOR, DEFAULT_UNAVAILABLE_BEHAVIOR),
                 ): _UNAVAILABLE_BEHAVIOR_SELECTOR,
-                vol.Optional(
-                    CONF_UNAVAILABLE_FALLBACK_CURRENT,
-                    default=current.get(
-                        CONF_UNAVAILABLE_FALLBACK_CURRENT,
-                        DEFAULT_UNAVAILABLE_FALLBACK_CURRENT,
-                    ),
-                ): _FALLBACK_CURRENT_SELECTOR,
             }
         )
 
@@ -339,6 +344,7 @@ class EvLbOptionsFlow(OptionsFlow):
                 CONF_ACTION_START_CHARGING: current.get(CONF_ACTION_START_CHARGING),
                 CONF_CHARGER_STATUS_ENTITY: current.get(CONF_CHARGER_STATUS_ENTITY),
                 CONF_CHARGER_PRIORITY: DEFAULT_CHARGER_PRIORITY,
+                CONF_CHARGER_FALLBACK_CURRENT: DEFAULT_CHARGER_FALLBACK_CURRENT,
             }
         return {}
 

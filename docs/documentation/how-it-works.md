@@ -230,6 +230,12 @@ ev_estimate_a = current_ev_a if EV is actively charging, else 0
 non_ev_w      = max(0, house_power_w − ev_estimate_a × voltage_v)
 available_a   = service_current_a − non_ev_w / voltage_v
 target_a      = min(available_a, max_charger_a), floored to 1 A steps
+
+# When a status sensor is configured and the EV is not charging, cap the
+# commanded current to min_ev_current so the charger idles at the safe
+# minimum rather than advertising the full available headroom:
+if ev_not_charging and target_a > min_ev_a:
+    target_a = min_ev_a
 ```
 
 Then the safety rules apply:
@@ -244,7 +250,10 @@ flowchart TD
     ZA --> B["Isolate non-EV load<br/>non_ev_w = max(0, house_w − ev_estimate × V)"]
     ZB --> B
     B --> C["available_a = service_a − non_ev_w / V<br/>target_a = min(available_a, max_charger_a), floor to 1 A step"]
-    C --> D{"target_a < min_ev_a?"}
+    C --> CZ{"EV not charging AND<br/>target_a > min_ev_a?"}
+    CZ -- "YES (idle cap)" --> CZA["target_a = min_ev_a<br/>(charger idles at safe minimum)"]
+    CZ -- "NO" --> D
+    CZA --> D{"target_a < min_ev_a?"}
     D -- YES --> E(["stop_charging — instant"])
     D -- NO --> F{"target_a < current_a?<br/>load increased, must reduce"}
     F -- "YES — instant" --> G(["set_current(target_a)"])
@@ -262,6 +271,7 @@ flowchart TD
 The **cooldown timer resets** whenever either of these happens:
 - The commanded current drops (direct reduction).
 - Available headroom decreases from a previously usable level (≥ `min_ev_current`) — even when the charger is already stopped at 0 A. This prevents a premature restart attempt if load conditions worsen again while the charger is waiting to resume.
+- **The EV starts charging** (status sensor transitions to `Charging`) while the charger is idling at `min_ev_current`. This prevents the current from jumping immediately to the full available headroom when the EV begins drawing; instead, the current increases gradually over the ramp-up period, just like after any other reduction.
 
 > ⚠️ **Very low cooldown values (below ~10 s) risk instability** if your service load has frequent spikes or is unpredictable. The recommended minimum is 20–30 s for most installations.
 
@@ -313,14 +323,40 @@ Settings → Devices → EV Charger Load Balancer → Configure → Charger stat
 
 When a status sensor is configured:
 
-| Sensor state | EV draw estimate used |
-|---|---|
-| `Charging` | `current_set_a` (normal subtraction) |
-| Anything else (`Available`, `Finishing`, `Preparing`, etc.) | `0` — EV is not drawing |
-| `unavailable` / `unknown` | `current_set_a` (safe fallback — assume charging) |
-| No sensor configured | `current_set_a` (original behaviour) |
+| Sensor state | EV draw estimate used | Commanded current |
+|---|---|---|
+| `Charging` | `current_set_a` (normal subtraction) | Up to full available headroom |
+| Anything else (`Available`, `Finishing`, `Preparing`, etc.) | `0` — EV is not drawing | **Capped at `min_ev_current`** (idle clamp) |
+| `unavailable` / `unknown` | `current_set_a` (safe fallback — assume charging) | Up to full available headroom |
+| No sensor configured | `current_set_a` (original behaviour) | Up to full available headroom |
 
 > **Safe-side default.** When the sensor is uncertain, the integration falls back to assuming the EV is charging. This may slightly over-subtract headroom (original behaviour), but it will never under-subtract, which could cause an overload.
+
+### Idle clamp: charger idles at minimum current when EV is not charging
+
+When the status sensor reports the EV is **not** charging, the integration caps the commanded current to `min_ev_current` (default: 6 A). This means:
+
+- The charger is told to stay at the safe minimum current while the EV is idle, paused, or finished charging.
+- The available headroom calculation is **unaffected** — the `sensor.*_available_current` entity still shows the true headroom based on the non-EV load.
+- When the EV resumes charging (sensor transitions back to `Charging`), the current increases gradually from `min_ev_current` to the full available headroom via the ramp-up cooldown, rather than jumping immediately.
+
+This avoids advertising unnecessarily high current to an idle charger, and provides a smooth, predictable ramp when the EV starts drawing.
+
+> **Why clamp to `min_ev_current` rather than `0 A`?** Commanding `0 A` to the charger triggers a full stop–start cycle every time the EV transitions between idle and charging states. Holding at `min_ev_current` keeps the charger in a "ready" state at the safe minimum, so when the EV starts drawing current the transition from idle to active is seamless — no `start_charging` script call needed, just a current adjustment upward via the ramp-up.
+
+### Ramp-up on EV start
+
+When the EV transitions from **not charging → charging** while the charger is already commanding a non-zero current (idling at `min_ev_current`), the ramp-up cooldown timer is reset. The current then increases from `min_ev_current` toward the full available headroom at the same rate as any other ramp-up:
+
+```
+EV status → Charging           [t = 0]
+  ↓ cooldown reset
+Meter event at t = 5 s:        current = 6 A (held by cooldown)
+Meter event at t = 15 s:       current = 6 A (still held)
+Meter event at t = 31 s:       current = 22 A (cooldown elapsed — rises to full headroom)
+```
+
+When the charger was at **0 A** (stopped due to insufficient headroom or overload), no ramp-up trigger is set on the status change — the cooldown from the previous reduction already governs the gradual increase once headroom recovers.
 
 ---
 

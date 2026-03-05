@@ -232,10 +232,10 @@ available_a   = service_current_a − non_ev_w / voltage_v
 target_a      = min(available_a, max_charger_a), floored to 1 A steps
 
 # When a status sensor is configured and the EV is not charging, cap the
-# commanded current to min_ev_a so the charger idles at the safe
+# commanded current to min_ev_current so the charger idles at the safe
 # minimum rather than advertising the full available headroom:
-if ev_not_charging and target_a > min_ev_a:
-    target_a = min_ev_a
+if not ev_charging and target_a > min_ev_current:
+    target_a = min_ev_current
 ```
 
 Then the safety rules apply:
@@ -250,10 +250,10 @@ flowchart TD
     ZA --> B["Isolate non-EV load<br/>non_ev_w = max(0, house_w − ev_estimate × V)"]
     ZB --> B
     B --> C["available_a = service_a − non_ev_w / V<br/>target_a = min(available_a, max_charger_a), floor to 1 A step"]
-    C --> CZ{"EV not charging AND<br/>target_a > min_ev_a?"}
-    CZ -- "YES (idle cap)" --> CZA["target_a = min_ev_a<br/>(charger idles at safe minimum)"]
+    C --> CZ{"not ev_charging AND<br/>target_a > min_ev_current?"}
+    CZ -- "YES (idle cap)" --> CZA["target_a = min_ev_current<br/>(charger idles at safe minimum)"]
     CZ -- "NO" --> D
-    CZA --> D{"target_a < min_ev_a?"}
+    CZA --> D{"target_a < min_ev_current?"}
     D -- YES --> E(["stop_charging — instant"])
     D -- NO --> F{"target_a < current_a?<br/>load increased, must reduce"}
     F -- "YES — instant" --> G(["set_current(target_a)"])

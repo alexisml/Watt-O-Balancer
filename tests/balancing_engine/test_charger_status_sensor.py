@@ -40,6 +40,25 @@ from custom_components.ev_lb.const import (
 from conftest import POWER_METER, setup_integration, get_entity_id
 
 
+def _make_status_sensor_entry(status_entity: str) -> MockConfigEntry:
+    """Return a config entry with the given charger status sensor configured.
+
+    All tests that need a single power meter and a charger status sensor
+    should use this factory rather than repeating the same MockConfigEntry
+    construction.
+    """
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_POWER_METER_ENTITY: POWER_METER,
+            CONF_VOLTAGE: 230.0,
+            CONF_MAX_SERVICE_CURRENT: 32.0,
+            CONF_CHARGER_STATUS_ENTITY: status_entity,
+        },
+        title="EV Load Balancing",
+    )
+
+
 class TestChargerStatusSensor:
     """Verify the balancer correctly uses the charger status sensor when configured.
 
@@ -533,16 +552,7 @@ class TestChargerStatusOnStartup:
 
     def _make_entry(self) -> MockConfigEntry:
         """Return a config entry with the status sensor configured."""
-        return MockConfigEntry(
-            domain=DOMAIN,
-            data={
-                CONF_POWER_METER_ENTITY: POWER_METER,
-                CONF_VOLTAGE: 230.0,
-                CONF_MAX_SERVICE_CURRENT: 32.0,
-                CONF_CHARGER_STATUS_ENTITY: self.STATUS_ENTITY,
-            },
-            title="EV Load Balancing",
-        )
+        return _make_status_sensor_entry(self.STATUS_ENTITY)
 
     async def test_ev_charging_off_when_charger_suspended_at_startup(
         self, hass: HomeAssistant
@@ -601,16 +611,7 @@ class TestChargerStatusBootPath:
 
     def _make_entry(self) -> MockConfigEntry:
         """Return a config entry with the status sensor configured."""
-        return MockConfigEntry(
-            domain=DOMAIN,
-            data={
-                CONF_POWER_METER_ENTITY: POWER_METER,
-                CONF_VOLTAGE: 230.0,
-                CONF_MAX_SERVICE_CURRENT: 32.0,
-                CONF_CHARGER_STATUS_ENTITY: self.STATUS_ENTITY,
-            },
-            title="EV Load Balancing",
-        )
+        return _make_status_sensor_entry(self.STATUS_ENTITY)
 
     async def test_ev_charging_off_at_ha_boot_healthy_meter_suspended_charger(
         self, hass: HomeAssistant
@@ -688,16 +689,7 @@ class TestNotChargingCurrentClamp:
 
     def _make_entry(self) -> MockConfigEntry:
         """Return a config entry with the status sensor configured."""
-        return MockConfigEntry(
-            domain=DOMAIN,
-            data={
-                CONF_POWER_METER_ENTITY: POWER_METER,
-                CONF_VOLTAGE: 230.0,
-                CONF_MAX_SERVICE_CURRENT: 32.0,
-                CONF_CHARGER_STATUS_ENTITY: self.STATUS_ENTITY,
-            },
-            title="EV Load Balancing",
-        )
+        return _make_status_sensor_entry(self.STATUS_ENTITY)
 
     async def test_commanded_current_capped_at_min_when_ev_not_charging(
         self, hass: HomeAssistant
@@ -788,16 +780,7 @@ class TestChargingStartRampUp:
 
     def _make_entry(self) -> MockConfigEntry:
         """Return a config entry with the status sensor configured."""
-        return MockConfigEntry(
-            domain=DOMAIN,
-            data={
-                CONF_POWER_METER_ENTITY: POWER_METER,
-                CONF_VOLTAGE: 230.0,
-                CONF_MAX_SERVICE_CURRENT: 32.0,
-                CONF_CHARGER_STATUS_ENTITY: self.STATUS_ENTITY,
-            },
-            title="EV Load Balancing",
-        )
+        return _make_status_sensor_entry(self.STATUS_ENTITY)
 
     async def test_current_held_at_min_immediately_after_ev_starts_charging(
         self, hass: HomeAssistant
@@ -903,8 +886,8 @@ class TestChargingStartRampUp:
         When the charger status sensor momentarily loses contact and reports
         unknown or unavailable, the coordinator must not treat this as an EV-start
         event.  If it did, the ramp-up cooldown would be incorrectly reset on every
-        sensor glitch, allowing current to jump immediately to full headroom the
-        next time the EV genuinely starts charging.
+        sensor glitch, unnecessarily extending ramp-up holds and delaying increases
+        in charging current the next time the EV genuinely starts charging.
         """
         entry = self._make_entry()
         hass.states.async_set(POWER_METER, "0")
@@ -930,23 +913,31 @@ class TestChargingStartRampUp:
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 6.0
 
-        # Record _last_reduction_time before the glitch so we can verify it is unchanged
-        reduction_time_before = coordinator._last_reduction_time
-
-        # Step 2: Sensor glitches to unknown at t=1001 — must NOT reset ramp-up cooldown
+        # Step 2: Sensor glitches to unknown at t=1001.  The safe fallback maps
+        # unknown → ev_charging=True, so the idle clamp no longer applies.
         mock_time = 1001.0
         hass.states.async_set(self.STATUS_ENTITY, "unknown")
         await hass.async_block_till_done()
 
-        assert coordinator._last_reduction_time == reduction_time_before, (
-            "Ramp-up cooldown must not be reset on a sensor glitch to 'unknown'"
-        )
-
-        # Step 3: Sensor glitches to unavailable — still must NOT reset ramp-up cooldown
+        # Step 3: Sensor glitches to unavailable at t=1002.
         mock_time = 1002.0
         hass.states.async_set(self.STATUS_ENTITY, "unavailable")
         await hass.async_block_till_done()
 
-        assert coordinator._last_reduction_time == reduction_time_before, (
-            "Ramp-up cooldown must not be reset on a sensor glitch to 'unavailable'"
+        # Step 4: Meter event at t=1020 with the sensor still reporting unavailable.
+        # Because unknown/unavailable maps to ev_charging=True, the idle clamp does
+        # NOT apply and the balancer should allow the current to rise toward the
+        # full available headroom (~26 A).
+        # If either glitch had incorrectly reset the ramp-up cooldown (to t≈1001),
+        # only ~19 s would have elapsed at t=1020 — still within the 30 s window —
+        # and the ramp-up constraint would hold the current at 6 A instead.
+        # Use 317 W (not 318) so this is a distinct state change from Step 1.
+        mock_time = 1020.0
+        hass.states.async_set(POWER_METER, "317")
+        await hass.async_block_till_done()
+
+        assert float(hass.states.get(current_set_id).state) > 6.0, (
+            "Sensor glitches to 'unknown'/'unavailable' must not reset the ramp-up "
+            "cooldown; with ev_charging=True (safe fallback) and no active cooldown "
+            "the commanded current must rise above min_ev_current."
         )

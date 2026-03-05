@@ -70,7 +70,9 @@ from .const import (
     SIGNAL_UPDATE_FMT,
     STATE_DISABLED,
     STATE_STOPPED,
+    UNAVAILABLE_BEHAVIOR_IGNORE,
     UNAVAILABLE_BEHAVIOR_PER_CHARGER,
+    UNAVAILABLE_BEHAVIOR_SET_CURRENT,
 )
 from .load_balancer import (
     apply_ramp_up_limit,
@@ -585,7 +587,7 @@ class EvLoadBalancerCoordinator:
             self._apply_per_charger_fallback(reason=REASON_PARAMETER_CHANGE)
             return
 
-        if self._unavailable_behavior == "ignore":
+        if self._unavailable_behavior == UNAVAILABLE_BEHAVIOR_IGNORE:
             # Re-clamp each charger's individually held current to the updated limits,
             # preserving per-charger differences (ramp or priority) from the last recompute.
             per_charger_finals: list[float] = []
@@ -609,13 +611,13 @@ class EvLoadBalancerCoordinator:
                 async_dispatcher_send(self.hass, self.signal_update)
             return
 
-        if self._unavailable_behavior == "set_current":
+        if self._unavailable_behavior == UNAVAILABLE_BEHAVIOR_SET_CURRENT:
             per_charger = min(self._unavailable_fallback_a, self.max_charger_current)
             if 0 < per_charger < self.min_ev_current:
                 per_charger = 0.0
             per_charger_finals = [per_charger for _ in self._chargers]
         else:
-            # "stop" or any unrecognised value
+            # UNAVAILABLE_BEHAVIOR_STOP or any unrecognised value
             per_charger_finals = [0.0 for _ in self._chargers]
 
         target = sum(per_charger_finals)

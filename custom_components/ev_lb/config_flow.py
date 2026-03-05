@@ -50,7 +50,9 @@ from .const import (
     MIN_CHARGER_PRIORITY,
     MIN_SERVICE_CURRENT,
     MIN_VOLTAGE,
+    UNAVAILABLE_BEHAVIOR_IGNORE,
     UNAVAILABLE_BEHAVIOR_PER_CHARGER,
+    UNAVAILABLE_BEHAVIOR_SET_CURRENT,
     UNAVAILABLE_BEHAVIOR_STOP,
 )
 from ._log import get_logger
@@ -82,12 +84,18 @@ _SERVICE_CURRENT_SELECTOR = NumberSelector(
     ),
 )
 
+# Base options for the unavailable-behavior selector (modern modes only).
+# Extracted at module level so both the standard selector and the legacy-aware
+# variant (built dynamically in async_step_init when a legacy value is stored)
+# can reuse the same list without duplicating label strings.
+_UNAVAILABLE_BEHAVIOR_BASE_OPTIONS: list[SelectOptionDict] = [
+    SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_STOP, label="Stop charging (0 A)"),
+    SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_PER_CHARGER, label="Use per-charger fallback current"),
+]
+
 _UNAVAILABLE_BEHAVIOR_SELECTOR = SelectSelector(
     SelectSelectorConfig(
-        options=[
-            SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_STOP, label="Stop charging (0 A)"),
-            SelectOptionDict(value=UNAVAILABLE_BEHAVIOR_PER_CHARGER, label="Use per-charger fallback current"),
-        ],
+        options=_UNAVAILABLE_BEHAVIOR_BASE_OPTIONS,
         mode=SelectSelectorMode.DROPDOWN,
         translation_key="unavailable_behavior",
     ),
@@ -98,6 +106,15 @@ _UNAVAILABLE_BEHAVIOR_SELECTOR = SelectSelector(
 # exposed in the UI.  Map those to the safe default so the selector always
 # receives a value it knows about.
 _VALID_UNAVAILABLE_BEHAVIOR_VALUES = {UNAVAILABLE_BEHAVIOR_STOP, UNAVAILABLE_BEHAVIOR_PER_CHARGER}
+
+# Human-readable labels for legacy unavailable-behavior values.  Shown in the
+# options form when the stored value is a legacy mode so the user can see their
+# current setting and keep it without inadvertently migrating to a different
+# mode on save.
+_LEGACY_BEHAVIOR_LABELS: dict[str, str] = {
+    UNAVAILABLE_BEHAVIOR_IGNORE: "Hold current (legacy – update recommended)",
+    UNAVAILABLE_BEHAVIOR_SET_CURRENT: "Set fallback current (legacy – update recommended)",
+}
 
 _FALLBACK_CURRENT_SELECTOR = NumberSelector(
     NumberSelectorConfig(
@@ -307,15 +324,33 @@ class EvLbOptionsFlow(OptionsFlow):
         current = {**self.config_entry.data, **self.config_entry.options}
 
         # Legacy entries may store "ignore" or "set_current" which are no longer
-        # offered in the selector.  Map those to the safe default so the dropdown
-        # always receives a value it recognises; the stored value is replaced only
-        # when the user explicitly submits the options form.
+        # offered in the standard selector.  When a legacy value is present, build a
+        # richer selector that also includes the legacy option so the form shows the
+        # current setting and the stored value is preserved on save unless the user
+        # explicitly picks a different option.
         stored_behavior = current.get(CONF_UNAVAILABLE_BEHAVIOR, DEFAULT_UNAVAILABLE_BEHAVIOR)
-        behavior_default = (
-            stored_behavior
-            if stored_behavior in _VALID_UNAVAILABLE_BEHAVIOR_VALUES
-            else DEFAULT_UNAVAILABLE_BEHAVIOR
-        )
+        if stored_behavior in _LEGACY_BEHAVIOR_LABELS:
+            behavior_selector = SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        *_UNAVAILABLE_BEHAVIOR_BASE_OPTIONS,
+                        SelectOptionDict(
+                            value=stored_behavior,
+                            label=_LEGACY_BEHAVIOR_LABELS[stored_behavior],
+                        ),
+                    ],
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key="unavailable_behavior",
+                ),
+            )
+            behavior_default = stored_behavior
+        else:
+            behavior_selector = _UNAVAILABLE_BEHAVIOR_SELECTOR
+            behavior_default = (
+                stored_behavior
+                if stored_behavior in _VALID_UNAVAILABLE_BEHAVIOR_VALUES
+                else DEFAULT_UNAVAILABLE_BEHAVIOR
+            )
 
         data_schema = vol.Schema(
             {
@@ -330,7 +365,7 @@ class EvLbOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_UNAVAILABLE_BEHAVIOR,
                     default=behavior_default,
-                ): _UNAVAILABLE_BEHAVIOR_SELECTOR,
+                ): behavior_selector,
                 vol.Optional(
                     CONF_UNAVAILABLE_FALLBACK_CURRENT,
                     default=current.get(

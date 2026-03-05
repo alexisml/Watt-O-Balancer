@@ -3,10 +3,12 @@
 When the charger status sensor transitions from ``Charging`` to ``Available``
 (EV finished or paused), the coordinator zeros out the EV draw estimate on
 the next meter event, preventing phantom EV draw from inflating available
-headroom.
+headroom.  When the EV is not charging, the commanded current is also capped
+at ``min_ev_current`` so the charger idles at the safe minimum level.
 
 Covers:
 - Sensor transition Charging→Available corrects headroom to house-only load
+- Sensor transition Charging→Available caps commanded current to min_ev_current
 - Sensor=Available during high house load prevents over-reporting of available
 - Full stop → EV-done (sensor=Available) → load drops → resume cycle
 """
@@ -36,13 +38,14 @@ class TestChargerStatusSensorMidSession:
     When the sensor transitions from ``Charging`` to ``Available`` (EV finished
     or paused), the coordinator must zero out the EV draw estimate on the next
     meter event.  This prevents the balancer from subtracting phantom EV draw
-    from available headroom when the charger is physically idle.
+    from available headroom when the charger is physically idle.  The commanded
+    current is also capped at ``min_ev_current`` while the EV is not charging.
     """
 
     async def test_sensor_transition_charging_to_idle_corrects_headroom(
         self, hass: HomeAssistant
     ) -> None:
-        """When status changes from Charging to Available, headroom is from house-only load."""
+        """When status changes from Charging to Available, headroom uses house-only load and current is capped at min_ev_current."""
         status_entity = "sensor.ocpp_status"
         entry = MockConfigEntry(
             domain=DOMAIN,
@@ -55,7 +58,7 @@ class TestChargerStatusSensorMidSession:
             title="EV Sensor Transition",
         )
         hass.states.async_set(POWER_METER, "0")
-        hass.states.async_set(status_entity, "Available")  # EV not charging initially
+        hass.states.async_set(status_entity, "Charging")  # Status sensor pre-set to Charging so Phase 1 meter event is treated as active charging
         entry.add_to_hass(hass)
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -65,23 +68,24 @@ class TestChargerStatusSensorMidSession:
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
         available_id = get_entity_id(hass, entry, "sensor", "available_current")
 
-        # Phase 1: House-only load (5 A) with sensor=Available → EV starts charging
+        # Phase 1: House-only load (5 A), sensor=Charging, EV not drawing yet (current_set=0)
         # meter = 5*230 = 1150 W → ev_estimate=0, non_ev=5, available=27 → target=27 A
+        # EV is charging → no min_ev_current cap
         hass.states.async_set(POWER_METER, meter_w(5.0, 0.0))  # 1150 W
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 27.0
 
-        # Phase 2: EV now actually drawing 27 A; sensor transitions to Charging
-        # meter = (5+27)*230 = 7360 W, ev_estimate=27 → non_ev=32-27=5, available=27 → stable
-        hass.states.async_set(status_entity, "Charging")
+        # Phase 2: EV now actually drawing 27 A; sensor=Charging (stable)
+        # meter = (5+27)*230 = 7360 W, ev_estimate=27 → non_ev=5, available=27 → stable
         hass.states.async_set(POWER_METER, meter_w(5.0, 27.0))  # 7360 W
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 27.0  # stable
 
         # Phase 3: EV finishes — sensor back to Available, meter drops to house-only
         # meter = (5+0)*230 = 1150 W, ev_estimate=0 (sensor=Available)
-        # non_ev = max(0, 5-0) = 5A, available = 27A → target = 27A (correct)
+        # non_ev = max(0, 5-0) = 5A, available = 27A → headroom correctly 27A, not 32A
         # Without the sensor (ev_estimate=27): non_ev=max(0,5-27)=0, available=32A → WRONG!
+        # With new capping: commanded current = min_ev_current (6A) since EV not charging
         hass.states.async_set(status_entity, "Available")
         hass.states.async_set(POWER_METER, meter_w(5.0, 0.0))  # back to 1150 W
         await hass.async_block_till_done()
@@ -89,22 +93,22 @@ class TestChargerStatusSensorMidSession:
         available_after = float(hass.states.get(available_id).state)
         target_after = float(hass.states.get(current_set_id).state)
 
-        # available = 32 - 5 = 27 A (house-only; no phantom EV subtraction)
+        # Available headroom is correctly 27 A (no phantom EV subtraction)
         assert abs(available_after - 27.0) < 0.5
-        # target should be 27 A — NOT 32 A (which would happen without the sensor)
-        assert target_after < 32.0
-        assert abs(target_after - 27.0) < 1.0
+        # Commanded current is capped at min_ev_current (6 A) while EV not charging
+        assert target_after == 6.0
 
     async def test_sensor_prevents_overshoot_when_ev_pauses_during_high_load(
         self, hass: HomeAssistant
     ) -> None:
-        """When EV pauses (sensor=Available) during high house load, headroom is correctly reduced.
+        """When EV pauses (sensor=Available) during high house load, headroom is correctly reduced and current capped at min.
 
         Without the sensor, the coordinator would subtract the last commanded
         EV current from the (house-only) meter, making non_ev look near-zero
         and over-reporting available headroom.
         With the sensor=Available, ev_estimate=0 and the true house-only load
-        is used, giving a much lower headroom estimate.
+        is used, giving a much lower headroom estimate.  The commanded current
+        is further capped at min_ev_current (6 A) since the EV is not charging.
         """
         status_entity = "sensor.ocpp_status"
         entry = MockConfigEntry(
@@ -136,7 +140,8 @@ class TestChargerStatusSensorMidSession:
 
         # Phase 2: EV pauses (sensor=Available), high house load of 25 A present
         # Meter = 25 A (house only, EV not drawing) = 5750 W
-        # With sensor=Available: ev_estimate=0, non_ev=25, available=7 A → target=7 A
+        # With sensor=Available: ev_estimate=0, non_ev=25, available=7 A
+        # Commanded current = min(7, min_ev_current=6) = 6 A (capped)
         hass.states.async_set(status_entity, "Available")
         hass.states.async_set(POWER_METER, meter_w(25.0, 0.0))  # 5750 W
         await hass.async_block_till_done()
@@ -144,12 +149,13 @@ class TestChargerStatusSensorMidSession:
         available_with_sensor = float(hass.states.get(available_id).state)
         target_with_sensor = float(hass.states.get(current_set_id).state)
 
-        # available = 32 - 25 = 7 A (no phantom 32 A EV subtraction)
+        # Available headroom is correctly 7 A (no phantom 32 A EV subtraction)
         assert abs(available_with_sensor - 7.0) < 0.5
-        assert target_with_sensor == 7.0
+        # Commanded current is capped at min_ev_current (6 A) since EV not charging
+        assert target_with_sensor == 6.0
         # Without the sensor (sensor=Charging, ev_estimate=32):
         #   non_ev = max(0, 25-32) = 0 A → available = 32 A → target = 32 A  ← wrong!
-        # The sensor correctly restricted the target to 7 A.
+        # The sensor correctly restricted available to 7 A and the cap limits to 6 A.
 
     async def test_full_cycle_with_sensor_charge_stop_resume(
         self, hass: HomeAssistant
@@ -195,6 +201,7 @@ class TestChargerStatusSensorMidSession:
         hass.states.async_set(POWER_METER, meter_for_available(27.0, 0.0))  # 5 A house
         await hass.async_block_till_done()
 
-        # With sensor=Available: ev_estimate=0, available=27 A → target=27 A
-        assert float(hass.states.get(current_set_id).state) == 27.0
+        # With sensor=Available: ev_estimate=0, available=27 A
+        # Commanded current is capped at min_ev_current (6 A) since EV not charging
+        assert float(hass.states.get(current_set_id).state) == 6.0
         assert hass.states.get(active_id).state == "on"

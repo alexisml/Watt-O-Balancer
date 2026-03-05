@@ -234,7 +234,7 @@ class TestFullChargingTimelapse:
 
 
 class TestChargingTimelapseWithIsChargingSensor:
-    """7-step session showing how the charger status sensor affects headroom.
+    """8-step session showing how the charger status sensor affects headroom and current clamping.
 
     Uses a 16 A charger so partial-speed charging (step 7) is clearly
     below the maximum.
@@ -246,22 +246,31 @@ class TestChargingTimelapseWithIsChargingSensor:
     showing Available, ev_estimate is correctly set to 0 A, available drops
     to 4 A, and charging stops as required.
 
+    When the EV is not charging, the commanded current is capped at
+    min_ev_current (6 A) even when headroom is higher.  When the EV resumes
+    (sensor→Charging), the ramp-up cooldown prevents the current from jumping
+    immediately to the full headroom.
+
     Steps:
     1. Charging at max (16 A), sensor=Charging — full headroom, stable
     2. EV pauses (sensor→Available) while house load spikes → stop
     3. Stopped, headroom still below min (sensor=Available, ev_estimate=0)
     4. Several meter updates while stopped — each below min
-    5. Headroom rises above min but ramp-up cooldown still active → held
+    5. Headroom rises above min but ramp-up cooldown still active → held at 0 A
     6. Before ramp-up completes, headroom dips below min once more
        (available dropped from above min → cooldown timer resets to T=1055)
-    7. Headroom returns, ramp-up expires → charging resumes at partial
-       speed (9 A, below max 16 A); sensor→Charging confirms estimate
+    7a. Headroom returns but cooldown still active (T=1065, 10 s since T=1055) → held at 0 A
+    7b. Ramp-up expires → charging resumes at min_ev_current (6 A, capped from 9 A)
+        because sensor is still Available; active turns on
+    7c. EV acknowledges and starts drawing → sensor→Charging; ramp-up cooldown
+        resets so current is held at 6 A on the first charging recompute
+    7d. Ramp-up cooldown elapses after EV started charging → rises to 16 A (max)
     """
 
     async def test_timelapse_with_charger_status_sensor(
         self, hass: HomeAssistant
     ) -> None:
-        """Full 7-step charging session with charger status sensor tracked throughout."""
+        """Full 8-step charging session with charger status sensor tracked throughout."""
         status_entity = "sensor.ocpp_status"
         entry = MockConfigEntry(
             domain=DOMAIN,
@@ -399,32 +408,46 @@ class TestChargingTimelapseWithIsChargingSensor:
         assert hass.states.get(state_id).state == STATE_STOPPED
 
         # -------------------------------------------------------------------
-        # Step 7b: Ramp-up expires → charging starts at 9 A (not at max 16 A)
+        # Step 7b: Ramp-up expires → charging resumes at min_ev_current (6 A)
         # elapsed = 1116 - 1055 = 61 s > 60 s → increase allowed
-        # available = 9 A > min 6 A → target = 9 A < max_charger 16 A (partial speed)
+        # available = 9 A > min 6 A; sensor=Available → capped at min_ev_current = 6 A
+        # (not 9 A — the "not charging" cap limits the commanded current to 6 A)
         # -------------------------------------------------------------------
         mock_time = 1116.0
         hass.states.async_set(POWER_METER, meter_for_available(9.01, 0.0))
         await hass.async_block_till_done()
 
-        assert float(hass.states.get(current_set_id).state) == 9.0
+        assert float(hass.states.get(current_set_id).state) == 6.0
         assert hass.states.get(active_id).state == "on"
         assert hass.states.get(state_id).state == STATE_ADJUSTING
-        assert float(hass.states.get(current_set_id).state) < coordinator.max_charger_current
 
         # -------------------------------------------------------------------
-        # Step 7c: EV acknowledges new current — sensor transitions to Charging
-        # Subsequent meter reading (house=2A, EV=9A) now uses ev_estimate=9 A:
-        #   non_ev = max(0, (2530/230) - 9) = 2 A → available = 30 A → target = 16 A
-        # elapsed = 1120 - 1055 = 65 s > 60 s → ramp-up allows the increase to max
-        # coordinator.ev_charging confirms the sensor state was correctly read
+        # Step 7c: EV acknowledges the current and starts drawing →
+        # sensor transitions to Charging.  The coordinator resets the ramp-up
+        # cooldown at this moment (T=1120) so the current is held at 6 A on
+        # the first recompute, preventing an immediate jump to full headroom.
+        # elapsed = 0 s < 60 s → ramp-up holds at 6 A
         # -------------------------------------------------------------------
         mock_time = 1120.0
         hass.states.async_set(status_entity, "Charging")
-        hass.states.async_set(POWER_METER, meter_w(2.0, 9.0))  # 2530 W
+        hass.states.async_set(POWER_METER, meter_w(2.0, 6.0))  # EV drawing 6 A
         await hass.async_block_till_done()
 
         assert coordinator.ev_charging is True  # sensor correctly detected as Charging
+        assert float(hass.states.get(current_set_id).state) == 6.0  # held by ramp-up
+        assert hass.states.get(active_id).state == "on"
+
+        # -------------------------------------------------------------------
+        # Step 7d: Ramp-up cooldown elapses after EV started charging →
+        # current rises toward full headroom.
+        # elapsed = 1181 - 1120 = 61 s > 60 s → increase allowed
+        # house=2A, EV=6A → meter slightly different to trigger a new state event
+        # ev_estimate=6A, non_ev=2A, available=30A → capped at max_charger=16A
+        # -------------------------------------------------------------------
+        mock_time = 1181.0
+        hass.states.async_set(POWER_METER, meter_w(2.01, 6.0))  # slightly different → new event
+        await hass.async_block_till_done()
+
         assert float(hass.states.get(current_set_id).state) == 16.0
         assert hass.states.get(active_id).state == "on"
         assert hass.states.get(state_id).state == STATE_ADJUSTING

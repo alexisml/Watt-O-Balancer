@@ -232,7 +232,7 @@ available_a   = service_current_a − non_ev_w / voltage_v
 target_a      = min(available_a, max_charger_a), floored to 1 A steps
 
 # When a status sensor is configured and the EV is not charging, cap the
-# commanded current to min_ev_current so the charger idles at the safe
+# commanded current to min_ev_a so the charger idles at the safe
 # minimum rather than advertising the full available headroom:
 if ev_not_charging and target_a > min_ev_a:
     target_a = min_ev_a
@@ -326,7 +326,7 @@ When a status sensor is configured:
 | Sensor state | EV draw estimate used | Commanded current |
 |---|---|---|
 | `Charging` | `current_set_a` (normal subtraction) | Up to full available headroom |
-| Anything else (`Available`, `Finishing`, `Preparing`, etc.) | `0` — EV is not drawing | **Capped at `min_ev_current`** (idle clamp) |
+| Anything else (`Available`, `Finishing`, `Preparing`, etc.) | `0` — EV is not drawing | **Capped at `min_ev_current`** when headroom ≥ minimum; **0 A (stop)** when headroom < minimum |
 | `unavailable` / `unknown` | `current_set_a` (safe fallback — assume charging) | Up to full available headroom |
 | No sensor configured | `current_set_a` (original behaviour) | Up to full available headroom |
 

@@ -727,7 +727,7 @@ class EvLoadBalancerCoordinator:
             self._last_reduction_time = now
 
         _LOGGER.debug(
-            "Recompute (%s): service=%.0f W, available=%.1f A, clamped=%.1f A, final=%.1f A",
+            "Recompute (%s): service=%.0f W, available=%.1f A, target=%.1f A, final=%.1f A",
             reason,
             service_power_w,
             available_a,

@@ -45,7 +45,9 @@ class TestChargerStatusSensorMidSession:
     async def test_sensor_transition_charging_to_idle_corrects_headroom(
         self, hass: HomeAssistant
     ) -> None:
-        """When status changes from Charging to Available, headroom uses house-only load and current is capped at min_ev_current."""
+        """When status changes from Charging to Available, headroom uses house-only load
+        and current is capped at min_ev_current.
+        """
         status_entity = "sensor.ocpp_status"
         entry = MockConfigEntry(
             domain=DOMAIN,
@@ -58,7 +60,8 @@ class TestChargerStatusSensorMidSession:
             title="EV Sensor Transition",
         )
         hass.states.async_set(POWER_METER, "0")
-        hass.states.async_set(status_entity, "Charging")  # Status sensor pre-set to Charging so Phase 1 meter event is treated as active charging
+        # Status sensor pre-set to Charging so Phase 1 meter event is treated as active charging
+        hass.states.async_set(status_entity, "Charging")
         entry.add_to_hass(hass)
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -69,7 +72,8 @@ class TestChargerStatusSensorMidSession:
         available_id = get_entity_id(hass, entry, "sensor", "available_current")
 
         # Phase 1: House-only load (5 A), sensor=Charging, meter shows EV draw = 0 A
-        # meter = 5*230 = 1150 W → ev_estimate=0, non_ev=5, available=27 → target commanded current=27 A (ramped up from 0 A)
+        # meter = 5*230 = 1150 W → ev_estimate=0, non_ev=5, available=27
+        # → target commanded current=27 A (ramped up from 0 A)
         # EV is considered charging by status sensor → no min_ev_current cap applies
         hass.states.async_set(POWER_METER, meter_w(5.0, 0.0))  # 1150 W
         await hass.async_block_till_done()
@@ -101,7 +105,8 @@ class TestChargerStatusSensorMidSession:
     async def test_sensor_prevents_overshoot_when_ev_pauses_during_high_load(
         self, hass: HomeAssistant
     ) -> None:
-        """When EV pauses (sensor=Available) during high house load, headroom is correctly reduced and current capped at min.
+        """When EV pauses (sensor=Available) during high house load, headroom is correctly
+        reduced and current capped at min.
 
         Without the sensor, the coordinator would subtract the last commanded
         EV current from the (house-only) meter, making non_ev look near-zero

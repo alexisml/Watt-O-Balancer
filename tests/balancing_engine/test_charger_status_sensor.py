@@ -20,6 +20,7 @@ Covers:
 - ev_charging diagnostic is initialized from the charger status state at startup (hot-load path)
 - ev_charging diagnostic is initialized from the charger status state during HA boot (boot path)
 - ramp-up cooldown is applied when EV transitions from not-charging to charging
+- sensor glitches to unknown/unavailable do not reset the ramp-up cooldown
 """
 
 from unittest.mock import patch, PropertyMock
@@ -891,3 +892,59 @@ class TestChargingStartRampUp:
         await hass.async_block_till_done()
 
         assert float(hass.states.get(current_set_id).state) > 6.0
+
+    async def test_sensor_glitch_to_unknown_does_not_reset_ramp_up_cooldown(
+        self, hass: HomeAssistant
+    ) -> None:
+        """A sensor glitch to unknown/unavailable does not reset the ramp-up cooldown.
+
+        When the charger status sensor momentarily loses contact and reports
+        unknown or unavailable, the coordinator must not treat this as an EV-start
+        event.  If it did, the ramp-up cooldown would be incorrectly reset on every
+        sensor glitch, allowing current to jump immediately to full headroom the
+        next time the EV genuinely starts charging.
+        """
+        entry = self._make_entry()
+        hass.states.async_set(POWER_METER, "0")
+        hass.states.async_set(self.STATUS_ENTITY, "Available")
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator.ramp_up_time_s = 30.0
+
+        mock_time = 1000.0
+
+        def fake_monotonic():
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+
+        # Step 1: EV not charging — idling at min_ev_current
+        hass.states.async_set(POWER_METER, "318")
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 6.0
+
+        # Record _last_reduction_time before the glitch so we can verify it is unchanged
+        reduction_time_before = coordinator._last_reduction_time
+
+        # Step 2: Sensor glitches to unknown at t=1001 — must NOT reset ramp-up cooldown
+        mock_time = 1001.0
+        hass.states.async_set(self.STATUS_ENTITY, "unknown")
+        await hass.async_block_till_done()
+
+        assert coordinator._last_reduction_time == reduction_time_before, (
+            "Ramp-up cooldown must not be reset on a sensor glitch to 'unknown'"
+        )
+
+        # Step 3: Sensor glitches to unavailable — still must NOT reset ramp-up cooldown
+        mock_time = 1002.0
+        hass.states.async_set(self.STATUS_ENTITY, "unavailable")
+        await hass.async_block_till_done()
+
+        assert coordinator._last_reduction_time == reduction_time_before, (
+            "Ramp-up cooldown must not be reset on a sensor glitch to 'unavailable'"
+        )

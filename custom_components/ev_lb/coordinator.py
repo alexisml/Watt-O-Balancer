@@ -370,11 +370,24 @@ class EvLoadBalancerCoordinator:
         than jumping immediately to the full available headroom.  When the charger
         is stopped (0 A), no ramp-up trigger is set — the normal cooldown logic
         from the previous reduction handles the gradual increase.
+
+        The ramp-up cooldown is only reset when the status sensor transitions
+        explicitly to the ``CHARGING_STATE_VALUE`` state.  Transitions to
+        ``unknown``/``unavailable`` are excluded: those use the safe fallback
+        (assume charging) for the ``ev_charging`` flag, but should not be treated
+        as an EV-start event that warrants a ramp-up cooldown reset.
         """
+        new_state = event.data.get("new_state")
+        new_state_str = new_state.state if new_state is not None else None
         new_ev_charging = self._is_ev_charging()
         if new_ev_charging != self.ev_charging:
-            if not self.ev_charging and new_ev_charging and self.current_set_a > 0:
-                # EV just started charging while the charger was at idle current.
+            if (
+                not self.ev_charging
+                and new_state_str == CHARGING_STATE_VALUE
+                and self.current_set_a > 0
+            ):
+                # EV just started charging (explicit Charging state, not a glitch to
+                # unknown/unavailable) while the charger was at idle current.
                 # Trigger ramp-up on the next recompute so the current rises
                 # gradually from min_ev_current rather than jumping immediately.
                 self._last_reduction_time = self._time_fn()

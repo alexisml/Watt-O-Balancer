@@ -323,12 +323,14 @@ Settings → Devices → EV Charger Load Balancer → Configure → Charger stat
 
 When a status sensor is configured:
 
-| Sensor state | EV draw estimate used | Commanded current |
+| Sensor state | EV draw estimate used | Target/commanded current* |
 |---|---|---|
 | `Charging` | `current_set_a` (normal subtraction) | Up to full available headroom |
 | Anything else (`Available`, `Finishing`, `Preparing`, etc.) | `0` — EV is not drawing | **Capped at `min_ev_current`** when headroom ≥ minimum; **0 A (stop)** when headroom < minimum |
 | `unavailable` / `unknown` | `current_set_a` (safe fallback — assume charging) | Up to full available headroom |
 | No sensor configured | `current_set_a` (original behaviour) | Up to full available headroom |
+
+> \*These values describe the **target** current. The actual commanded current may be temporarily lower (including 0 A) while the ramp-up cooldown logic is in effect.
 
 > **Safe-side default.** When the sensor is uncertain, the integration falls back to assuming the EV is charging. This may slightly over-subtract headroom (original behaviour), but it will never under-subtract, which could cause an overload.
 

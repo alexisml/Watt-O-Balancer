@@ -423,9 +423,9 @@ stateDiagram-v2
     state "DISABLED" as DISABLED
 
     [*] --> STOPPED
-    STOPPED --> ADJUSTING : headroom ≥ min_ev_a AND cooldown elapsed
+    STOPPED --> ADJUSTING : headroom ≥ min_ev_current AND cooldown elapsed
     ADJUSTING --> ACTIVE : same target next cycle
-    ADJUSTING --> STOPPED : overload (target < min_ev_a)
+    ADJUSTING --> STOPPED : overload (target < min_ev_current)
     ADJUSTING --> RAMP_UP_HOLD : increase needed but cooldown active
     ACTIVE --> ADJUSTING : target changed
     ACTIVE --> STOPPED : overload
@@ -590,7 +590,7 @@ flowchart LR
     B -- "NO" --> D["Compute target"]
     D --> E{"target > charger max<br/>or service limit?"}
     E -- "YES" --> F["Safety clamp:<br/>cap at safe maximum"]
-    E -- "NO" --> G{"target < min_ev_a?"}
+    E -- "NO" --> G{"target < min_ev_current?"}
     F --> G
     G -- "YES" --> H(["Stop charging<br/>(0 A)"])
     G -- "NO" --> I(["Set current<br/>(target_a)"])

@@ -25,6 +25,7 @@ from custom_components.ev_lb.const import (
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_VOLTAGE,
+    DEFAULT_MIN_EV_CURRENT,
     DOMAIN,
     STATE_ADJUSTING,
     STATE_RAMP_UP_HOLD,
@@ -174,7 +175,7 @@ class TestFullChargingTimelapse:
         await hass.async_block_till_done()
 
         resumed = float(hass.states.get(current_set_id).state)
-        assert resumed >= 6.0  # Back above min_ev
+        assert resumed >= DEFAULT_MIN_EV_CURRENT  # Back above min_ev
         assert hass.states.get(active_id).state == "on"
         assert hass.states.get(state_id).state == STATE_ADJUSTING
 
@@ -417,7 +418,7 @@ class TestChargingTimelapseWithIsChargingSensor:
         hass.states.async_set(POWER_METER, meter_for_available(9.01, 0.0))
         await hass.async_block_till_done()
 
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
         assert hass.states.get(active_id).state == "on"
         assert hass.states.get(state_id).state == STATE_ADJUSTING
 
@@ -430,11 +431,11 @@ class TestChargingTimelapseWithIsChargingSensor:
         # -------------------------------------------------------------------
         mock_time = 1120.0
         hass.states.async_set(status_entity, "Charging")
-        hass.states.async_set(POWER_METER, meter_w(2.0, 6.0))  # EV drawing 6 A
+        hass.states.async_set(POWER_METER, meter_w(2.0, DEFAULT_MIN_EV_CURRENT))  # EV drawing 6 A
         await hass.async_block_till_done()
 
         assert coordinator.ev_charging is True  # sensor correctly detected as Charging
-        assert float(hass.states.get(current_set_id).state) == 6.0  # held by ramp-up
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT  # held by ramp-up
         assert hass.states.get(active_id).state == "on"
 
         # -------------------------------------------------------------------
@@ -445,7 +446,7 @@ class TestChargingTimelapseWithIsChargingSensor:
         # ev_estimate=6A, non_ev=2A, available=30A → capped at max_charger=16A
         # -------------------------------------------------------------------
         mock_time = 1181.0
-        hass.states.async_set(POWER_METER, meter_w(2.01, 6.0))  # slightly different → new event
+        hass.states.async_set(POWER_METER, meter_w(2.01, DEFAULT_MIN_EV_CURRENT))  # slightly different → new event
         await hass.async_block_till_done()
 
         assert float(hass.states.get(current_set_id).state) == 16.0

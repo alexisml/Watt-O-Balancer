@@ -1,6 +1,6 @@
 Title: Idle current clamp and charging start ramp-up (charger status sensor)
 Date: 2026-03-05
-Author: copilot
+Author: alexisml
 Status: approved
 Summary: When EV is not charging, clamp commanded current to min_ev_current; when EV starts charging, apply ramp-up cooldown.
 
@@ -33,10 +33,18 @@ This runs regardless of whether `target_a` came from a normal computation or fro
 
 ### `coordinator.py` — `_handle_charger_status_change()`
 
-When the EV transitions not-charging → charging **and** `current_set_a > 0` (charger is idling at `min_ev_current`), reset the ramp-up cooldown timer:
+When the EV transitions not-charging → charging **and** the status sensor explicitly transitions to
+`CHARGING_STATE_VALUE` **and** `current_set_a > 0` (charger is idling at `min_ev_current`), reset
+the ramp-up cooldown timer:
 
 ```python
-if not self.ev_charging and new_ev_charging and self.current_set_a > 0:
+new_state = event.data.get("new_state")
+new_state_str = new_state.state if new_state is not None else None
+if (
+    not self.ev_charging
+    and new_state_str == CHARGING_STATE_VALUE
+    and self.current_set_a > 0
+):
     self._last_reduction_time = self._time_fn()
 ```
 

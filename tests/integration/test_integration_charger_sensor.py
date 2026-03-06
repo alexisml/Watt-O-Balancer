@@ -22,6 +22,7 @@ from custom_components.ev_lb.const import (
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_VOLTAGE,
+    DEFAULT_MIN_EV_CURRENT,
     DOMAIN,
 )
 from conftest import (
@@ -100,7 +101,7 @@ class TestChargerStatusSensorMidSession:
         # Available headroom is correctly 27 A (no phantom EV subtraction)
         assert abs(available_after - 27.0) < 0.5
         # Commanded current is capped at min_ev_current (6 A) while EV not charging
-        assert target_after == 6.0
+        assert target_after == DEFAULT_MIN_EV_CURRENT
 
     async def test_sensor_prevents_overshoot_when_ev_pauses_during_high_load(
         self, hass: HomeAssistant
@@ -157,7 +158,7 @@ class TestChargerStatusSensorMidSession:
         # Available headroom is correctly 7 A (no phantom 32 A EV subtraction)
         assert abs(available_with_sensor - 7.0) < 0.5
         # Commanded current is capped at min_ev_current (6 A) since EV not charging
-        assert target_with_sensor == 6.0
+        assert target_with_sensor == DEFAULT_MIN_EV_CURRENT
         # Without the sensor (sensor=Charging, ev_estimate=32):
         #   non_ev = max(0, 25-32) = 0 A → available = 32 A → target = 32 A  ← wrong!
         # The sensor correctly restricted available to 7 A and the cap limits to 6 A.
@@ -208,5 +209,5 @@ class TestChargerStatusSensorMidSession:
 
         # With sensor=Available: ev_estimate=0, available=27 A
         # Commanded current is capped at min_ev_current (6 A) since EV not charging
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
         assert hass.states.get(active_id).state == "on"

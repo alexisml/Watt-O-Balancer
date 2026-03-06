@@ -456,9 +456,9 @@ stateDiagram-v2
     CHARGING --> STOPPED: target_a < min_ev_current — instant
     CHARGING --> IDLE: EV status → not Charging [sensor only] — instant
     IDLE --> STOPPED: headroom < min_ev_current — instant
-    IDLE --> CHARGING: EV status → Charging [sensor only], after ramp-up cooldown
-    STOPPED --> CHARGING: headroom ≥ min_ev_current AND EV charging AND ramp-up elapsed
-    STOPPED --> IDLE: headroom ≥ min_ev_current AND EV not charging [sensor only] AND ramp-up elapsed
+    IDLE --> CHARGING: EV status → Charging [sensor only], start at min_ev_current (ramp-up gates increases only)
+    STOPPED --> CHARGING: headroom ≥ min_ev_current AND EV charging, start at min_ev_current (ramp-up gates increases only)
+    STOPPED --> IDLE: headroom ≥ min_ev_current AND EV not charging [sensor only]
 
     note right of IDLE
         Status sensor configured only.

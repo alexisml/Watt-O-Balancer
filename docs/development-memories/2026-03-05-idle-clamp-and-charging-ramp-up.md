@@ -82,10 +82,10 @@ If the charger is at 0 A when the EV starts charging, the status change does not
 - `tests/balancing_engine/test_charger_status_sensor.py::TestChargerStatusSensor::test_headroom_not_over_subtracted_when_ev_not_charging` — now asserts 6 A (min) rather than 10 A (raw headroom) for commanded current; also checks `available_current` sensor separately to confirm headroom calculation is still correct
 - `tests/integration/test_integration_charger_sensor.py` — 3 tests updated to assert `min_ev_current` (6 A) when EV transitions to not-charging
 - `tests/integration/test_integration_timelapse.py::TestChargingTimelapseWithIsChargingSensor` — extended from 7 to 10 steps:
-  - Step 7: charging resumes at 6 A (idle cap) rather than 9 A
-  - Step 8: EV starts drawing; ramp-up holds at 6 A on first recompute
-  - Step 9: ramp-up expires (61 s after EV started); current rises to full headroom (16 A)
-  - Step 10: house load spikes; current drops to maintain safety margin
+  - Step 7: headroom back above min (9 A); cooldown still active → held at 0 A
+  - Step 8: ramp-up expires → charging resumes at `min_ev_current` (6 A); sensor=Available → idle cap applies
+  - Step 9: EV acknowledges and starts drawing; sensor→Charging; ramp-up cooldown resets; still held at 6 A
+  - Step 10: ramp-up cooldown elapses after EV started charging → current rises to full headroom (16 A)
 
 ## Files changed
 

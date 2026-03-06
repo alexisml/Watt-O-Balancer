@@ -449,16 +449,16 @@ From the charger's perspective there are **three states** when a charger status 
 ```mermaid
 stateDiagram-v2
     state "CHARGING (current = target_a)" as CHARGING
-    state "IDLE (current = min_ev_a, EV not drawing)" as IDLE
+    state "IDLE (current = min_ev_current, EV not drawing)" as IDLE
     state "STOPPED (charger off, 0 A)" as STOPPED
 
     [*] --> STOPPED
-    CHARGING --> STOPPED: target_a < min_ev_a — instant
+    CHARGING --> STOPPED: target_a < min_ev_current — instant
     CHARGING --> IDLE: EV status → not Charging [sensor only] — instant
-    IDLE --> STOPPED: headroom < min_ev_a — instant
+    IDLE --> STOPPED: headroom < min_ev_current — instant
     IDLE --> CHARGING: EV status → Charging [sensor only], after ramp-up cooldown
-    STOPPED --> CHARGING: headroom ≥ min_ev_a AND EV charging AND ramp-up elapsed
-    STOPPED --> IDLE: headroom ≥ min_ev_a AND EV not charging [sensor only] AND ramp-up elapsed
+    STOPPED --> CHARGING: headroom ≥ min_ev_current AND EV charging AND ramp-up elapsed
+    STOPPED --> IDLE: headroom ≥ min_ev_current AND EV not charging [sensor only] AND ramp-up elapsed
 
     note right of IDLE
         Status sensor configured only.

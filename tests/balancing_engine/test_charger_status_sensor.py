@@ -782,6 +782,25 @@ class TestChargingStartRampUp:
         """Return a config entry with the status sensor configured."""
         return _make_status_sensor_entry(self.STATUS_ENTITY)
 
+    def _wire_mock_time(self, coordinator, initial_time: float = 1000.0):
+        """Wire a controllable monotonic clock into the coordinator.
+
+        Returns a setter function; call it with a new timestamp to advance
+        the coordinator's internal clock between test steps without referencing
+        a shared mutable variable directly.
+        """
+        tick: list[float] = [initial_time]
+
+        def fake_monotonic() -> float:
+            return tick[0]
+
+        coordinator._time_fn = fake_monotonic
+
+        def set_time(t: float) -> None:
+            tick[0] = t
+
+        return set_time
+
     async def test_current_held_at_min_immediately_after_ev_starts_charging(
         self, hass: HomeAssistant
     ) -> None:
@@ -802,13 +821,7 @@ class TestChargingStartRampUp:
 
         coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
         coordinator.ramp_up_time_s = 30.0
-
-        mock_time = 1000.0
-
-        def fake_monotonic():
-            return mock_time
-
-        coordinator._time_fn = fake_monotonic
+        set_time = self._wire_mock_time(coordinator)
 
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
 
@@ -819,13 +832,13 @@ class TestChargingStartRampUp:
 
         # Step 2: EV starts charging (status change fires before next meter event)
         # The coordinator resets the ramp-up cooldown at this moment (t=1001).
-        mock_time = 1001.0
+        set_time(1001.0)
         hass.states.async_set(self.STATUS_ENTITY, "Charging")
         await hass.async_block_till_done()
 
         # Step 3: First meter event while charging — should be held at min_ev_current
         # because only 4 s have elapsed since the EV started charging (< 30 s cooldown).
-        mock_time = 1005.0
+        set_time(1005.0)
         hass.states.async_set(POWER_METER, "319")
         await hass.async_block_till_done()
 
@@ -850,13 +863,7 @@ class TestChargingStartRampUp:
 
         coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
         coordinator.ramp_up_time_s = 30.0
-
-        mock_time = 1000.0
-
-        def fake_monotonic():
-            return mock_time
-
-        coordinator._time_fn = fake_monotonic
+        set_time = self._wire_mock_time(coordinator)
 
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
 
@@ -866,13 +873,13 @@ class TestChargingStartRampUp:
         assert float(hass.states.get(current_set_id).state) == 6.0
 
         # Step 2: EV starts charging at t=1001
-        mock_time = 1001.0
+        set_time(1001.0)
         hass.states.async_set(self.STATUS_ENTITY, "Charging")
         await hass.async_block_till_done()
 
         # Step 3: Meter event after cooldown has elapsed (t=1032, 31 s > 30 s)
         # Now current should be allowed to rise above min_ev_current.
-        mock_time = 1032.0
+        set_time(1032.0)
         hass.states.async_set(POWER_METER, "319")
         await hass.async_block_till_done()
 
@@ -898,13 +905,7 @@ class TestChargingStartRampUp:
 
         coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
         coordinator.ramp_up_time_s = 30.0
-
-        mock_time = 1000.0
-
-        def fake_monotonic():
-            return mock_time
-
-        coordinator._time_fn = fake_monotonic
+        set_time = self._wire_mock_time(coordinator)
 
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
 
@@ -915,12 +916,12 @@ class TestChargingStartRampUp:
 
         # Step 2: Sensor glitches to unknown at t=1001.  The safe fallback maps
         # unknown → ev_charging=True, so the idle clamp no longer applies.
-        mock_time = 1001.0
+        set_time(1001.0)
         hass.states.async_set(self.STATUS_ENTITY, "unknown")
         await hass.async_block_till_done()
 
         # Step 3: Sensor glitches to unavailable at t=1002.
-        mock_time = 1002.0
+        set_time(1002.0)
         hass.states.async_set(self.STATUS_ENTITY, "unavailable")
         await hass.async_block_till_done()
 
@@ -932,7 +933,7 @@ class TestChargingStartRampUp:
         # only ~19 s would have elapsed at t=1020 — still within the 30 s window —
         # and the ramp-up constraint would hold the current at 6 A instead.
         # Use 317 W (not 318) so this is a distinct state change from Step 1.
-        mock_time = 1020.0
+        set_time(1020.0)
         hass.states.async_set(POWER_METER, "317")
         await hass.async_block_till_done()
 

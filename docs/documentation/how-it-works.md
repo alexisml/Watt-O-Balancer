@@ -476,7 +476,7 @@ stateDiagram-v2
 | **Charging → Stopped** | Target drops below minimum (overload). `stop_charging` script is called. | Instant — no delay. |
 | **Charging → Idle** | Status sensor leaves `Charging`. Target is capped to `min_ev_current`. | Instant — it's a reduction. Status sensor only. |
 | **Idle → Stopped** | Headroom drops below `min_ev_current` while EV is not charging. `stop_charging` is called. | Instant — no delay. |
-| **Idle → Charging** | Status sensor transitions back to `Charging`. Ramp-up cooldown was reset on the EV-start event, so the current rises gradually from `min_ev_current` to the full available headroom. | After ramp-up cooldown. Status sensor only. |
+| **Idle → Charging** | Status sensor transitions back to `Charging`. Ramp-up cooldown was reset on the EV-start event, so the current rises gradually from `min_ev_current` to the full available headroom. | Instant at `min_ev_current`, then increases after ramp-up cooldown. Status sensor only. |
 | **Stopped → Charging** | Headroom rises above minimum, EV is charging, ramp-up cooldown has elapsed. `start_charging` is called first, then `set_current`. | After cooldown. |
 | **Stopped → Idle** | Headroom rises above minimum but EV is not charging. Charger starts at `min_ev_current` (idle clamp applies). | After cooldown. Status sensor only. |
 | **Charging → Charging (different current)** | Target changed but still above minimum. `set_current` is called with the new target. | Reductions: instant. Increases: after cooldown. |

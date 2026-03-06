@@ -73,10 +73,11 @@ If the charger is at 0 A when the EV starts charging, the status change does not
 
 - `tests/balancing_engine/test_charger_status_sensor.py::TestChargerStatusSensor::test_headroom_not_over_subtracted_when_ev_not_charging` — now asserts 6 A (min) rather than 10 A (raw headroom) for commanded current; also checks `available_current` sensor separately to confirm headroom calculation is still correct
 - `tests/integration/test_integration_charger_sensor.py` — 3 tests updated to assert `min_ev_current` (6 A) when EV transitions to not-charging
-- `tests/integration/test_integration_timelapse.py::TestChargingTimelapseWithIsChargingSensor` — extended from 7 to 8 steps:
-  - Step 7b: charging resumes at 6 A (idle cap) rather than 9 A
-  - Step 7c: EV starts drawing; ramp-up holds at 6 A on first recompute
-  - Step 7d: ramp-up expires (61 s after EV started); current rises to full headroom (16 A)
+- `tests/integration/test_integration_timelapse.py::TestChargingTimelapseWithIsChargingSensor` — extended from 7 to 10 steps:
+  - Step 7: charging resumes at 6 A (idle cap) rather than 9 A
+  - Step 8: EV starts drawing; ramp-up holds at 6 A on first recompute
+  - Step 9: ramp-up expires (61 s after EV started); current rises to full headroom (16 A)
+  - Step 10: house load spikes; current drops to maintain safety margin
 
 ## Files changed
 
@@ -85,7 +86,7 @@ If the charger is at 0 A when the EV starts charging, the status change does not
 | `custom_components/ev_lb/coordinator.py` | `_recompute()`: idle clamp; `_handle_charger_status_change()`: ramp-up trigger |
 | `tests/balancing_engine/test_charger_status_sensor.py` | Updated 1 test, added 5 new tests |
 | `tests/integration/test_integration_charger_sensor.py` | Updated 3 tests |
-| `tests/integration/test_integration_timelapse.py` | Timelapse extended to 8 steps |
+| `tests/integration/test_integration_timelapse.py` | Timelapse extended to 10 steps |
 | `docs/documentation/how-it-works.md` | Computation pipeline, cooldown timer reset list, charger status sensor section |
 | `docs/development-memories/2026-03-05-idle-clamp-and-charging-ramp-up.md` | This file |
 

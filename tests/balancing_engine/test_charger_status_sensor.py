@@ -35,6 +35,7 @@ from custom_components.ev_lb.const import (
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_VOLTAGE,
+    DEFAULT_MIN_EV_CURRENT,
     DOMAIN,
 )
 from conftest import POWER_METER, setup_integration, get_entity_id
@@ -110,7 +111,7 @@ class TestChargerStatusSensor:
         # Available headroom is correctly computed (no over-subtraction)
         assert abs(float(hass.states.get(available_id).state) - (32.0 - 5000.0 / 230.0)) < 0.1
         # Commanded current is capped at min_ev_current while EV is not charging
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
 
     async def test_headroom_accounts_for_ev_draw_when_charging(
         self, hass: HomeAssistant
@@ -715,7 +716,7 @@ class TestNotChargingCurrentClamp:
         hass.states.async_set(POWER_METER, "318")
         await hass.async_block_till_done()
 
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
 
     async def test_commanded_current_zero_when_headroom_below_min(
         self, hass: HomeAssistant
@@ -828,7 +829,7 @@ class TestChargingStartRampUp:
         # Step 1: EV not charging — commanded at min_ev_current (6 A)
         hass.states.async_set(POWER_METER, "318")
         await hass.async_block_till_done()
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
 
         # Step 2: EV starts charging (status change fires before next meter event)
         # The coordinator resets the ramp-up cooldown at this moment (t=1001).
@@ -843,7 +844,7 @@ class TestChargingStartRampUp:
         await hass.async_block_till_done()
 
         # Still held at 6 A (the ramp-up cooldown blocks the jump to full headroom)
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
 
     async def test_current_increases_after_ramp_up_cooldown_elapses(
         self, hass: HomeAssistant
@@ -870,7 +871,7 @@ class TestChargingStartRampUp:
         # Step 1: EV not charging — idling at min_ev_current
         hass.states.async_set(POWER_METER, "318")
         await hass.async_block_till_done()
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
 
         # Step 2: EV starts charging at t=1001
         set_time(1001.0)
@@ -883,7 +884,7 @@ class TestChargingStartRampUp:
         hass.states.async_set(POWER_METER, "319")
         await hass.async_block_till_done()
 
-        assert float(hass.states.get(current_set_id).state) > 6.0
+        assert float(hass.states.get(current_set_id).state) > DEFAULT_MIN_EV_CURRENT
 
     async def test_sensor_glitch_to_unknown_does_not_reset_ramp_up_cooldown(
         self, hass: HomeAssistant
@@ -912,7 +913,7 @@ class TestChargingStartRampUp:
         # Step 1: EV not charging — idling at min_ev_current
         hass.states.async_set(POWER_METER, "318")
         await hass.async_block_till_done()
-        assert float(hass.states.get(current_set_id).state) == 6.0
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT
 
         # Step 2: Sensor glitches to unknown at t=1001.  The safe fallback maps
         # unknown → ev_charging=True, so the idle clamp no longer applies.
@@ -937,7 +938,7 @@ class TestChargingStartRampUp:
         hass.states.async_set(POWER_METER, "317")
         await hass.async_block_till_done()
 
-        assert float(hass.states.get(current_set_id).state) > 6.0, (
+        assert float(hass.states.get(current_set_id).state) > DEFAULT_MIN_EV_CURRENT, (
             "Sensor glitches to 'unknown'/'unavailable' must not reset the ramp-up "
             "cooldown; with ev_charging=True (safe fallback) and no active cooldown "
             "the commanded current must rise above min_ev_current."

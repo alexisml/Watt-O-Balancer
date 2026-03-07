@@ -253,7 +253,7 @@ flowchart TD
     C --> CZ{"not ev_charging AND<br/>target_a > min_ev_current?"}
     CZ -- "YES (idle cap)" --> CZA["target_a = min_ev_current<br/>(charger idles at safe minimum)"]
     CZ -- "NO" --> D
-    CZA --> D{"target_a < min_ev_a?"}
+    CZA --> D{"target_a < min_ev_current?"}
     D -- YES --> E(["stop_charging — instant"])
     D -- NO --> F{"target_a < current_a?<br/>load increased, must reduce"}
     F -- "YES — instant" --> G(["set_current(target_a)"])
@@ -411,7 +411,7 @@ The `sensor.*_balancer_state` diagnostic sensor tracks what the integration is d
 | `stopped` | Charger target is 0 A. | Overload, initial state, available current is below minimum, or max charger current is set to 0 A. |
 | `active` | Charger is running at a steady current. | Normal operation — target hasn't changed since last cycle. |
 | `adjusting` | Charger current just changed this cycle. | Load shifted and the integration adjusted the current. |
-| `ramp_up_hold` | An increase is needed but the ramp-up cooldown hasn't elapsed yet. | Load dropped recently, or headroom decreased from a usable level, within the last `ramp_up_time` seconds. Only applies when the charger is actively running. |
+| `ramp_up_hold` | An increase is needed but the ramp-up cooldown hasn't elapsed yet. | Load dropped recently, headroom decreased from a usable level, or the EV just started drawing current after idling at `min_ev_current`, within the last `ramp_up_time` seconds. Only applies when the charger is actively running (current > 0). |
 | `disabled` | Load balancing switch is off. | User or automation turned off the switch. |
 
 ```mermaid
@@ -423,9 +423,9 @@ stateDiagram-v2
     state "DISABLED" as DISABLED
 
     [*] --> STOPPED
-    STOPPED --> ADJUSTING : headroom ≥ min_ev_a AND cooldown elapsed
+    STOPPED --> ADJUSTING : headroom ≥ min_ev_current AND cooldown elapsed
     ADJUSTING --> ACTIVE : same target next cycle
-    ADJUSTING --> STOPPED : overload (target < min_ev_a)
+    ADJUSTING --> STOPPED : overload (target < min_ev_current)
     ADJUSTING --> RAMP_UP_HOLD : increase needed but cooldown active
     ACTIVE --> ADJUSTING : target changed
     ACTIVE --> STOPPED : overload
@@ -444,16 +444,27 @@ stateDiagram-v2
 
 ## Charger state transitions
 
-From the charger's perspective, there are only two states: **charging** and **stopped**.
+From the charger's perspective there are **three states** when a charger status sensor is configured, or **two states** when no sensor is configured:
 
 ```mermaid
 stateDiagram-v2
     state "CHARGING (current = target_a)" as CHARGING
-    state "STOPPED (charger off)" as STOPPED
+    state "IDLE (current = min_ev_current, EV not drawing)" as IDLE
+    state "STOPPED (charger off, 0 A)" as STOPPED
 
     [*] --> STOPPED
-    CHARGING --> STOPPED: target_a < min_ev_a — instant
-    STOPPED --> CHARGING: target_a ≥ min_ev_a AND ramp-up elapsed
+    CHARGING --> STOPPED: target_a < min_ev_current — instant
+    CHARGING --> IDLE: EV status → not Charging [sensor only] — instant
+    IDLE --> STOPPED: headroom < min_ev_current — instant
+    IDLE --> CHARGING: EV status → Charging [sensor only], start at min_ev_current (ramp-up gates increases only)
+    STOPPED --> CHARGING: headroom ≥ min_ev_current AND EV charging, start at min_ev_current (ramp-up gates increases only)
+    STOPPED --> IDLE: headroom ≥ min_ev_current AND EV not charging [sensor only]
+
+    note right of IDLE
+        Status sensor configured only.
+        Without a sensor ev_charging is
+        always true, so IDLE is never entered.
+    end note
 
     note right of STOPPED
         Resume: start_charging() then set_current(target_a)
@@ -463,7 +474,11 @@ stateDiagram-v2
 | Transition | What happens | Speed |
 |---|---|---|
 | **Charging → Stopped** | Target drops below minimum. `stop_charging` script is called. | Instant — no delay. |
+| **Charging → Idle** | Status sensor reports EV not drawing (e.g., `Available`, `Finishing`). Current is clamped to `min_ev_current`. [Sensor only] | Instant — no delay. |
+| **Idle → Charging** | Status sensor transitions back to `Charging` while current > 0. Ramp-up cooldown resets to gate increases. [Sensor only] | Immediate current hold; increases after cooldown. |
+| **Idle → Stopped** | Headroom drops below `min_ev_current`. `stop_charging` script is called. | Instant — no delay. |
 | **Stopped → Charging** | Headroom rises above minimum and ramp-up cooldown has elapsed. `start_charging` is called first, then `set_current`. | After cooldown. |
+| **Stopped → Idle** | Headroom rises above minimum but EV is not charging (status sensor only). `start_charging` then `set_current(min_ev_current)`. [Sensor only] | After cooldown. |
 | **Charging → Charging (different current)** | Target changed but still above minimum. `set_current` is called with the new target. | Reductions: instant. Increases: after cooldown. |
 
 ---
@@ -575,7 +590,7 @@ flowchart LR
     B -- "NO" --> D["Compute target"]
     D --> E{"target > charger max<br/>or service limit?"}
     E -- "YES" --> F["Safety clamp:<br/>cap at safe maximum"]
-    E -- "NO" --> G{"target < min_ev_a?"}
+    E -- "NO" --> G{"target < min_ev_current?"}
     F --> G
     G -- "YES" --> H(["Stop charging<br/>(0 A)"])
     G -- "NO" --> I(["Set current<br/>(target_a)"])

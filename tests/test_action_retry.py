@@ -20,7 +20,6 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.ev_lb.const import (
     ACTION_MAX_RETRIES,
-    DOMAIN,
     EVENT_ACTION_FAILED,
     NOTIFICATION_ACTION_FAILED_FMT,
 )
@@ -172,9 +171,7 @@ class TestStaleRetryCancellation:
     ) -> None:
         """New charger commands abort in-progress retries from a stale state change."""
         await setup_integration(hass, mock_config_entry_with_actions)
-        coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id][
-            "coordinator"
-        ]
+        coordinator = mock_config_entry_with_actions.runtime_data
 
         first_sleep_done = False
 

@@ -201,9 +201,7 @@ class TestResumeChargingActions:
         """Charging resumes with the target current after recovering from an overload-induced stop."""
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, mock_config_entry_with_actions)
-        coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id][
-            "coordinator"
-        ]
+        coordinator = mock_config_entry_with_actions.runtime_data
 
         # Use a controllable clock to handle ramp-up cooldown
         mock_time = 1000.0
@@ -417,7 +415,7 @@ class TestPartialActionConfiguration:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         # Start charging — start_charging action is not configured so it is skipped;

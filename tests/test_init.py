@@ -3,7 +3,7 @@
 Tests cover:
 - Integration loads successfully from a config entry
 - Integration unloads successfully
-- Config entry data is stored in hass.data
+- Coordinator is stored in entry.runtime_data after setup
 - Service registration is idempotent (no duplicate registration when called twice)
 - Coordinator uses options values over data values for electrical parameters
 """
@@ -33,7 +33,7 @@ async def test_setup_entry(hass: HomeAssistant, mock_config_entry: MockConfigEnt
     await hass.async_block_till_done()
 
     assert mock_config_entry.state is ConfigEntryState.LOADED
-    assert mock_config_entry.entry_id in hass.data[DOMAIN]
+    assert hasattr(mock_config_entry, "runtime_data")
 
 
 async def test_unload_entry(hass: HomeAssistant, mock_config_entry: MockConfigEntry) -> None:
@@ -48,7 +48,7 @@ async def test_unload_entry(hass: HomeAssistant, mock_config_entry: MockConfigEn
     await hass.async_block_till_done()
 
     assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
-    assert mock_config_entry.entry_id not in hass.data[DOMAIN]
+    assert not hasattr(mock_config_entry, "runtime_data")
 
 
 async def test_register_services_is_idempotent(
@@ -92,7 +92,7 @@ async def test_coordinator_uses_options_over_data_for_electrical_params(
     )
     await setup_integration(hass, entry)
 
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data
 
     assert coordinator._voltage == 120.0
     assert coordinator._max_service_current == 50.0

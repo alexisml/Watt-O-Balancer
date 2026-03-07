@@ -15,7 +15,6 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.ev_lb.const import (
-    DOMAIN,
     EVENT_CHARGING_RESUMED,
     EVENT_OVERLOAD_STOP,
     NOTIFICATION_OVERLOAD_STOP_FMT,
@@ -57,7 +56,7 @@ class TestNormalDailyOperation:
         """Charger adapts correctly through low load, moderate load, overload, and recovery."""
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, mock_config_entry_with_actions)
-        coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id]["coordinator"]
+        coordinator = mock_config_entry_with_actions.runtime_data
 
         entry_id = mock_config_entry_with_actions.entry_id
         current_set_id = get_entity_id(hass, mock_config_entry_with_actions, "sensor", "current_set")
@@ -179,7 +178,7 @@ class TestRampUpCooldownFullCycle:
     ) -> None:
         """Balancer state correctly transitions through reduction, hold, and release phases."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
 
         mock_time = 1000.0
@@ -250,7 +249,7 @@ class TestOverloadWithEventAndActionChain:
 
         with patch(PN_CREATE) as mock_create, patch(PN_DISMISS) as mock_dismiss:
             await setup_integration(hass, mock_config_entry_with_actions)
-            coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id]["coordinator"]
+            coordinator = mock_config_entry_with_actions.runtime_data
             coordinator.ramp_up_time_s = 0.0  # Disable cooldown for clean resume
 
             entry_id = mock_config_entry_with_actions.entry_id
@@ -341,7 +340,7 @@ class TestRampUpCustomTiming:
     ) -> None:
         """A 60-second ramp-up cooldown correctly blocks increases at 59s and allows them at 61s."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 60.0  # Non-default 60s cooldown
 
         mock_time = 2000.0

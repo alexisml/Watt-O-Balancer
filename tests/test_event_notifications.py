@@ -18,7 +18,6 @@ from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ev_lb.const import (
-    DOMAIN,
     EVENT_ACTION_FAILED,
     EVENT_CHARGING_RESUMED,
     EVENT_FALLBACK_ACTIVATED,
@@ -170,7 +169,7 @@ class TestChargingResumedEvent:
     ) -> None:
         """An event notifies automations when charging successfully resumes after a stop."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0  # disable cooldown for clean resume
         events = collect_events(hass, EVENT_CHARGING_RESUMED)
 
@@ -196,7 +195,7 @@ class TestChargingResumedEvent:
         """The overload notification is dismissed when charging resumes."""
         with patch(PN_CREATE), patch(PN_DISMISS) as mock_dismiss:
             await setup_integration(hass, mock_config_entry)
-            coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+            coordinator = mock_config_entry.runtime_data
             coordinator.ramp_up_time_s = 0.0
 
             # Charge → overload stop → resume

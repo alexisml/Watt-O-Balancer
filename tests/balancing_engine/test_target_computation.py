@@ -13,7 +13,6 @@ from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import DOMAIN
 from conftest import POWER_METER, setup_integration, get_entity_id
 
 
@@ -192,7 +191,7 @@ class TestRampUpCooldown:
     ) -> None:
         """Charger current is held after a reduction while cooldown is active."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
 
         # Use a controllable clock
@@ -232,7 +231,7 @@ class TestRampUpCooldown:
     ) -> None:
         """Charger current can increase once the cooldown period has elapsed."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
 
         mock_time = 1000.0

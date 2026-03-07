@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, get_device_info
+from .const import get_device_info
 from .coordinator import EvLoadBalancerCoordinator
 
 
@@ -25,9 +25,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up EV LB sensor entities from a config entry."""
-    coordinator: EvLoadBalancerCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator: EvLoadBalancerCoordinator = entry.runtime_data
     async_add_entities(
         [
             EvLbCurrentSetSensor(entry, coordinator),

@@ -205,7 +205,7 @@ class TestChargerStatusSensor:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         assert coordinator._charger_status_entity == status_entity
         assert coordinator._is_ev_charging() is False
 
@@ -237,7 +237,7 @@ class TestChargerStatusSensor:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
 
         # Sensor exists but goes unavailable
         hass.states.async_set(status_entity, "unavailable")
@@ -275,7 +275,7 @@ class TestThrottledEvFix:
         measured load as non-EV and produces a realistic available-current estimate.
         """
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -441,7 +441,7 @@ class TestThrottledEvFix:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
 
         # Meter event while sensor = Charging → ev_charging True
         hass.states.async_set(POWER_METER, "2000")
@@ -820,7 +820,7 @@ class TestChargingStartRampUp:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
         set_time = self._wire_mock_time(coordinator)
 
@@ -862,7 +862,7 @@ class TestChargingStartRampUp:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
         set_time = self._wire_mock_time(coordinator)
 
@@ -904,7 +904,7 @@ class TestChargingStartRampUp:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
         set_time = self._wire_mock_time(coordinator)
 

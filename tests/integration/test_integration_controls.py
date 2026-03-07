@@ -52,7 +52,7 @@ class TestParameterChangesDuringCharging:
         """Lowering max caps charger, raising min EV stops it, auto-resume restores charging."""
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, mock_config_entry_with_actions)
-        coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id]["coordinator"]
+        coordinator = mock_config_entry_with_actions.runtime_data
         coordinator.ramp_up_time_s = 0.0  # Disable cooldown for clean transitions
 
         current_set_id = get_entity_id(hass, mock_config_entry_with_actions, "sensor", "current_set")
@@ -350,7 +350,7 @@ class TestDisableDuringOverloadAndReenable:
         """Charger stays stopped while disabled during overload, then resumes correctly on re-enable."""
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, mock_config_entry_with_actions)
-        coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id]["coordinator"]
+        coordinator = mock_config_entry_with_actions.runtime_data
         coordinator.ramp_up_time_s = 0.0  # Disable cooldown
 
         current_set_id = get_entity_id(hass, mock_config_entry_with_actions, "sensor", "current_set")
@@ -427,7 +427,7 @@ class TestMaxChargerZeroStopAndResumeCycle:
         and charging resumes when max is restored."""
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, mock_config_entry_with_actions)
-        coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id]["coordinator"]
+        coordinator = mock_config_entry_with_actions.runtime_data
         coordinator.ramp_up_time_s = 0.0  # Disable cooldown for clean transitions
 
         current_set_id = get_entity_id(hass, mock_config_entry_with_actions, "sensor", "current_set")

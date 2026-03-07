@@ -47,7 +47,7 @@ class TestTransientLoadSpike:
     ) -> None:
         """Brief spike causes reduction; charger is held at reduced current until cooldown expires."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
 
         mock_time = 1000.0
@@ -104,7 +104,7 @@ class TestTransientLoadSpike:
     ) -> None:
         """Each new reduction resets the ramp-up timer; the hold is measured from the last reduction."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
 
         mock_time = 1000.0
@@ -188,7 +188,7 @@ class TestOscillatingLoad:
             title="EV Oscillation",
         )
         await setup_integration(hass, entry)
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
         coordinator.max_charger_current = 24.0
 
@@ -251,7 +251,7 @@ class TestOscillatingLoad:
     ) -> None:
         """Oscillating load that always stays above min_ev never stops the charger."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
 
         mock_time = 1000.0

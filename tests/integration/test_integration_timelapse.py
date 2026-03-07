@@ -86,7 +86,7 @@ class TestFullChargingTimelapse:
             title="EV Timelapse",
         )
         await setup_integration(hass, entry)
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
         coordinator.max_charger_current = 16.0
 
@@ -289,7 +289,7 @@ class TestChargingTimelapseWithIsChargingSensor:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 60.0
         coordinator.max_charger_current = 16.0
 

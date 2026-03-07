@@ -64,7 +64,7 @@ class TestOverloadWithSpikesAndRecovery:
             title="EV Spike Test",
         )
         await setup_integration(hass, entry)
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 30.0
 
         mock_time = 1000.0

@@ -67,7 +67,7 @@ class TestChargerStatusSensorMidSession:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
         available_id = get_entity_id(hass, entry, "sensor", "available_current")
@@ -133,7 +133,7 @@ class TestChargerStatusSensorMidSession:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
         available_id = get_entity_id(hass, entry, "sensor", "available_current")
@@ -184,7 +184,7 @@ class TestChargerStatusSensorMidSession:
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
         active_id = get_entity_id(hass, entry, "binary_sensor", "active")

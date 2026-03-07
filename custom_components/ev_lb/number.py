@@ -14,7 +14,6 @@ from .const import (
     DEFAULT_OVERLOAD_LOOP_INTERVAL,
     DEFAULT_OVERLOAD_TRIGGER_DELAY,
     DEFAULT_RAMP_UP_TIME,
-    DOMAIN,
     MAX_CHARGER_CURRENT,
     MAX_OVERLOAD_LOOP_INTERVAL,
     MAX_OVERLOAD_TRIGGER_DELAY,
@@ -36,9 +35,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up EV LB number entities from a config entry."""
-    coordinator: EvLoadBalancerCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator: EvLoadBalancerCoordinator = entry.runtime_data
     async_add_entities(
         [
             EvLbMaxChargerCurrentNumber(entry, coordinator),

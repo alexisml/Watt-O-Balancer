@@ -26,7 +26,6 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.ev_lb.const import (
     DEFAULT_MAX_CHARGER_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
-    DOMAIN,
     MAX_CHARGER_CURRENT,
     MIN_CHARGER_CURRENT,
     MIN_EV_CURRENT_MAX,
@@ -64,7 +63,7 @@ class TestSensorDefaultsAndRestore:
         assert state is not None
         assert float(state.state) == 0.0
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.current_set_a == 0.0
 
     async def test_current_set_ignores_cache_on_restart(
@@ -90,7 +89,7 @@ class TestSensorDefaultsAndRestore:
         # Coordinator starts at 0 A — no charge until a real calculation runs
         assert float(state.state) == 0.0
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.current_set_a == 0.0
 
     async def test_charging_resumes_after_first_real_calculation(
@@ -108,7 +107,7 @@ class TestSensorDefaultsAndRestore:
         )
         await setup_integration(hass, mock_config_entry)
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.current_set_a == 0.0
 
         # First real meter update triggers a proper calculation
@@ -136,7 +135,7 @@ class TestNumberDefaultsAndSync:
         """Max charger current uses its default value on a fresh install and is available for balancing calculations."""
         await setup_integration(hass, mock_config_entry)
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.max_charger_current == DEFAULT_MAX_CHARGER_CURRENT
 
     async def test_min_ev_current_syncs_to_coordinator_on_fresh_setup(
@@ -145,7 +144,7 @@ class TestNumberDefaultsAndSync:
         """Minimum EV current uses its default value on a fresh install and is available for balancing calculations."""
         await setup_integration(hass, mock_config_entry)
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.min_ev_current == DEFAULT_MIN_EV_CURRENT
 
     async def test_max_charger_current_restores_from_cache(
@@ -176,7 +175,7 @@ class TestNumberDefaultsAndSync:
         assert state is not None
         assert float(state.state) == 25.0
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.max_charger_current == 25.0
 
     async def test_min_ev_current_restores_from_cache(
@@ -207,7 +206,7 @@ class TestNumberDefaultsAndSync:
         assert state is not None
         assert float(state.state) == 8.0
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.min_ev_current == 8.0
 
 
@@ -231,7 +230,7 @@ class TestSwitchDefaultsAndSync:
         state = hass.states.get(switch_id)
         assert state.state == "on"
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.enabled is True
 
     async def test_switch_restores_off_state(
@@ -251,7 +250,7 @@ class TestSwitchDefaultsAndSync:
         assert state is not None
         assert state.state == "off"
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.enabled is False
 
 

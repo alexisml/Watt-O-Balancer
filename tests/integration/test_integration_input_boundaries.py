@@ -51,7 +51,7 @@ class TestMaxChargerCurrentBoundaries:
     ) -> None:
         """Setting max charger current to exactly 0 A (minimum) stops charging immediately."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         max_id = get_entity_id(hass, mock_config_entry, "number", "max_charger_current")
@@ -78,7 +78,7 @@ class TestMaxChargerCurrentBoundaries:
         """Setting max charger current to 1 A allows load balancing to run, but
         charging stops because 1 A is below the minimum EV current of 6 A."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         max_id = get_entity_id(hass, mock_config_entry, "number", "max_charger_current")
@@ -106,7 +106,7 @@ class TestMaxChargerCurrentBoundaries:
         await setup_integration(hass, mock_config_entry)
 
         max_id = get_entity_id(hass, mock_config_entry, "number", "max_charger_current")
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         # Set max to exactly MAX_CHARGER_CURRENT (80 A)
         await hass.services.async_call(
@@ -141,7 +141,7 @@ class TestMaxChargerCurrentBoundaries:
     ) -> None:
         """When max charger current is 0, subsequent power meter updates also output 0 A."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         max_id = get_entity_id(hass, mock_config_entry, "number", "max_charger_current")
@@ -177,7 +177,7 @@ class TestMinEvCurrentBoundaries:
     ) -> None:
         """Setting min EV current to exactly 1 A (minimum) allows charging at very low headroom."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         min_id = get_entity_id(hass, mock_config_entry, "number", "min_ev_current")
@@ -211,7 +211,7 @@ class TestMinEvCurrentBoundaries:
         available current below the minimum.
         """
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         min_id = get_entity_id(hass, mock_config_entry, "number", "min_ev_current")
@@ -272,7 +272,7 @@ class TestSetLimitBoundaryValues:
         """Setting limit to exactly 0 A stops charging (below min EV current)."""
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, mock_config_entry_with_actions)
-        coordinator = hass.data[DOMAIN][mock_config_entry_with_actions.entry_id]["coordinator"]
+        coordinator = mock_config_entry_with_actions.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry_with_actions, "sensor", "current_set")
@@ -301,7 +301,7 @@ class TestSetLimitBoundaryValues:
     ) -> None:
         """Setting limit to exactly 6 A (default min EV current) is accepted and applied."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -327,7 +327,7 @@ class TestSetLimitBoundaryValues:
     ) -> None:
         """Setting limit to 5 A (one below default min EV 6 A) stops charging."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -353,7 +353,7 @@ class TestSetLimitBoundaryValues:
     ) -> None:
         """Setting limit to 100 A (above charger max 32 A) is clamped to 32 A."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -414,7 +414,7 @@ class TestPowerMeterBoundaryValues:
     ) -> None:
         """Zero house power gives full service capacity to the charger (capped at max)."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -434,7 +434,7 @@ class TestPowerMeterBoundaryValues:
     ) -> None:
         """Negative power (solar export) gives more than service capacity but is capped at charger max."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -451,7 +451,7 @@ class TestPowerMeterBoundaryValues:
     ) -> None:
         """House load exactly at service limit leaves zero available — charging stops."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -469,7 +469,7 @@ class TestPowerMeterBoundaryValues:
     ) -> None:
         """House load just below the point where min EV current (6 A) is available — charger operates at minimum."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -488,7 +488,7 @@ class TestPowerMeterBoundaryValues:
     ) -> None:
         """House load just above the point where min EV is unavailable — charging stops."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -525,7 +525,7 @@ class TestPowerMeterBoundaryValues:
     ) -> None:
         """An extremely large power value (1 MW) is rejected by the safety guardrail."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")

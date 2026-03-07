@@ -9,7 +9,6 @@ from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import DOMAIN
 from conftest import (
     POWER_METER,
     meter_for_available,
@@ -30,7 +29,7 @@ class TestStopByInsufficientHeadroom:
     ) -> None:
         """Charger stops when headroom < min_ev and resumes once headroom is sufficient."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0  # Disable cooldown for clean transitions
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -76,7 +75,7 @@ class TestStopByInsufficientHeadroom:
     ) -> None:
         """Available exactly one amp below min_ev stops the charger; exactly at min restarts it."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")

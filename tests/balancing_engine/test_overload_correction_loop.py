@@ -23,7 +23,7 @@ from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import DOMAIN, SAFETY_MAX_POWER_METER_W
+from custom_components.ev_lb.const import SAFETY_MAX_POWER_METER_W
 from conftest import POWER_METER, setup_integration
 
 
@@ -42,7 +42,7 @@ class TestOverloadCorrectionLoop:
     ) -> None:
         """No overload timers are created when available current is positive."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         # 3 kW → available > 0
         hass.states.async_set(POWER_METER, "3000")
@@ -56,7 +56,7 @@ class TestOverloadCorrectionLoop:
     ) -> None:
         """A trigger timer is scheduled when the system first becomes overloaded."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.overload_trigger_delay_s = 2.0
 
         # Set current so that non-EV load is 0; push power far above service limit
@@ -73,7 +73,7 @@ class TestOverloadCorrectionLoop:
     ) -> None:
         """After the trigger delay the correction loop starts while still overloaded."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.overload_trigger_delay_s = 2.0
         coordinator.overload_loop_interval_s = 5.0
 
@@ -97,7 +97,7 @@ class TestOverloadCorrectionLoop:
     ) -> None:
         """All overload timers are cancelled once available current returns to zero or above."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.overload_trigger_delay_s = 2.0
 
         # Drive into overload
@@ -118,7 +118,7 @@ class TestOverloadCorrectionLoop:
     ) -> None:
         """Overload timers are cleaned up when the coordinator is stopped."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.overload_trigger_delay_s = 2.0
 
         # Drive into overload
@@ -152,7 +152,7 @@ class TestOverloadLoopEarlyExits:
         corrections.
         """
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.overload_trigger_delay_s = 2.0
         coordinator.overload_loop_interval_s = 5.0
 
@@ -186,7 +186,7 @@ class TestOverloadLoopEarlyExits:
         spurious recomputes that could over-correct the charger current.
         """
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()
@@ -211,7 +211,7 @@ class TestOverloadLoopEarlyExits:
         _force_recompute_from_meter does not change current_set_a a second time.
         """
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         for bad_state in ("unavailable", "unknown"):
             # Set the meter state and let the normal listener run first
@@ -234,7 +234,7 @@ class TestOverloadLoopEarlyExits:
         causing an exception that would crash the correction loop.
         """
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()
@@ -255,7 +255,7 @@ class TestOverloadLoopEarlyExits:
         instead of W) must not cause the balancer to act on unrealistic data.
         """
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()

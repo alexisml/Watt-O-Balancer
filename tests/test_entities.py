@@ -168,7 +168,7 @@ class TestSensorEntities:
         power_set_id = ent_reg.async_get_entity_id(
             "sensor", DOMAIN, f"{mock_config_entry.entry_id}_power_set"
         )
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         # 5000 W consumed → available = 32 - (5000/230) ≈ 10 A → 10 A × 230 V = 2300.0 W
@@ -404,7 +404,7 @@ class TestNumberEntities:
         """Ramp-up cooldown number can be updated and the new value is reflected in the coordinator."""
         await setup_integration(hass, mock_config_entry)
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         ent_reg = er.async_get(hass)
         entity_id = ent_reg.async_get_entity_id(
             "number", DOMAIN, f"{mock_config_entry.entry_id}_ramp_up_time"
@@ -440,7 +440,7 @@ class TestNumberEntities:
         """Overload trigger delay can be updated and the coordinator receives the new value."""
         await setup_integration(hass, mock_config_entry)
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         ent_reg = er.async_get(hass)
         entity_id = ent_reg.async_get_entity_id(
             "number", DOMAIN, f"{mock_config_entry.entry_id}_overload_trigger_delay"
@@ -476,7 +476,7 @@ class TestNumberEntities:
         """Overload loop interval can be updated and the coordinator receives the new value."""
         await setup_integration(hass, mock_config_entry)
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         ent_reg = er.async_get(hass)
         entity_id = ent_reg.async_get_entity_id(
             "number", DOMAIN, f"{mock_config_entry.entry_id}_overload_loop_interval"

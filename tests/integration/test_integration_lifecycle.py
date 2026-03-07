@@ -44,7 +44,7 @@ _SENSOR_CURRENT_SET = "sensor.ev_charger_load_balancer_charging_current_set"
 class TestFullLifecycleSetupToUnload:
     """Complete integration lifecycle: setup → operation → unload → verify cleanup.
 
-    Verifies that services are registered/unregistered, hass.data is populated
+    Verifies that services are registered/unregistered, entry.runtime_data is populated
     and cleaned up, and all entity platforms load and unload properly.
     """
 
@@ -59,9 +59,7 @@ class TestFullLifecycleSetupToUnload:
         # Verify setup: entry loaded, service available, data populated
         assert mock_config_entry.state is ConfigEntryState.LOADED
         assert hass.services.has_service(DOMAIN, SERVICE_SET_LIMIT)
-        assert DOMAIN in hass.data
-        assert entry_id in hass.data[DOMAIN]
-        assert "coordinator" in hass.data[DOMAIN][entry_id]
+        assert hasattr(mock_config_entry, "runtime_data")
 
         # Verify all entity platforms loaded
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -95,7 +93,7 @@ class TestFullLifecycleSetupToUnload:
         # Verify cleanup
         assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
         assert not hass.services.has_service(DOMAIN, SERVICE_SET_LIMIT)
-        assert entry_id not in hass.data.get(DOMAIN, {})
+        assert not hasattr(mock_config_entry, "runtime_data")
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +204,7 @@ class TestHaRestartWithStateRestoration:
         assert mock_config_entry.state is ConfigEntryState.LOADED
 
         # Verify coordinator is functional after restart
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.enabled is True
 
         # Verify entities have live states (not "unavailable")
@@ -254,7 +252,7 @@ class TestHaRestartWithRestoreCache:
         await setup_integration(hass, mock_config_entry)
 
         # Coordinator starts at 0 A — cached current_set is NOT restored
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.current_set_a == 0.0
         assert coordinator.enabled is True
 
@@ -303,7 +301,7 @@ class TestConfigEntryDisableEnable:
 
         assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
         assert not hass.services.has_service(DOMAIN, SERVICE_SET_LIMIT)
-        assert entry_id not in hass.data.get(DOMAIN, {})
+        assert not hasattr(mock_config_entry, "runtime_data")
 
         # Phase 3: Re-enable (setup) the config entry
         await hass.config_entries.async_setup(entry_id)
@@ -311,7 +309,7 @@ class TestConfigEntryDisableEnable:
 
         assert mock_config_entry.state is ConfigEntryState.LOADED
         assert hass.services.has_service(DOMAIN, SERVICE_SET_LIMIT)
-        assert entry_id in hass.data[DOMAIN]
+        assert hasattr(mock_config_entry, "runtime_data")
 
         # Verify all entity platforms loaded again
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")

@@ -15,7 +15,6 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ev_lb.const import (
-    DOMAIN,
     STATE_ACTIVE,
     STATE_ADJUSTING,
     STATE_DISABLED,
@@ -40,7 +39,7 @@ class TestBalancerStateSensor:
     ) -> None:
         """Balancer reports stopped state on initialization before receiving any meter readings."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.balancer_state == STATE_STOPPED
 
     async def test_transitions_to_adjusting_on_first_charge(
@@ -48,7 +47,7 @@ class TestBalancerStateSensor:
     ) -> None:
         """When charging starts for the first time, state is 'adjusting' (current changed)."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()
@@ -60,7 +59,7 @@ class TestBalancerStateSensor:
     ) -> None:
         """When target current > 0 and unchanged, state is 'active'."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         # First event — starts charging at 18 A
         hass.states.async_set(POWER_METER, "3000")
@@ -81,7 +80,7 @@ class TestBalancerStateSensor:
     ) -> None:
         """When current changes while active, state is 'adjusting'."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()
@@ -110,7 +109,7 @@ class TestBalancerStateSensor:
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.balancer_state == STATE_RAMP_UP_HOLD
 
     async def test_stopped_on_overload(
@@ -118,7 +117,7 @@ class TestBalancerStateSensor:
     ) -> None:
         """When overload stops charging, state is 'stopped'."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()
@@ -134,7 +133,7 @@ class TestBalancerStateSensor:
     ) -> None:
         """When meter goes unavailable in stop mode, balancer state is 'stopped'."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "unavailable")
         await hass.async_block_till_done()
@@ -146,7 +145,7 @@ class TestBalancerStateSensor:
     ) -> None:
         """When load balancing is disabled, state is 'disabled'."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         coordinator.enabled = False
 
         hass.states.async_set(POWER_METER, "3000")
@@ -207,7 +206,7 @@ class TestMeterStatusSensor:
     ) -> None:
         """Power meter reports healthy status on startup before any failures occur."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.meter_healthy is True
 
     async def test_meter_unhealthy_on_unavailable(
@@ -215,7 +214,7 @@ class TestMeterStatusSensor:
     ) -> None:
         """Power meter status sensor reports unhealthy when meter connection is lost."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "unavailable")
         await hass.async_block_till_done()
@@ -227,7 +226,7 @@ class TestMeterStatusSensor:
     ) -> None:
         """Power meter status sensor reports healthy again when valid readings resume."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "unavailable")
         await hass.async_block_till_done()
@@ -270,7 +269,7 @@ class TestFallbackActiveSensor:
     ) -> None:
         """Fallback is not active during normal operation."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.fallback_active is False
 
     async def test_fallback_activates_on_unavailable(
@@ -278,7 +277,7 @@ class TestFallbackActiveSensor:
     ) -> None:
         """Fallback becomes active when the meter goes unavailable."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "unavailable")
         await hass.async_block_till_done()
@@ -290,7 +289,7 @@ class TestFallbackActiveSensor:
     ) -> None:
         """Fallback deactivates when a valid meter reading arrives."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
 
         hass.states.async_set(POWER_METER, "unavailable")
         await hass.async_block_till_done()
@@ -305,7 +304,7 @@ class TestFallbackActiveSensor:
     ) -> None:
         """Fallback is active even in ignore mode (meter is still unavailable)."""
         await setup_integration(hass, mock_config_entry_ignore)
-        coordinator = hass.data[DOMAIN][mock_config_entry_ignore.entry_id]["coordinator"]
+        coordinator = mock_config_entry_ignore.runtime_data
 
         hass.states.async_set(POWER_METER, "unavailable")
         await hass.async_block_till_done()
@@ -343,7 +342,7 @@ class TestConfiguredFallbackSensor:
     ) -> None:
         """Default config entry uses 'stop' fallback behavior."""
         await setup_integration(hass, mock_config_entry)
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         assert coordinator.configured_fallback == UNAVAILABLE_BEHAVIOR_STOP
 
     async def test_fallback_config_entry_shows_set_current(
@@ -351,7 +350,7 @@ class TestConfiguredFallbackSensor:
     ) -> None:
         """Config entry with set_current fallback shows 'set_current'."""
         await setup_integration(hass, mock_config_entry_fallback)
-        coordinator = hass.data[DOMAIN][mock_config_entry_fallback.entry_id]["coordinator"]
+        coordinator = mock_config_entry_fallback.runtime_data
         assert coordinator.configured_fallback == UNAVAILABLE_BEHAVIOR_SET_CURRENT
 
     async def test_ignore_config_entry_shows_ignore(
@@ -359,5 +358,5 @@ class TestConfiguredFallbackSensor:
     ) -> None:
         """Config entry with ignore fallback shows 'ignore'."""
         await setup_integration(hass, mock_config_entry_ignore)
-        coordinator = hass.data[DOMAIN][mock_config_entry_ignore.entry_id]["coordinator"]
+        coordinator = mock_config_entry_ignore.runtime_data
         assert coordinator.configured_fallback == UNAVAILABLE_BEHAVIOR_IGNORE

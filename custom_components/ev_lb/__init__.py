@@ -21,13 +21,9 @@ SERVICE_SET_LIMIT_SCHEMA = vol.Schema(
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up EV Charger Load Balancing from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
-
     coordinator = EvLoadBalancerCoordinator(hass, entry)
 
-    hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
-    }
+    entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -66,8 +62,15 @@ def _register_services(hass: HomeAssistant) -> None:
             target_entry_id,
         )
         if target_entry_id is not None:
-            entry_data = hass.data[DOMAIN].get(target_entry_id)
-            if entry_data is None:
+            target_entry = hass.config_entries.async_get_entry(target_entry_id)
+            if (
+                target_entry is None
+                or target_entry.domain != DOMAIN
+                or not isinstance(
+                    getattr(target_entry, "runtime_data", None),
+                    EvLoadBalancerCoordinator,
+                )
+            ):
                 _LOGGER.warning(
                     "Service %s.%s: entry_id '%s' not found",
                     DOMAIN,
@@ -75,12 +78,12 @@ def _register_services(hass: HomeAssistant) -> None:
                     target_entry_id,
                 )
                 return
-            coordinator: EvLoadBalancerCoordinator = entry_data["coordinator"]
+            coordinator: EvLoadBalancerCoordinator = target_entry.runtime_data
             coordinator.manual_set_limit(current_a)
         else:
-            for entry_data in hass.data[DOMAIN].values():
-                coordinator = entry_data["coordinator"]
-                coordinator.manual_set_limit(current_a)
+            for loaded_entry in hass.config_entries.async_entries(DOMAIN):
+                if hasattr(loaded_entry, "runtime_data"):
+                    loaded_entry.runtime_data.manual_set_limit(current_a)
 
     hass.services.async_register(
         DOMAIN,
@@ -99,17 +102,18 @@ async def _async_options_updated(
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    entry_data = hass.data[DOMAIN].get(entry.entry_id)
-    if entry_data:
-        entry_data["coordinator"].async_stop()
-
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
 
-    # Unregister services when no entries remain
-    if not hass.data[DOMAIN]:
-        hass.services.async_remove(DOMAIN, SERVICE_SET_LIMIT)
+    if unload_ok:
+        entry.runtime_data.async_stop()
+
+        # Unregister the domain-wide service when the last loaded entry is removed
+        still_loaded = [
+            e for e in hass.config_entries.async_entries(DOMAIN)
+            if e.entry_id != entry.entry_id and hasattr(e, "runtime_data")
+        ]
+        if not still_loaded:
+            hass.services.async_remove(DOMAIN, SERVICE_SET_LIMIT)
 
     _LOGGER.debug("Entry %s unloaded (ok=%s)", entry.entry_id, unload_ok)
 

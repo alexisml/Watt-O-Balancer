@@ -206,6 +206,6 @@ def no_sleep_coordinator(hass: HomeAssistant, entry: MockConfigEntry):
     Use this in tests that trigger action failures to avoid real
     retry delays during the exponential backoff.
     """
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data
     coordinator._sleep_fn = AsyncMock()
     return coordinator

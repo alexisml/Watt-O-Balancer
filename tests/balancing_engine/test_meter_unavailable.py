@@ -511,7 +511,7 @@ class TestStartupWithUnavailableMeter:
         # setup_integration pre-sets the meter to "0" before setup
         await setup_integration(hass, mock_config_entry)
 
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]["coordinator"]
+        coordinator = mock_config_entry.runtime_data
         meter_id = get_entity_id(hass, mock_config_entry, "binary_sensor", "meter_status")
 
         assert coordinator.meter_healthy is True

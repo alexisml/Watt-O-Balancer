@@ -95,12 +95,12 @@ async def _async_options_updated(
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    entry.runtime_data.async_stop()
-
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-    # Unregister the domain-wide service when the last loaded entry is removed
     if unload_ok:
+        entry.runtime_data.async_stop()
+
+        # Unregister the domain-wide service when the last loaded entry is removed
         still_loaded = [
             e for e in hass.config_entries.async_entries(DOMAIN)
             if e.entry_id != entry.entry_id and hasattr(e, "runtime_data")

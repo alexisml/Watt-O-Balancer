@@ -1,6 +1,6 @@
 Title: Home Assistant compatibility audit — FlowResult and hass.data migration
 Date: 2026-03-07
-Author: copilot
+Author: alexisml
 Status: approved
 Summary: Identifies and fixes two HA compatibility issues: deprecated FlowResult type annotation and the old hass.data storage pattern replaced by entry.runtime_data.
 ---

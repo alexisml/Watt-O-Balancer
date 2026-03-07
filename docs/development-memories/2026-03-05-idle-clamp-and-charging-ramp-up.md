@@ -29,7 +29,9 @@ Both changes are applied per-charger in the multi-charger coordinator. Each `_Ch
 After computing `target_i` for each charger via the distribution algorithm, add an idle clamp:
 
 ```python
-if not charger.ev_charging and target_i > self.min_ev_current:
+# Only apply when a status sensor is configured; without one, ev_charging
+# is not a reliable indicator of whether the EV is idle.
+if charger.status_entity is not None and not charger.ev_charging and target_i > self.min_ev_current:
     target_i = self.min_ev_current
 ```
 
@@ -64,7 +66,7 @@ Commanding 0 A means `stop_charging`, which requires a subsequent `start_chargin
 
 ### Only applies when status sensor is configured
 
-When no status sensor is configured `charger.ev_charging` is always `True` — the idle clamp path (`not charger.ev_charging`) is never entered. No behavior change for users without a status sensor.
+When no status sensor is configured, the idle clamp uses the `charger.status_entity is not None` guard to skip the clamp entirely. Without a sensor, `charger.ev_charging` is derived from `current_set_a > 0` (for diagnostic accuracy), not from a real charging-state reading. Applying the clamp in that case would incorrectly limit current whenever the charger starts from 0 A.
 
 ### Ramp-up only triggered from idle, not from stopped
 

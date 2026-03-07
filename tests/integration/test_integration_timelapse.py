@@ -237,8 +237,8 @@ class TestFullChargingTimelapse:
 class TestChargingTimelapseWithIsChargingSensor:
     """10-step session showing how the charger status sensor affects headroom and current clamping.
 
-    Uses a 16 A charger so partial-speed charging (step 8) is clearly
-    below the maximum.
+    Uses a 16 A charger so the max-speed charging at step 10 is clearly
+    distinct from the min-current idle at step 8.
 
     The sensor impact is most critical at step 2: the EV pauses naturally
     (sensor → Available) while house load is high.  Without the sensor the

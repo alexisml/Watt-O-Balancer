@@ -436,7 +436,8 @@ stateDiagram-v2
 
     [*] --> STOPPED
     STOPPED --> ADJUSTING : headroom ≥ min_ev_current AND no prior reduction (first start — direct)
-    STOPPED --> ADJUSTING : headroom ≥ min_ev_current AND after prior reduction (stability window elapsed)
+    STOPPED --> RAMP_UP_HOLD : after prior reduction — first step taken, more steps remain
+    STOPPED --> ADJUSTING : after prior reduction — first step reaches full target
     ADJUSTING --> ACTIVE : same target next cycle
     ADJUSTING --> STOPPED : overload (target < min_ev_current)
     ADJUSTING --> RAMP_UP_HOLD : increase needed but stability window active

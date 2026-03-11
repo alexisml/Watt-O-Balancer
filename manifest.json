@@ -1,7 +1,7 @@
 {
   "domain": "watt_o_balancer",
   "name": "Watt-O-Balancer",
-  "version": "2026.3.2",
+  "version": "2026.3.3",
   "documentation": "https://github.com/alexisml/ha-ev-charger-balancer",
   "dependencies": [],
   "codeowners": [

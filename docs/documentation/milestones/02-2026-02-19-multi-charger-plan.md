@@ -53,7 +53,7 @@ Extend the single-charger integration to support N EV chargers sharing the same 
 | `last_action_reason` | Why the last command was issued |
 | `last_action_error` | Error message from the most recent failed action script call |
 | `last_action_timestamp` | UTC timestamp of the most recent action script call |
-| `last_action_status` | `ok` or `error` |
+| `last_action_status` | `success` or `failure` |
 | `action_latency_ms` | Round-trip time for the most recent action call in milliseconds |
 
 ---
@@ -72,7 +72,8 @@ The balancer runs once per power-meter update cycle. The algorithm is:
 
 1. **Compute site headroom** — same formula as the single-charger MVP:
    ```
-   total_ev_a        = sum of current_set_a for all chargers
+   total_ev_a        = sum of current_set_a for chargers where ev_charging is true
+                       (chargers at idle clamp with no active EV draw are excluded)
    service_w         = power from power_meter_entity (W)
    service_current_a = service_w / voltage
    non_ev_a          = max(0, service_current_a − total_ev_a)

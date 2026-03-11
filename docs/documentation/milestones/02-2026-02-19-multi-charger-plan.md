@@ -72,9 +72,11 @@ The balancer runs once per power-meter update cycle. The algorithm is:
 
 1. **Compute site headroom** — same formula as the single-charger MVP:
    ```
-   total_ev_a    = sum of current_set_a for all chargers
-   non_ev_a      = max(0, service_current_a − total_ev_a)
-   available_a   = max_service_current − non_ev_a
+   total_ev_a        = sum of current_set_a for all chargers
+   service_w         = power from power_meter_entity (W)
+   service_current_a = service_w / voltage
+   non_ev_a          = max(0, service_current_a − total_ev_a)
+   available_a       = max_service_current − non_ev_a
    ```
 
 2. **Proportional allocation** — allocate current to each charger in proportion to its priority value:
@@ -89,7 +91,11 @@ The balancer runs once per power-meter update cycle. The algorithm is:
    ```
    Clamp each share to `min(share_a, max_charger_current)`.
 
-3. **Stop chargers below minimum** — if a charger's allocated share falls below its `min_ev_current`, set that charger's allocation to `0` (stop charging) and exclude it from the priority sum. **Tie-break:** when two or more equal-priority chargers all fall below `min_ev_current` but `available_a` is enough to run exactly one of them at `min_ev_current`, the charger with the lowest `charger_index` receives current; the rest are stopped.
+3. **Stop chargers below minimum** — if a charger's allocated share falls below its `min_ev_current`, set that charger's allocation to `0` (stop charging) and exclude it from the priority sum. **Tie-break sub-step:** when two or more equal-priority chargers all fall below `min_ev_current` but `available_a` is enough to run exactly one of them at `min_ev_current`:
+   1. Assign `min_ev_current` to the charger with the lowest `charger_index` in the tied group.
+   2. Subtract `min_ev_current` from `available_a`.
+   3. Stop all other chargers in the tied group (allocation set to `0`).
+   4. Continue redistribution with the updated `available_a` and remaining active chargers.
 
 4. **Redistribute surplus** — headroom freed by capped chargers (allocated at `max_charger_current` with remaining surplus) or stopped chargers (allocation set to `0`) is redistributed proportionally to the remaining active chargers. Repeat steps 2–4 until the allocations stabilise.
 

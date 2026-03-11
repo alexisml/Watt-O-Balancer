@@ -28,8 +28,8 @@ The original multi-charger plan (`02-2026-02-19-multi-charger-plan.md`) left the
 **Algorithm:**
 1. Compute total site headroom from the power meter (same formula as MVP).
 2. Allocate `available_a × (priority / priority_sum)` to each charger.
-3. Clamp each share to `max_charger_a`.
-4. If a share < `min_ev_a`, set that charger's allocation to 0 and remove it from the priority sum.
+3. Clamp each share to `max_charger_current`.
+4. If a share < `min_ev_current`, set that charger's allocation to 0 and remove it from the priority sum.
 5. Redistribute freed headroom proportionally to the remaining active chargers; repeat until stable.
 
 **Example:** 100 A available, priorities 50 / 30 / 20 → allocations 50 A / 30 A / 20 A. If the 50-priority charger is capped at 40 A, the remaining 10 A splits 30:20 → chargers 2 and 3 receive 36 A and 24 A.
@@ -41,7 +41,7 @@ The original multi-charger plan (`02-2026-02-19-multi-charger-plan.md`) left the
 
 ### 3. Tie-breaking: lowest charger_index wins
 
-**Decision:** When two or more chargers share the same priority and there is only enough headroom to bring one of them up to `min_ev_a`, the charger with the lowest `charger_index` (i.e. first configured) receives current. All other same-priority chargers in that tie group are stopped.
+**Decision:** When two or more chargers share the same priority and there is only enough headroom to bring one of them up to `min_ev_current`, the charger with the lowest `charger_index` (i.e. first configured) receives current. All other same-priority chargers in that tie group are stopped.
 
 **Rationale:**
 - Deterministic and predictable — the user controls the outcome by adjusting either priority or configuration order.
@@ -49,7 +49,7 @@ The original multi-charger plan (`02-2026-02-19-multi-charger-plan.md`) left the
 
 ### 4. Maximise charging principle
 
-**Decision:** The algorithm never withholds current from a lower-priority charger when the higher-priority charger is already capped at its `max_charger_a`. Surplus always flows forward.
+**Decision:** The algorithm never withholds current from a lower-priority charger when the higher-priority charger is already capped at its `max_charger_current`. Surplus always flows forward.
 
 **Rationale:** The goal is to maximise total energy delivered to vehicles, not to reserve headroom for higher-priority chargers that are already full.
 
@@ -68,7 +68,7 @@ The original multi-charger plan (`02-2026-02-19-multi-charger-plan.md`) left the
 ## What was not changed
 
 - The single-charger MVP behavior (Phase 1) is unchanged — this refinement only applies to Phase 2.
-- The four-milestone structure (PR-1 through PR-4-ph2) is preserved.
+- Phase 2 still follows the original PR-1–PR-4-ph2 themes, but PR-1 and PR-2 are now split into sub-milestones (PR-1a/1b and PR-2a/2b).
 - Ramp-up cooldown and idle-clamp behavior remain per-charger, using the same logic as the MVP.
 
 ## References

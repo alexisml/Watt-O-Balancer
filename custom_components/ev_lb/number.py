@@ -124,14 +124,15 @@ class EvLbMinEvCurrentNumber(RestoreNumber):
 
 
 class EvLbRampUpTimeNumber(RestoreNumber):
-    """Number entity for the ramp-up cooldown period (seconds).
+    """Number entity for the ramp-up stability window (seconds).
 
-    After a current reduction, the balancer waits this many seconds before
-    allowing the charging current to increase again.  This prevents rapid
-    oscillation when household load fluctuates near the service limit.
+    The charging current is only allowed to increase once the available
+    headroom has been continuously sufficient for this many seconds.  This
+    prevents the balancer from stepping up current during brief dips in
+    household load, which would cause rapid oscillation.
 
     Very low values (< 10 s) may cause instability if your household load
-    has spikes or is unpredictable.  The recommended minimum is 20–30 s.
+    has spikes or is unpredictable.
     """
 
     _attr_has_entity_name = True

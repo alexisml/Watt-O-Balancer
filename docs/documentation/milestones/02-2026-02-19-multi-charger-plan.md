@@ -41,7 +41,7 @@ Extend the single-charger integration to support N EV chargers sharing the same 
 | `priority` | Integer from 0 to 100 (multiples of 5). Determines this charger's proportional share of available current. Higher value = larger share. |
 | `charger_index` | Zero-based position within the power meter's charger group — unique per group, used as a tie-breaker when two chargers share equal priority |
 | `ramp_up_time_s` | Stability window in seconds (default 15 s, range 5–300 s). Available headroom must remain continuously above the current commanded level for this duration before the next ramp-up step is allowed. |
-| `ramp_up_step_a` | Maximum current increase per stability period in Amps (default 4 A, range 1–32 A). The commanded current rises by at most this amount each time the stability window elapses. Set to 0 to jump directly to target on first expiry. |
+| `ramp_up_step_a` | Maximum current increase per stability period in Amps (default 4 A, range 1–32 A). The commanded current rises by at most this amount each time the stability window elapses. Smaller values give more gradual recovery; larger values reach full current in fewer steps. |
 
 ### Per-charger outputs (computed per cycle, exposed as HA entities)
 

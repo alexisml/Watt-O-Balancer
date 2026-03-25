@@ -892,16 +892,18 @@ class TestChargingStartRampUp:
 
         assert float(hass.states.get(current_set_id).state) > DEFAULT_MIN_EV_CURRENT
 
-    async def test_sensor_glitch_to_unknown_does_not_reset_ramp_up_cooldown(
+    async def test_sensor_glitch_to_unknown_at_idle_arms_stability_window(
         self, hass: HomeAssistant
     ) -> None:
-        """A sensor glitch to unknown/unavailable does not reset the ramp-up cooldown.
+        """A sensor glitch to unknown/unavailable while at idle arms the ramp-up stability window.
 
-        When the charger status sensor momentarily loses contact and reports
-        unknown or unavailable, the coordinator must not treat this as an EV-start
-        event.  If it did, the ramp-up cooldown would be incorrectly reset on every
-        sensor glitch, unnecessarily extending ramp-up holds and delaying increases
-        in charging current the next time the EV genuinely starts charging.
+        When the charger is idling at min_ev_current and the status sensor
+        momentarily reports unknown or unavailable (ev_charging flips True via safe
+        fallback), the coordinator must not treat this as a confirmed EV-start event
+        and immediately jump to the full available headroom.  Instead it arms the
+        stability window so the current can only increase after genuine, sustained
+        headroom is observed — preventing a sudden load spike from a transient
+        sensor glitch.
         """
         entry = self._make_entry()
         hass.states.async_set(POWER_METER, "0")
@@ -933,19 +935,85 @@ class TestChargingStartRampUp:
         await hass.async_block_till_done()
 
         # Step 4: Meter event at t=1020 with the sensor still reporting unavailable.
-        # Because unknown/unavailable maps to ev_charging=True, the idle clamp does
-        # NOT apply and the balancer should allow the current to rise toward the
-        # full available headroom (~26 A).
-        # If either glitch had incorrectly reset the ramp-up cooldown (to t≈1001),
-        # only ~19 s would have elapsed at t=1020 — still within the 30 s window —
-        # and the ramp-up constraint would hold the current at 6 A instead.
+        # ev_charging=True (safe fallback) lifts the idle clamp, but the stability
+        # window was armed when the meter first saw ev_charging=True at idle level.
+        # Only 0 s have elapsed in the stability window (started on this event),
+        # so the current must remain at min_ev_current rather than jumping to full
+        # headroom immediately.
         # Use 317 W (not 318) so this is a distinct state change from Step 1.
         set_time(1020.0)
         hass.states.async_set(POWER_METER, "317")
         await hass.async_block_till_done()
 
-        assert float(hass.states.get(current_set_id).state) > DEFAULT_MIN_EV_CURRENT, (
-            "Sensor glitches to 'unknown'/'unavailable' must not reset the ramp-up "
-            "cooldown; with ev_charging=True (safe fallback) and no active cooldown "
-            "the commanded current must rise above min_ev_current."
+        assert float(hass.states.get(current_set_id).state) == DEFAULT_MIN_EV_CURRENT, (
+            "Sensor glitch to 'unknown'/'unavailable' while at idle must arm the "
+            "stability window — current must not jump from min_ev_current to the "
+            "full available headroom on the first meter event."
+        )
+
+    async def test_sensor_glitch_during_active_ramp_up_does_not_reset_stability_timer(
+        self, hass: HomeAssistant
+    ) -> None:
+        """A sensor glitch during an active ramp-up hold does not reset the stability timer.
+
+        When the charger is actively running above min_ev_current with ramp-up
+        holding back a further increase, a transient sensor glitch to unknown or
+        unavailable must not restart the stability countdown.  If it did, every
+        glitch would extend the hold indefinitely, delaying the next current step.
+        """
+        entry = self._make_entry()
+        hass.states.async_set(POWER_METER, "0")
+        hass.states.async_set(self.STATUS_ENTITY, "Charging")
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator = entry.runtime_data
+        coordinator.ramp_up_time_s = 30.0
+        set_time = self._wire_mock_time(coordinator)
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+
+        # Step 1: EV charging at low load → starts above min_ev_current (max_charger=32, headroom=26A)
+        # 1380 W → service = 6 A → ev_estimate=0 → available=26 A → 26 A capped at max
+        # _ramp_up_armed = False → first computation jumps directly to target.
+        hass.states.async_set(POWER_METER, "1380")
+        await hass.async_block_till_done()
+        first_current = float(hass.states.get(current_set_id).state)
+        assert first_current > DEFAULT_MIN_EV_CURRENT
+
+        # Step 2: Induce a reduction to arm the ramp-up mechanism (16A → 10A target)
+        # meter = (32-10+first)*230 to produce available=10A
+        set_time(1001.0)
+        meter_w_val = (32 - 10 + first_current) * 230
+        hass.states.async_set(POWER_METER, str(meter_w_val))
+        await hass.async_block_till_done()
+        assert coordinator._ramp_up_armed is True
+        current_after_reduction = float(hass.states.get(current_set_id).state)
+        assert current_after_reduction <= 10.0
+
+        # Step 3: Load clears → target jumps above current (ramp-up hold starts at t=1010)
+        set_time(1010.0)
+        hass.states.async_set(POWER_METER, "1381")
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == current_after_reduction  # held
+
+        # Step 4: Sensor glitches to unknown at t=1020 (10 s into the 30 s window).
+        # This must NOT reset headroom_stable_since — the 10 s already accumulated
+        # must remain counted.
+        set_time(1020.0)
+        hass.states.async_set(self.STATUS_ENTITY, "unknown")
+        await hass.async_block_till_done()
+
+        # Step 5: Stability window expires at t=1040 (30 s from t=1010).
+        # If the glitch had reset the timer to t≈1020, only ~20 s would have elapsed
+        # and the ramp-up would still be holding.  The timer must NOT have been reset.
+        set_time(1040.0)
+        hass.states.async_set(POWER_METER, "1382")
+        await hass.async_block_till_done()
+
+        assert float(hass.states.get(current_set_id).state) > current_after_reduction, (
+            "Sensor glitch to 'unknown' during active ramp-up must not reset the "
+            "stability timer; the 30 s window that started at T=1010 should have "
+            "already elapsed by T=1040, allowing the current to step up."
         )

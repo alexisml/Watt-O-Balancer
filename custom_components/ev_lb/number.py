@@ -9,7 +9,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CONF_MAX_SERVICE_CURRENT,
     DEFAULT_MAX_CHARGER_CURRENT,
+    DEFAULT_MAX_SERVICE_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
     DEFAULT_OVERLOAD_LOOP_INTERVAL,
     DEFAULT_OVERLOAD_TRIGGER_DELAY,
@@ -20,6 +22,7 @@ from .const import (
     MAX_OVERLOAD_TRIGGER_DELAY,
     MAX_RAMP_UP_STEP,
     MAX_RAMP_UP_TIME,
+    MAX_SERVICE_CURRENT,
     MIN_CHARGER_CURRENT,
     MIN_EV_CURRENT_MAX,
     MIN_EV_CURRENT_MIN,
@@ -27,6 +30,7 @@ from .const import (
     MIN_OVERLOAD_TRIGGER_DELAY,
     MIN_RAMP_UP_STEP,
     MIN_RAMP_UP_TIME,
+    MIN_SERVICE_CURRENT,
     get_device_info,
 )
 from .coordinator import EvLoadBalancerCoordinator
@@ -41,6 +45,7 @@ async def async_setup_entry(
     coordinator: EvLoadBalancerCoordinator = entry.runtime_data
     async_add_entities(
         [
+            EvLbMaxServiceCurrentNumber(entry, coordinator),
             EvLbMaxChargerCurrentNumber(entry, coordinator),
             EvLbMinEvCurrentNumber(entry, coordinator),
             EvLbRampUpTimeNumber(entry, coordinator),
@@ -49,6 +54,49 @@ async def async_setup_entry(
             EvLbOverloadLoopIntervalNumber(entry, coordinator),
         ]
     )
+
+
+class EvLbMaxServiceCurrentNumber(RestoreNumber):
+    """Number entity for the maximum service current (breaker rating) in Amps.
+
+    Allows the service current limit to be adjusted on the fly without
+    reloading the integration.  Charging current will never exceed this value.
+    You can set this lower than your actual breaker rating to reserve a safety
+    margin, or raise it temporarily to accommodate a higher load.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "max_service_current"
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
+    _attr_native_min_value = MIN_SERVICE_CURRENT
+    _attr_native_max_value = MAX_SERVICE_CURRENT
+    _attr_native_step = 1.0
+    _attr_mode = NumberMode.BOX
+
+    def __init__(
+        self, entry: ConfigEntry, coordinator: EvLoadBalancerCoordinator
+    ) -> None:
+        """Initialise the number entity from the config entry value."""
+        self._attr_unique_id = f"{entry.entry_id}_max_service_current"
+        cfg = {**entry.data, **entry.options}
+        self._attr_native_value = cfg.get(CONF_MAX_SERVICE_CURRENT, DEFAULT_MAX_SERVICE_CURRENT)
+        self._attr_device_info = get_device_info(entry)
+        self._coordinator = coordinator
+
+    async def async_added_to_hass(self) -> None:
+        """Restore last known value on startup and sync with coordinator."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_number_data()
+        if last and last.native_value is not None:
+            self._attr_native_value = last.native_value
+        self._coordinator.max_service_current = float(self._attr_native_value)
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update the current value, notify the coordinator, and trigger recomputation."""
+        self._attr_native_value = value
+        self._coordinator.max_service_current = value
+        self.async_write_ha_state()
+        self._coordinator.async_recompute_from_current_state()
 
 
 class EvLbMaxChargerCurrentNumber(RestoreNumber):

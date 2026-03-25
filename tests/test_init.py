@@ -95,6 +95,6 @@ async def test_coordinator_uses_options_over_data_for_electrical_params(
     coordinator = entry.runtime_data
 
     assert coordinator._voltage == 120.0
-    assert coordinator._max_service_current == 50.0
+    assert coordinator.max_service_current == 50.0
     assert coordinator._unavailable_behavior == UNAVAILABLE_BEHAVIOR_IGNORE
     assert coordinator._unavailable_fallback_a == 8.0

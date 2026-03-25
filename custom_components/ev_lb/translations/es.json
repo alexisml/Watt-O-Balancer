@@ -114,6 +114,9 @@
       }
     },
     "number": {
+      "max_service_current": {
+        "name": "Corriente máxima del servicio"
+      },
       "max_charger_current": {
         "name": "Corriente máxima del cargador"
       },

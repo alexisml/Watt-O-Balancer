@@ -27,9 +27,11 @@ from custom_components.ev_lb.const import (
     DEFAULT_MAX_CHARGER_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
     MAX_CHARGER_CURRENT,
+    MAX_SERVICE_CURRENT,
     MIN_CHARGER_CURRENT,
     MIN_EV_CURRENT_MAX,
     MIN_EV_CURRENT_MIN,
+    MIN_SERVICE_CURRENT,
 )
 from conftest import POWER_METER, setup_integration, get_entity_id
 
@@ -37,6 +39,7 @@ from conftest import POWER_METER, setup_integration, get_entity_id
 # ("EV Charger Load Balancer") and the entity translation key.
 _SWITCH_ENABLED = "switch.ev_charger_load_balancer_load_balancing_enabled"
 _SENSOR_CURRENT_SET = "sensor.ev_charger_load_balancer_charging_current_set"
+_NUMBER_MAX_SERVICE = "number.ev_charger_load_balancer_max_service_current"
 _NUMBER_MAX_CHARGER = "number.ev_charger_load_balancer_max_charger_current"
 _NUMBER_MIN_EV = "number.ev_charger_load_balancer_min_ev_current"
 _BINARY_ACTIVE = "binary_sensor.ev_charger_load_balancer_load_balancing_active"
@@ -209,6 +212,47 @@ class TestNumberDefaultsAndSync:
         coordinator = mock_config_entry.runtime_data
         assert coordinator.min_ev_current == 8.0
 
+    async def test_max_service_current_initialises_from_config_entry(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Max service current is seeded from the config entry on a fresh install and applied to balancing."""
+        await setup_integration(hass, mock_config_entry)
+
+        coordinator = mock_config_entry.runtime_data
+        # conftest._BASE_CONFIG uses CONF_MAX_SERVICE_CURRENT: 32.0
+        assert coordinator.max_service_current == 32.0
+
+    async def test_max_service_current_restores_from_cache(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """User's adjusted max service current is restored after restart and immediately limits balancing."""
+        mock_restore_cache_with_extra_data(
+            hass,
+            [
+                (
+                    State(_NUMBER_MAX_SERVICE, "28.0"),
+                    {
+                        "native_max_value": MAX_SERVICE_CURRENT,
+                        "native_min_value": MIN_SERVICE_CURRENT,
+                        "native_step": 1.0,
+                        "native_unit_of_measurement": "A",
+                        "native_value": 28.0,
+                    },
+                ),
+            ],
+        )
+        await setup_integration(hass, mock_config_entry)
+
+        max_svc_id = get_entity_id(
+            hass, mock_config_entry, "number", "max_service_current"
+        )
+        state = hass.states.get(max_svc_id)
+        assert state is not None
+        assert float(state.state) == 28.0
+
+        coordinator = mock_config_entry.runtime_data
+        assert coordinator.max_service_current == 28.0
+
 
 # ---------------------------------------------------------------------------
 # Switch defaults, coordinator sync, and restoration
@@ -350,7 +394,7 @@ class TestReloadIntegration:
         entries = er.async_entries_for_config_entry(
             ent_reg, mock_config_entry.entry_id
         )
-        assert len(entries) == 23
+        assert len(entries) == 24
 
         # Verify at least one entity has a live state after reload
         switch_id = get_entity_id(hass, mock_config_entry, "switch", "enabled")

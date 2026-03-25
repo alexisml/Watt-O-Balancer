@@ -98,7 +98,7 @@ class EvLoadBalancerCoordinator:
         # made via the Configure dialog take effect after the entry reloads.
         _cfg = {**entry.data, **entry.options}
         self._voltage: float = _cfg[CONF_VOLTAGE]
-        self._max_service_current: float = _cfg[CONF_MAX_SERVICE_CURRENT]
+        self.max_service_current: float = _cfg[CONF_MAX_SERVICE_CURRENT]
         self._power_meter_entity: str = entry.data[CONF_POWER_METER_ENTITY]
         self._unavailable_behavior: str = _cfg.get(
             CONF_UNAVAILABLE_BEHAVIOR,
@@ -219,7 +219,7 @@ class EvLoadBalancerCoordinator:
             "(voltage=%.0f V, service_limit=%.0f A, unavailable=%s)",
             self._power_meter_entity,
             self._voltage,
-            self._max_service_current,
+            self.max_service_current,
             self._unavailable_behavior,
         )
 
@@ -709,7 +709,7 @@ class EvLoadBalancerCoordinator:
         available_a, clamped = compute_target_current(
             service_current_a,
             ev_current_estimate,
-            self._max_service_current,
+            self.max_service_current,
             self.max_charger_current,
             self.min_ev_current,
         )
@@ -743,6 +743,22 @@ class EvLoadBalancerCoordinator:
             and target_a >= self.min_ev_current
         ):
             effective_step = max(effective_step, self.min_ev_current - self.current_set_a)
+
+        # Arm ramp-up when the commanded current is at the idle clamp level
+        # (> 0 but ≤ min_ev_current) and the computed target now exceeds that level.
+        # This catches the case where a charger status sensor transitions through
+        # "unknown"/"unavailable" before explicitly reaching the Charging state:
+        # the ev_charging flag flips True (safe fallback) before the explicit
+        # "Charging" transition fires _handle_charger_status_change, so the ramp-up
+        # arm in that handler is never triggered and without this guard the current
+        # would jump immediately from the idle level to the full available headroom.
+        if (
+            not self._ramp_up_armed
+            and 0 < self.current_set_a <= self.min_ev_current
+            and target_a > self.min_ev_current
+        ):
+            self._ramp_up_armed = True
+            self._headroom_stable_since = None
 
         if self._ramp_up_armed:
             final_a, self._headroom_stable_since = apply_ramp_up_limit(
@@ -819,7 +835,7 @@ class EvLoadBalancerCoordinator:
         the service or charger limits, even if upstream logic has a bug.
         """
         # Safety clamp: output must never exceed charger max or service limit
-        clamped_a = clamp_to_safe_output(current_a, self.max_charger_current, self._max_service_current)
+        clamped_a = clamp_to_safe_output(current_a, self.max_charger_current, self.max_service_current)
         if clamped_a != current_a:
             _LOGGER.warning(
                 "Safety clamp: computed %.1f A exceeds safe maximum %.1f A "
@@ -827,7 +843,7 @@ class EvLoadBalancerCoordinator:
                 current_a,
                 clamped_a,
                 self.max_charger_current,
-                self._max_service_current,
+                self.max_service_current,
             )
             current_a = clamped_a
 

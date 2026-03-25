@@ -26,7 +26,7 @@ from custom_components.ev_lb.const import (
     STATE_STOPPED,
     UNAVAILABLE_BEHAVIOR_STOP,
 )
-from conftest import setup_integration, POWER_METER
+from conftest import setup_integration, POWER_METER, _BASE_CONFIG
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ class TestDeviceRegistration:
         entries = er.async_entries_for_config_entry(
             ent_reg, mock_config_entry.entry_id
         )
-        assert len(entries) == 23  # 12 sensors + 4 binary_sensors + 6 numbers + 1 switch
+        assert len(entries) == 24  # 12 sensors + 4 binary_sensors + 7 numbers + 1 switch
 
         dev_reg = dr.async_get(hass)
         device = dev_reg.async_get_device(
@@ -107,6 +107,7 @@ class TestUniqueIds:
             "fallback_active",
             "ev_charging",
             "max_charger_current",
+            "max_service_current",
             "min_ev_current",
             "ramp_up_time",
             "overload_trigger_delay",
@@ -316,6 +317,44 @@ class TestBinarySensorEntity:
 
 class TestNumberEntities:
     """Verify number entity initial values and set-value behavior."""
+
+    async def test_max_service_current_initial_value(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Max service current number is seeded from the config entry on first setup."""
+        await setup_integration(hass, mock_config_entry)
+
+        ent_reg = er.async_get(hass)
+        entity_id = ent_reg.async_get_entity_id(
+            "number", DOMAIN, f"{mock_config_entry.entry_id}_max_service_current"
+        )
+        assert entity_id is not None
+        state = hass.states.get(entity_id)
+        assert state is not None
+        # conftest._BASE_CONFIG uses CONF_MAX_SERVICE_CURRENT: 32.0
+        assert float(state.state) == _BASE_CONFIG["max_service_current"]
+
+    async def test_max_service_current_set_value_updates_coordinator(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """Changing max service current immediately updates the coordinator and rebalances."""
+        await setup_integration(hass, mock_config_entry)
+
+        coordinator = mock_config_entry.runtime_data
+        ent_reg = er.async_get(hass)
+        entity_id = ent_reg.async_get_entity_id(
+            "number", DOMAIN, f"{mock_config_entry.entry_id}_max_service_current"
+        )
+
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": entity_id, "value": 20.0},
+            blocking=True,
+        )
+        state = hass.states.get(entity_id)
+        assert float(state.state) == 20.0
+        assert coordinator.max_service_current == 20.0
 
     async def test_max_charger_current_initial_value(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
@@ -575,7 +614,7 @@ class TestUnload:
         entries_before = er.async_entries_for_config_entry(
             ent_reg, mock_config_entry.entry_id
         )
-        assert len(entries_before) == 23
+        assert len(entries_before) == 24
 
         await hass.config_entries.async_unload(mock_config_entry.entry_id)
         await hass.async_block_till_done()

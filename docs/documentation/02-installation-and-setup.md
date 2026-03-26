@@ -105,7 +105,7 @@ Almost all settings can be changed at any time via the **Configure** dialog — 
 | Setting | Changeable via Configure? |
 |---|---|
 | Supply voltage | ✅ Yes |
-| Max service current | ✅ Yes (requires reload) — or adjust at any time without a reload via `number.*_max_service_current` on the device page (takes effect immediately) |
+| Max service current | ✅ Yes — also adjustable at runtime **without a reload** via `number.*_max_service_current` on the device page (see note below) |
 | When power meter is unavailable | ✅ Yes |
 | Fallback current | ✅ Yes |
 | Set current action script | ✅ Yes |

@@ -434,14 +434,19 @@ def compute_fallback_reapply(
     max_charger_a: float,
     current_set_a: float,
     min_charger_a: float,
+    max_service_a: float,
 ) -> float:
     """Compute the current to set when charger parameters change while the meter is unavailable.
 
     Unlike :func:`resolve_fallback_current`, this function always returns a
     concrete Amps value — the ``"ignore"`` mode here re-clamps the held current
     to the updated charger limits rather than leaving it completely unchanged,
-    because a parameter change (e.g. lowering the charger maximum) must still
-    be applied even while the meter is offline.
+    because a parameter change (e.g. lowering the charger maximum or the service
+    limit) must still be applied even while the meter is offline.
+
+    The effective upper bound is ``min(max_charger_a, max_service_a)``: the
+    charger must not exceed its own hardware limit *or* the service breaker
+    rating, whichever is lower.
 
     Args:
         behavior:      The configured unavailable-behavior mode string.
@@ -449,13 +454,15 @@ def compute_fallback_reapply(
         max_charger_a: Updated per-charger hardware maximum in Amps.
         current_set_a: The current the integration last commanded (Amps).
         min_charger_a: Per-charger minimum below which charging must stop.
+        max_service_a: Updated service breaker maximum in Amps.
 
     Returns:
         The adjusted current in Amps (0.0 means stop charging).
     """
+    effective_max = min(max_charger_a, max_service_a)
     if behavior == "set_current":
-        return min(fallback_a, max_charger_a)
+        return min(fallback_a, effective_max)
     if behavior == "ignore":
-        clamped = clamp_current(current_set_a, max_charger_a, min_charger_a)
+        clamped = clamp_current(current_set_a, effective_max, min_charger_a)
         return 0.0 if clamped is None else clamped
     return 0.0  # stop (or any unrecognised value)

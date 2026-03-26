@@ -974,16 +974,16 @@ class TestChargingStartRampUp:
 
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
 
-        # Step 1: EV charging at low load → starts above min_ev_current (max_charger=32, headroom=26A)
-        # 1380 W → service = 6 A → ev_estimate=0 → available=26 A → 26 A capped at max
-        # _ramp_up_armed = False → first computation jumps directly to target.
+        # Step 1: EV charging at low load → starts above min_ev_current.
+        # 1380 W @ 230 V → service ≈ 6 A → ev_estimate = 0 → available ≈ 26 A → first_current ≈ 26 A.
+        # _ramp_up_armed = False → first computation jumps directly to the available-current target.
         hass.states.async_set(POWER_METER, "1380")
         await hass.async_block_till_done()
         first_current = float(hass.states.get(current_set_id).state)
         assert first_current > DEFAULT_MIN_EV_CURRENT
 
-        # Step 2: Induce a reduction to arm the ramp-up mechanism (16A → 10A target)
-        # meter = (32-10+first)*230 to produce available=10A
+        # Step 2: Induce a reduction to arm the ramp-up mechanism (first_current → 10 A target).
+        # meter = (32 - 10 + first_current) * 230 to produce available = 10 A at the next recompute.
         set_time(1001.0)
         meter_w_val = (32 - 10 + first_current) * 230
         hass.states.async_set(POWER_METER, str(meter_w_val))

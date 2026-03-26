@@ -166,7 +166,7 @@ class TestComputeFallbackReapply:
         """In stop mode, the charger stays at 0 A regardless of parameter changes."""
         result = compute_fallback_reapply(
             "stop", fallback_a=10.0, max_charger_a=32.0,
-            current_set_a=16.0, min_charger_a=6.0,
+            current_set_a=16.0, min_charger_a=6.0, max_service_a=32.0,
         )
         assert result == 0.0
 
@@ -174,7 +174,7 @@ class TestComputeFallbackReapply:
         """In set-current mode, the new charger max is applied to the configured fallback immediately."""
         result = compute_fallback_reapply(
             "set_current", fallback_a=20.0, max_charger_a=16.0,
-            current_set_a=20.0, min_charger_a=6.0,
+            current_set_a=20.0, min_charger_a=6.0, max_service_a=32.0,
         )
         assert result == 16.0
 
@@ -182,7 +182,7 @@ class TestComputeFallbackReapply:
         """In ignore mode, the held current is re-clamped when the charger maximum is lowered."""
         result = compute_fallback_reapply(
             "ignore", fallback_a=0.0, max_charger_a=10.0,
-            current_set_a=16.0, min_charger_a=6.0,
+            current_set_a=16.0, min_charger_a=6.0, max_service_a=32.0,
         )
         assert result == 10.0
 
@@ -190,7 +190,7 @@ class TestComputeFallbackReapply:
         """In ignore mode, raising the minimum stops charging if the held current can no longer meet it."""
         result = compute_fallback_reapply(
             "ignore", fallback_a=0.0, max_charger_a=32.0,
-            current_set_a=4.0, min_charger_a=6.0,
+            current_set_a=4.0, min_charger_a=6.0, max_service_a=32.0,
         )
         assert result == 0.0
 
@@ -198,6 +198,22 @@ class TestComputeFallbackReapply:
         """In ignore mode, the held current is kept as-is when it is still within the updated limits."""
         result = compute_fallback_reapply(
             "ignore", fallback_a=0.0, max_charger_a=32.0,
-            current_set_a=16.0, min_charger_a=6.0,
+            current_set_a=16.0, min_charger_a=6.0, max_service_a=32.0,
         )
         assert result == 16.0
+
+    def test_ignore_mode_clamps_to_new_service_limit(self):
+        """In ignore mode, the held current is clamped when the service limit is lowered below it."""
+        result = compute_fallback_reapply(
+            "ignore", fallback_a=0.0, max_charger_a=32.0,
+            current_set_a=20.0, min_charger_a=6.0, max_service_a=15.0,
+        )
+        assert result == 15.0
+
+    def test_set_current_mode_clamps_to_new_service_limit(self):
+        """In set-current mode, the fallback is clamped to the service limit when it is the tighter bound."""
+        result = compute_fallback_reapply(
+            "set_current", fallback_a=20.0, max_charger_a=32.0,
+            current_set_a=20.0, min_charger_a=6.0, max_service_a=15.0,
+        )
+        assert result == 15.0

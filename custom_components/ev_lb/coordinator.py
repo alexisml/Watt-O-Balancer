@@ -494,22 +494,22 @@ class EvLoadBalancerCoordinator:
     # ------------------------------------------------------------------
 
     def _reapply_fallback_limits(self) -> None:
-        """Reapply the fallback current enforcing updated charger parameter limits.
+        """Reapply the fallback current enforcing updated charger and service parameter limits.
 
-        Called when a runtime parameter (e.g. max charger current or min EV
-        current) changes while the power meter is already unavailable.  Unlike
-        :meth:`_apply_fallback_current`, this method does **not** re-fire fault
-        events or persistent notifications — those were already issued when the
-        meter first became unavailable.
+        Called when a runtime parameter (e.g. max charger current, min EV
+        current, or max service current) changes while the power meter is
+        already unavailable.  Unlike :meth:`_apply_fallback_current`, this
+        method does **not** re-fire fault events or persistent notifications —
+        those were already issued when the meter first became unavailable.
 
         Covers all three fallback modes:
 
         - **stop**: applies 0 A (idempotent; action scripts only fire when
           transitioning from active to stopped).
-        - **set_current**: recomputes ``min(fallback, new_max_charger)`` and
-          updates the charger if the capped value differs.
-        - **ignore**: re-clamps ``current_set_a`` to the new charger limits
-          and updates if the value has changed.
+        - **set_current**: recomputes ``min(fallback, new_max_charger, new_max_service)``
+          and updates the charger if the capped value differs.
+        - **ignore**: re-clamps ``current_set_a`` to the new charger and service
+          limits and updates if the value has changed.
         """
         target = compute_fallback_reapply(
             self._unavailable_behavior,
@@ -517,6 +517,7 @@ class EvLoadBalancerCoordinator:
             self.max_charger_current,
             self.current_set_a,
             self.min_ev_current,
+            self.max_service_current,
         )
 
         if target != self.current_set_a:

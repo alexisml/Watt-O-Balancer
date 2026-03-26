@@ -225,7 +225,7 @@ class TestMeterRecovery:
 
 
 class TestParameterChangeWithUnavailableMeter:
-    """Verify fallback limits are enforced when parameters change while meter is unavailable."""
+    """Verify fallback limits are enforced when charger or service parameters change while meter is unavailable."""
 
     async def test_set_current_mode_caps_fallback_when_max_charger_lowered(
         self, hass: HomeAssistant
@@ -400,6 +400,94 @@ class TestParameterChangeWithUnavailableMeter:
         await hass.async_block_till_done()
 
         assert float(hass.states.get(current_set_id).state) == 0.0
+
+    async def test_ignore_mode_clamps_current_when_service_limit_lowered(
+        self, hass: HomeAssistant
+    ) -> None:
+        """When meter is unavailable in ignore mode, lowering the service limit clamps charging to the new limit."""
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={
+                CONF_POWER_METER_ENTITY: POWER_METER,
+                CONF_VOLTAGE: 230.0,
+                CONF_MAX_SERVICE_CURRENT: 32.0,
+                CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
+            },
+            title="EV Load Balancing",
+        )
+        hass.states.async_set(POWER_METER, "0")
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        max_service_id = get_entity_id(hass, entry, "number", "max_service_current")
+
+        # Start charging at 18 A (3000 W at 230 V, available = 32 - ~13 = ~18 A)
+        hass.states.async_set(POWER_METER, "3000")
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 18.0
+
+        # Meter goes unavailable → ignore mode keeps 18 A
+        hass.states.async_set(POWER_METER, "unavailable")
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 18.0
+
+        # Lowering max service current to 10 A while meter is still unavailable
+        # → current must be reduced to stay within the new service limit
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": max_service_id, "value": 10.0},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        assert float(hass.states.get(current_set_id).state) == 10.0
+
+    async def test_set_current_mode_caps_fallback_when_service_limit_lowered(
+        self, hass: HomeAssistant
+    ) -> None:
+        """When meter is unavailable in set_current mode, lowering the service limit reduces the fallback current."""
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={
+                CONF_POWER_METER_ENTITY: POWER_METER,
+                CONF_VOLTAGE: 230.0,
+                CONF_MAX_SERVICE_CURRENT: 32.0,
+                CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
+                CONF_UNAVAILABLE_FALLBACK_CURRENT: 20.0,
+            },
+            title="EV Load Balancing",
+        )
+        hass.states.async_set(POWER_METER, "0")
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        max_service_id = get_entity_id(hass, entry, "number", "max_service_current")
+
+        # Start charging normally
+        hass.states.async_set(POWER_METER, "3000")
+        await hass.async_block_till_done()
+
+        # Meter goes unavailable → set_current fallback applies (20 A, within service limit)
+        hass.states.async_set(POWER_METER, "unavailable")
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 20.0
+
+        # Lowering max service current to 8 A while meter is still unavailable
+        # → fallback current reduced to match the tighter service limit
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": max_service_id, "value": 8.0},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        assert float(hass.states.get(current_set_id).state) == 8.0
 
 
 # ---------------------------------------------------------------------------

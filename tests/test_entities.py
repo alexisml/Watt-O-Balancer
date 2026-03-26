@@ -18,6 +18,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ev_lb.const import (
     DEFAULT_MAX_CHARGER_CURRENT,
+    DEFAULT_MAX_SERVICE_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
     DEFAULT_OVERLOAD_LOOP_INTERVAL,
     DEFAULT_OVERLOAD_TRIGGER_DELAY,
@@ -321,7 +322,7 @@ class TestNumberEntities:
     async def test_max_service_current_initial_value(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """Max service current number is seeded from the config entry on first setup."""
+        """Max service current number defaults to 32 A when no previous state exists."""
         await setup_integration(hass, mock_config_entry)
 
         ent_reg = er.async_get(hass)
@@ -331,8 +332,7 @@ class TestNumberEntities:
         assert entity_id is not None
         state = hass.states.get(entity_id)
         assert state is not None
-        # conftest._BASE_CONFIG uses CONF_MAX_SERVICE_CURRENT: 32.0
-        assert float(state.state) == _BASE_CONFIG["max_service_current"]
+        assert float(state.state) == DEFAULT_MAX_SERVICE_CURRENT
 
     async def test_max_service_current_set_value_updates_coordinator(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry

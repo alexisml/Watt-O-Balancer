@@ -35,13 +35,13 @@ from .const import (
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
     CONF_CHARGER_STATUS_ENTITY,
-    CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
     CHARGING_STATE_VALUE,
     DEFAULT_MAX_CHARGER_CURRENT,
+    DEFAULT_MAX_SERVICE_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
     DEFAULT_OVERLOAD_LOOP_INTERVAL,
     DEFAULT_OVERLOAD_TRIGGER_DELAY,
@@ -98,7 +98,7 @@ class EvLoadBalancerCoordinator:
         # made via the Configure dialog take effect after the entry reloads.
         _cfg = {**entry.data, **entry.options}
         self._voltage: float = _cfg[CONF_VOLTAGE]
-        self.max_service_current: float = _cfg[CONF_MAX_SERVICE_CURRENT]
+        self.max_service_current: float = DEFAULT_MAX_SERVICE_CURRENT
         self._power_meter_entity: str = entry.data[CONF_POWER_METER_ENTITY]
         self._unavailable_behavior: str = _cfg.get(
             CONF_UNAVAILABLE_BEHAVIOR,

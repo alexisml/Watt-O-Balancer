@@ -16,7 +16,6 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
-    CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
@@ -46,14 +45,12 @@ from conftest import (
 def _make_entry(
     hass: HomeAssistant,
     voltage: float = 230.0,
-    max_service_a: float = 32.0,
     with_actions: bool = False,
 ) -> MockConfigEntry:
-    """Create a config entry with custom voltage/service current."""
+    """Create a config entry with custom voltage."""
     data = {
         CONF_POWER_METER_ENTITY: POWER_METER,
         CONF_VOLTAGE: voltage,
-        CONF_MAX_SERVICE_CURRENT: max_service_a,
     }
     if with_actions:
         data[CONF_ACTION_SET_CURRENT] = SET_CURRENT_SCRIPT
@@ -174,10 +171,11 @@ class TestChargingCurrentExactBoundaries:
         self, hass: HomeAssistant,
     ) -> None:
         """Available current above charger max is capped — extra headroom is unused."""
-        entry = _make_entry(hass, max_service_a=40.0)
+        entry = _make_entry(hass)
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
+        coordinator.max_service_current = 40.0
 
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
 
@@ -209,10 +207,11 @@ class TestOutputNeverExceedsServiceLimit:
         self, hass: HomeAssistant,
     ) -> None:
         """When charger max (80 A) > service limit (20 A), output never exceeds 20 A."""
-        entry = _make_entry(hass, max_service_a=20.0)
+        entry = _make_entry(hass)
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
+        coordinator.max_service_current = 20.0
 
         # Raise charger max to 80 A
         max_id = get_entity_id(hass, entry, "number", "max_charger_current")
@@ -238,10 +237,11 @@ class TestOutputNeverExceedsServiceLimit:
         self, hass: HomeAssistant,
     ) -> None:
         """set_limit to 50 A when service limit is 20 A is clamped to 20 A by safety clamp."""
-        entry = _make_entry(hass, max_service_a=20.0)
+        entry = _make_entry(hass)
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
+        coordinator.max_service_current = 20.0
 
         # Raise charger max to 80 A so clamp_current doesn't catch it first
         max_id = get_entity_id(hass, entry, "number", "max_charger_current")
@@ -272,11 +272,12 @@ class TestOutputNeverExceedsServiceLimit:
         self, hass: HomeAssistant,
     ) -> None:
         """The current_a variable sent to action scripts is safety-clamped to service limit."""
-        entry = _make_entry(hass, max_service_a=20.0, with_actions=True)
+        entry = _make_entry(hass, with_actions=True)
         calls = async_mock_service(hass, "script", "turn_on")
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
+        coordinator.max_service_current = 20.0
 
         # Raise charger max to 80 A
         max_id = get_entity_id(hass, entry, "number", "max_charger_current")
@@ -326,7 +327,6 @@ class TestOutputNeverExceedsServiceLimit:
             data={
                 CONF_POWER_METER_ENTITY: POWER_METER,
                 CONF_VOLTAGE: 230.0,
-                CONF_MAX_SERVICE_CURRENT: 16.0,
                 CONF_UNAVAILABLE_BEHAVIOR: "set_current",
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 32.0,
             },
@@ -335,6 +335,7 @@ class TestOutputNeverExceedsServiceLimit:
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
+        coordinator.max_service_current = 16.0
 
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
 
@@ -354,10 +355,11 @@ class TestOutputNeverExceedsServiceLimit:
         self, hass: HomeAssistant,
     ) -> None:
         """When service limit (40 A) > charger max (10 A), output is capped at charger max."""
-        entry = _make_entry(hass, max_service_a=40.0)
+        entry = _make_entry(hass)
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
+        coordinator.max_service_current = 40.0
 
         # Lower charger max to 10 A
         max_id = get_entity_id(hass, entry, "number", "max_charger_current")

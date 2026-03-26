@@ -76,7 +76,13 @@ class EvLbMaxServiceCurrentNumber(RestoreNumber):
     def __init__(
         self, entry: ConfigEntry, coordinator: EvLoadBalancerCoordinator
     ) -> None:
-        """Initialise the number entity from the config entry value."""
+        """Initialise the number entity.
+
+        Seeds from the config entry for one-time backward-compat migration
+        (pre-1.x installs that stored max_service_current in the config entry).
+        On subsequent restarts async_added_to_hass restores from the HA state
+        cache, so the config entry value is never consulted again after that.
+        """
         self._attr_unique_id = f"{entry.entry_id}_max_service_current"
         cfg = {**entry.data, **entry.options}
         self._attr_native_value = cfg.get(CONF_MAX_SERVICE_CURRENT, DEFAULT_MAX_SERVICE_CURRENT)

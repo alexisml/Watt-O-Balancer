@@ -212,14 +212,13 @@ class TestNumberDefaultsAndSync:
         coordinator = mock_config_entry.runtime_data
         assert coordinator.min_ev_current == 8.0
 
-    async def test_max_service_current_initialises_from_config_entry(
+    async def test_max_service_current_defaults_to_32a_on_first_run(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """Max service current is seeded from the config entry on a fresh install and applied to balancing."""
+        """Max service current defaults to 32 A on a fresh install (no state cache, no config entry key)."""
         await setup_integration(hass, mock_config_entry)
 
         coordinator = mock_config_entry.runtime_data
-        # conftest._BASE_CONFIG uses CONF_MAX_SERVICE_CURRENT: 32.0
         assert coordinator.max_service_current == 32.0
 
     async def test_max_service_current_restores_from_cache(

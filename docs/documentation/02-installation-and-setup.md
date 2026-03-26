@@ -105,7 +105,7 @@ Almost all settings can be changed at any time via the **Configure** dialog — 
 | Setting | Changeable via Configure? |
 |---|---|
 | Supply voltage | ✅ Yes |
-| Max service current | ✅ Yes — also adjustable at runtime **without a reload** via `number.*_max_service_current` on the device page (see note below) |
+| Max service current | ❌ **No** — adjust via `number.*_max_service_current` on the device page (see note below) |
 | When power meter is unavailable | ✅ Yes |
 | Fallback current | ✅ Yes |
 | Set current action script | ✅ Yes |
@@ -114,7 +114,7 @@ Almost all settings can be changed at any time via the **Configure** dialog — 
 | Charger status sensor | ✅ Yes |
 | **Power meter sensor** | ❌ **No** — see below |
 
-> **Adjusting the service limit without a reload:** The `number.*_max_service_current` entity on the device page lets you raise or lower the service limit at any time and the new value is applied immediately using the most recent power-meter reading, then recalculated again on the next meter update — no integration reload needed. If the power meter is currently unavailable, the new limit is still saved and will take effect as soon as meter data resumes, with interim behavior following your **When power meter is unavailable** setting. Changes made this way persist across HA restarts (the value is saved in the HA state cache). The value in the Configure dialog is still used as the starting point on a fresh install or after resetting to defaults.
+> **Adjusting the service limit:** Use the `number.*_max_service_current` entity on the device page to raise or lower the service current limit at any time. The new value is applied immediately using the most recent power-meter reading — no integration reload needed. If the power meter is currently unavailable, the new limit is still saved and will take effect as soon as meter data resumes, with interim behavior following your **When power meter is unavailable** setting. Changes persist across HA restarts (the value is saved in the HA state cache).
 
 #### Changing the power meter sensor
 

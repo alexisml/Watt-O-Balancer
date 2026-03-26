@@ -7,7 +7,6 @@
         "data": {
           "power_meter_entity": "Sensor de consumo eléctrico",
           "voltage": "Voltaje de suministro",
-          "max_service_current": "Corriente máxima del servicio (capacidad del interruptor)",
           "unavailable_behavior": "Cuando el medidor no está disponible",
           "unavailable_fallback_current": "Corriente de respaldo (para modo 'Establecer una corriente específica')",
           "action_set_current": "Acción para establecer corriente (script)",
@@ -18,7 +17,6 @@
         "data_description": {
           "power_meter_entity": "Entidad de sensor que reporta la potencia total del servicio en Watts.",
           "voltage": "Voltaje nominal de suministro en Volts (usado para convertir W ↔ A).",
-          "max_service_current": "Capacidad del interruptor principal en Amperes. La carga nunca excederá este límite. Puedes configurar un valor menor que la capacidad real del interruptor para reservar un margen de seguridad — por ejemplo, ingresa 28 A en un servicio de 32 A para dejar 4 A libres para otros consumos.",
           "action_stop_charging": "Entidad de script para detener la carga cuando no hay suficiente capacidad disponible. Recibe una variable 'charger_id'.",
           "action_start_charging": "Entidad de script para iniciar/reanudar la carga después de haber sido detenida. Recibe una variable 'charger_id'.",
           "charger_status_entity": "Sensor cuyo estado es 'Charging' cuando el VE está cargando activamente (p. ej. de la integración OCPP). Cuando se configura, el balanceador lo usa para evitar restar demasiado margen cuando el cargador está inactivo o terminado."
@@ -39,7 +37,6 @@
         "description": "Actualiza la configuración de la integración. El sensor de consumo eléctrico no puede cambiarse una vez configurada la integración.",
         "data": {
           "voltage": "Voltaje de suministro",
-          "max_service_current": "Corriente máxima del servicio (capacidad del interruptor)",
           "unavailable_behavior": "Cuando el medidor no está disponible",
           "unavailable_fallback_current": "Corriente de respaldo (para modo 'Establecer una corriente específica')",
           "action_set_current": "Acción para establecer corriente (script)",
@@ -49,7 +46,6 @@
         },
         "data_description": {
           "voltage": "Voltaje nominal de suministro en Volts (usado para convertir W ↔ A).",
-          "max_service_current": "Capacidad del interruptor principal en Amperes. La carga nunca excederá este límite. Puedes configurar un valor menor que la capacidad real del interruptor para reservar un margen de seguridad — por ejemplo, ingresa 28 A en un servicio de 32 A para dejar 4 A libres para otros consumos.",
           "unavailable_behavior": "Qué hacer cuando el medidor de consumo no está disponible: detener la carga (más seguro), ignorar y mantener el último valor, o establecer una corriente específica (limitada a la corriente máxima del cargador).",
           "unavailable_fallback_current": "Corriente de carga (A) a usar cuando el medidor no está disponible y el modo es 'Establecer una corriente específica'. Este valor se limitará a la corriente máxima del cargador.",
           "action_set_current": "Entidad de script para establecer la corriente de carga. Recibe variables 'current_a' (flotante, amperios), 'current_w' (flotante, vatios) y 'charger_id' (texto).",

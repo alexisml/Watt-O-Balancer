@@ -14,10 +14,10 @@ from homeassistant.config_entries import ConfigEntryState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ev_lb.const import (
-    CONF_MAX_SERVICE_CURRENT,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
+    DEFAULT_MAX_SERVICE_CURRENT,
     DOMAIN,
     SERVICE_SET_LIMIT,
     UNAVAILABLE_BEHAVIOR_IGNORE,
@@ -70,21 +70,19 @@ async def test_coordinator_uses_options_over_data_for_electrical_params(
 ) -> None:
     """Test that electrical parameters set via the options flow take effect in the coordinator.
 
-    When a user changes voltage, max service current, or unavailable behavior
-    in the Configure dialog, those values are stored in entry.options.  The
-    coordinator must read options before falling back to data so the changes
-    are actually honoured after the integration reloads.
+    When a user changes voltage or unavailable behavior in the Configure dialog,
+    those values are stored in entry.options.  The coordinator must read options
+    before falling back to data so the changes are actually honoured after the
+    integration reloads.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
             "power_meter_entity": "sensor.house_power_w",
             CONF_VOLTAGE: 230.0,
-            CONF_MAX_SERVICE_CURRENT: 32.0,
         },
         options={
             CONF_VOLTAGE: 120.0,
-            CONF_MAX_SERVICE_CURRENT: 50.0,
             CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             CONF_UNAVAILABLE_FALLBACK_CURRENT: 8.0,
         },
@@ -95,6 +93,6 @@ async def test_coordinator_uses_options_over_data_for_electrical_params(
     coordinator = entry.runtime_data
 
     assert coordinator._voltage == 120.0
-    assert coordinator.max_service_current == 50.0
+    assert coordinator.max_service_current == DEFAULT_MAX_SERVICE_CURRENT
     assert coordinator._unavailable_behavior == UNAVAILABLE_BEHAVIOR_IGNORE
     assert coordinator._unavailable_fallback_a == 8.0

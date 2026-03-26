@@ -24,20 +24,16 @@ from .const import (
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
     CONF_CHARGER_STATUS_ENTITY,
-    CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
-    DEFAULT_MAX_SERVICE_CURRENT,
     DEFAULT_UNAVAILABLE_BEHAVIOR,
     DEFAULT_UNAVAILABLE_FALLBACK_CURRENT,
     DEFAULT_VOLTAGE,
     DOMAIN,
     MAX_CHARGER_CURRENT,
-    MAX_SERVICE_CURRENT,
     MAX_VOLTAGE,
-    MIN_SERVICE_CURRENT,
     MIN_VOLTAGE,
     UNAVAILABLE_BEHAVIOR_IGNORE,
     UNAVAILABLE_BEHAVIOR_SET_CURRENT,
@@ -58,16 +54,6 @@ _VOLTAGE_SELECTOR = NumberSelector(
         max=MAX_VOLTAGE,
         step=1.0,
         unit_of_measurement="V",
-        mode=NumberSelectorMode.BOX,
-    ),
-)
-
-_SERVICE_CURRENT_SELECTOR = NumberSelector(
-    NumberSelectorConfig(
-        min=MIN_SERVICE_CURRENT,
-        max=MAX_SERVICE_CURRENT,
-        step=1.0,
-        unit_of_measurement="A",
         mode=NumberSelectorMode.BOX,
     ),
 )
@@ -132,10 +118,9 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
 
                 # Validation passed — create the config entry
                 _LOGGER.debug(
-                    "Config flow: creating entry (meter=%s, voltage=%.0f V, service=%.0f A)",
+                    "Config flow: creating entry (meter=%s, voltage=%.0f V)",
                     entity_id,
                     user_input.get(CONF_VOLTAGE, DEFAULT_VOLTAGE),
-                    user_input.get(CONF_MAX_SERVICE_CURRENT, DEFAULT_MAX_SERVICE_CURRENT),
                 )
                 return self.async_create_entry(
                     title=f"EV Load Balancing ({entity_id})",
@@ -151,10 +136,6 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
                     CONF_VOLTAGE,
                     default=DEFAULT_VOLTAGE,
                 ): _VOLTAGE_SELECTOR,
-                vol.Required(
-                    CONF_MAX_SERVICE_CURRENT,
-                    default=DEFAULT_MAX_SERVICE_CURRENT,
-                ): _SERVICE_CURRENT_SELECTOR,
                 vol.Required(
                     CONF_UNAVAILABLE_BEHAVIOR,
                     default=DEFAULT_UNAVAILABLE_BEHAVIOR,
@@ -211,10 +192,6 @@ class EvLbOptionsFlow(OptionsFlow):
                     CONF_VOLTAGE,
                     default=current.get(CONF_VOLTAGE, DEFAULT_VOLTAGE),
                 ): _VOLTAGE_SELECTOR,
-                vol.Required(
-                    CONF_MAX_SERVICE_CURRENT,
-                    default=current.get(CONF_MAX_SERVICE_CURRENT, DEFAULT_MAX_SERVICE_CURRENT),
-                ): _SERVICE_CURRENT_SELECTOR,
                 vol.Required(
                     CONF_UNAVAILABLE_BEHAVIOR,
                     default=current.get(CONF_UNAVAILABLE_BEHAVIOR, DEFAULT_UNAVAILABLE_BEHAVIOR),

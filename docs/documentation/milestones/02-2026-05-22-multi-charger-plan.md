@@ -1,8 +1,7 @@
----
 Title: Multi-Charger Load Balancing — Design Abstraction
 Date: 2026-05-22
 Author: GitHub Copilot
-Status: reference
+Status: approved
 Summary: High-level abstraction of how multi-charger load balancing works in Watt-O-Balancer — the data model, distribution algorithm, safety features, and runtime behaviour — independent of implementation details.
 ---
 
@@ -133,11 +132,11 @@ return allocation
 
 | Property | Behaviour |
 |---|---|
-| **Priority 0 = stop** | A weight of 0 gives a share of 0 A, which is always below `min_current`. |
+| **Priority 0 = stop (mixed weights)** | When at least one other charger has a non-zero weight, a charger with weight 0 receives a share of 0 A — always below `min_current` — and is stopped. |
+| **All weights zero → equal distribution** | When every active charger has weight 0, the algorithm falls back to equal shares. This prevents division by zero and ensures progress even when all priorities are unset. |
 | **Equal weights = equal share** | 50/50 and 1/1 produce identical results. |
 | **Cap redistribution** | Surplus from a capped charger is redistributed to the remaining active chargers proportionally to their weights. |
 | **Priority tie-break** | When the pool is too small for every charger to reach `min_current`, the highest-priority charger gets first claim. Ties are broken by charger index (lower index wins). |
-| **All weights zero → equal distribution** | Safety fallback to prevent division by zero and ensure progress. |
 
 ---
 
@@ -268,5 +267,5 @@ Single-charger entries configured before multi-charger support was added continu
 |---|---|
 | Per-charger sensor entities | `sensor.ev_lb_charger_N_current_set` etc. Currently only the aggregate is reported. |
 | Per-charger `min`/`max` current | Currently global. Per-charger limits would require extending the number entities and distribution algorithm inputs. |
-| More than 3 chargers | `MAX_CHARGERS = 3` is the current UI cap. Changing the constant is the only code change needed. |
+| More than 3 chargers | There is no hard limit on the number of chargers. Each additional charger is added as a new entry in the integration settings. `charger_status_sensor` and `power_meter` entity IDs must be unique across all charger entries. |
 | Charger groups / sub-circuits | Not scoped. Would require grouping chargers by sub-circuit before the distribution step. |

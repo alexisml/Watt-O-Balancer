@@ -258,7 +258,7 @@ flowchart TD
     CZ -- "YES (idle cap)" --> CZA["target_a = min_ev_current<br/>(charger idles at safe minimum)"]
     CZ -- "NO" --> D
     CZA --> D{"target_a < min_ev_current?"}
-    D -- YES --> E(["set_current(0) → stop_charging — instant"])
+    D -- YES --> E(["set_current(0) then stop_charging — instant"])
     D -- NO --> F{"target_a < current_a?<br/>load increased, must reduce"}
     F -- "YES — instant" --> G(["set_current(target_a)"])
     F -- "NO — increase needed" --> RA{"ramp-up<br/>armed?"}

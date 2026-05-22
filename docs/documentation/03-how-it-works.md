@@ -258,7 +258,7 @@ flowchart TD
     CZ -- "YES (idle cap)" --> CZA["target_a = min_ev_current<br/>(charger idles at safe minimum)"]
     CZ -- "NO" --> D
     CZA --> D{"target_a < min_ev_current?"}
-    D -- YES --> E(["stop_charging — instant"])
+    D -- YES --> E(["set_current(0) → stop_charging — instant"])
     D -- NO --> F{"target_a < current_a?<br/>load increased, must reduce"}
     F -- "YES — instant" --> G(["set_current(target_a)"])
     F -- "NO — increase needed" --> RA{"ramp-up<br/>armed?"}
@@ -448,19 +448,19 @@ stateDiagram-v2
     state "DISABLED" as DISABLED
 
     [*] --> STOPPED
-    STOPPED --> ADJUSTING : headroom ≥ min_ev_current AND no prior reduction (first start — direct)
-    STOPPED --> RAMP_UP_HOLD : after prior reduction — first step taken, more steps remain
-    STOPPED --> ADJUSTING : after prior reduction — first step reaches full target
+    STOPPED --> ADJUSTING : headroom >= min_ev_current AND no prior reduction, first start direct
+    STOPPED --> RAMP_UP_HOLD : after prior reduction, first step taken, more steps remain
+    STOPPED --> ADJUSTING : after prior reduction, first step reaches full target
     ADJUSTING --> ACTIVE : same target next cycle
-    ADJUSTING --> STOPPED : overload (target < min_ev_current)
+    ADJUSTING --> STOPPED : overload, target below min_ev_current
     ADJUSTING --> RAMP_UP_HOLD : increase needed but stability window active
     ACTIVE --> ADJUSTING : target changed
     ACTIVE --> STOPPED : overload
     ACTIVE --> RAMP_UP_HOLD : increase needed but stability window active
     RAMP_UP_HOLD --> ADJUSTING : stability window elapsed
     RAMP_UP_HOLD --> STOPPED : overload
-    DISABLED --> STOPPED : re-enabled (no headroom)
-    DISABLED --> ADJUSTING : re-enabled (with headroom)
+    DISABLED --> STOPPED : re-enabled, no headroom
+    DISABLED --> ADJUSTING : re-enabled, with headroom
     STOPPED --> DISABLED : switch turned off
     ACTIVE --> DISABLED : switch turned off
     ADJUSTING --> DISABLED : switch turned off
@@ -480,12 +480,12 @@ stateDiagram-v2
     state "STOPPED (charger off, 0 A)" as STOPPED
 
     [*] --> STOPPED
-    CHARGING --> STOPPED: target_a < min_ev_current — instant
-    CHARGING --> IDLE: EV status → not Charging [sensor only] — instant
-    IDLE --> STOPPED: headroom < min_ev_current — instant
-    IDLE --> CHARGING: EV status → Charging [sensor only], start at min_ev_current (ramp-up gates increases only)
-    STOPPED --> CHARGING: headroom ≥ min_ev_current AND EV charging, start at min_ev_current (ramp-up gates increases only)
-    STOPPED --> IDLE: headroom ≥ min_ev_current AND EV not charging [sensor only]
+    CHARGING --> STOPPED: target_a below min_ev_current, instant
+    CHARGING --> IDLE: EV status not Charging [sensor only], instant
+    IDLE --> STOPPED: headroom below min_ev_current, instant
+    IDLE --> CHARGING: EV status Charging [sensor only], start at min_ev_current
+    STOPPED --> CHARGING: headroom >= min_ev_current AND EV charging, start at min_ev_current
+    STOPPED --> IDLE: headroom >= min_ev_current AND EV not charging [sensor only]
 
     note right of IDLE
         Status sensor configured only.
@@ -494,15 +494,16 @@ stateDiagram-v2
     end note
 
     note right of STOPPED
-        Resume: start_charging() then set_current(target_a)
+        Resume: start_charging then set_current
+        Stop: set_current(0) then stop_charging
     end note
 ```
 
 | Transition | What happens | Speed |
 |---|---|---|
-| **Charging → Stopped** | Target drops below minimum (overload). `stop_charging` script is called. | Instant — no delay. |
+| **Charging → Stopped** | Target drops below minimum (overload). `set_current(0)` is called first, then `stop_charging` script is called. | Instant — no delay. |
 | **Charging → Idle** | Status sensor leaves `Charging`. Target is capped to `min_ev_current`. | Instant — it's a reduction. Status sensor only. |
-| **Idle → Stopped** | Headroom drops below `min_ev_current` while EV is not charging. `stop_charging` is called. | Instant — no delay. |
+| **Idle → Stopped** | Headroom drops below `min_ev_current` while EV is not charging. `set_current(0)` then `stop_charging` is called. | Instant — no delay. |
 | **Idle → Charging** | Status sensor transitions back to `Charging`. Ramp-up stability window was armed on the EV-start event, so the current rises step-by-step from `min_ev_current` to the full available headroom. | Instant at `min_ev_current`, then increases after each stability window. Status sensor only. |
 | **Stopped → Charging** | Headroom rises above minimum, EV is charging, stability window has elapsed. `start_charging` is called first, then `set_current`. | After stability window. |
 | **Stopped → Idle** | Headroom rises above minimum but EV is not charging. Charger starts at `min_ev_current` (idle clamp applies). | After stability window. Status sensor only. |

@@ -172,8 +172,8 @@ stateDiagram-v2
     state "CHARGING (X A)" as C
 
     [*] --> S
-    S --> C: start_charging → set_current(target)
-    C --> S: stop_charging
+    S --> C: start_charging then set_current
+    C --> S: set_current(0) then stop_charging
     C --> C: set_current(new target)
 
     note right of S
@@ -187,7 +187,7 @@ stateDiagram-v2
 | Previous state | New state | Actions fired |
 |---|---|---|
 | **Stopped** (0 A) | **Charging** (> 0 A) | `start_charging` → `set_current(current_a, current_w)` |
-| **Charging** (X A) | **Stopped** (0 A) | `stop_charging` |
+| **Charging** (X A) | **Stopped** (0 A) | `set_current(0, 0)` → `stop_charging` |
 | **Charging** (X A) | **Charging** (Y A, Y ≠ X) | `set_current(current_a, current_w)` |
 | **Stopped** (0 A) | **Stopped** (0 A) | _(no action)_ |
 | **Charging** (X A) | **Charging** (X A) | _(no action)_ |
@@ -195,6 +195,10 @@ stateDiagram-v2
 ### Resume sequence
 
 When charging resumes after being stopped, `start_charging` is called **before** `set_current`. This ensures the charger is ready to accept current before a target is set. Both calls are `blocking: true`, so each script call waits for the **entire script** to finish executing before the next action is fired. This means if your `start_charging` script contains delays or multi-step sequences, `set_current` will not be called until they complete.
+
+### Stop sequence
+
+When charging stops, `set_current(0)` is called **before** `stop_charging`. This ensures the charger current is set to zero before the charger is shut down, providing a clean shutdown sequence. Both calls are `blocking: true`, so `stop_charging` is not called until `set_current(0)` completes.
 
 ---
 

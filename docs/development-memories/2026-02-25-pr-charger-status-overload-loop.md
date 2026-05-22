@@ -93,18 +93,18 @@ When the household load pushes the service current above the breaker limit, the 
 
 ```mermaid
 stateDiagram-v2
-    state "NO OVERLOAD\navailable_a ≥ 0" as OK
+    state "NO OVERLOAD\navailable_a >= 0" as OK
     state "TRIGGER PENDING\ntimer scheduled" as PENDING
     state "LOOP RUNNING\nperiodic corrections" as LOOP
 
     [*] --> OK
-    OK --> PENDING : available_a < 0\n(overload detected)
-    PENDING --> OK : available_a ≥ 0\nbefore trigger fires\n(transient spike cleared)
-    PENDING --> LOOP : trigger delay elapsed\nand still overloaded
-    LOOP --> OK : available_a ≥ 0\nafter correction
+    OK --> PENDING : available_a below 0, overload detected
+    PENDING --> OK : available_a >= 0, before trigger fires, transient spike cleared
+    PENDING --> LOOP : trigger delay elapsed and still overloaded
+    LOOP --> OK : available_a >= 0, after correction
     OK --> PENDING : overload detected again
-    LOOP --> OK : coordinator stopped\nor meter unavailable
-    PENDING --> OK : coordinator stopped\nor meter unavailable
+    LOOP --> OK : coordinator stopped or meter unavailable
+    PENDING --> OK : coordinator stopped or meter unavailable
 ```
 
 #### Overload correction sequence

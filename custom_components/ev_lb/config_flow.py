@@ -170,9 +170,8 @@ class EvLbOptionsFlow(OptionsFlow):
     """Handle options flow for EV Charger Load Balancing.
 
     Allows users to modify all settings after initial setup without
-    needing to delete and re-create the config entry.  The power meter
-    entity is the only field that cannot be changed here (it acts as the
-    unique ID for the entry).
+    needing to delete and re-create the config entry, including swapping
+    the power meter to a different sensor entity.
     """
 
     async def async_step_init(
@@ -180,14 +179,61 @@ class EvLbOptionsFlow(OptionsFlow):
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
         """Handle the options flow step."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            new_meter = user_input[CONF_POWER_METER_ENTITY]
+            state = self.hass.states.get(new_meter)
+            if state is None:
+                errors[CONF_POWER_METER_ENTITY] = "entity_not_found"
+                _LOGGER.debug(
+                    "Options flow: entity %s not found", new_meter,
+                )
+            else:
+                current_meter = self.config_entry.data[CONF_POWER_METER_ENTITY]
+                if new_meter != current_meter:
+                    # Ensure no other entry is already monitoring this meter
+                    for other in self.hass.config_entries.async_entries(DOMAIN):
+                        if (
+                            other.entry_id != self.config_entry.entry_id
+                            and other.unique_id == new_meter
+                        ):
+                            errors[CONF_POWER_METER_ENTITY] = "meter_already_configured"
+                            _LOGGER.debug(
+                                "Options flow: meter %s already used by entry %s",
+                                new_meter,
+                                other.entry_id,
+                            )
+                            break
+
+            if not errors:
+                new_meter = user_input[CONF_POWER_METER_ENTITY]
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    title=f"EV Load Balancing ({new_meter})",
+                    data={**self.config_entry.data, CONF_POWER_METER_ENTITY: new_meter},
+                    unique_id=new_meter,
+                )
+                # Store everything except the power meter in options;
+                # the power meter lives in entry.data and unique_id.
+                options = {
+                    k: v for k, v in user_input.items() if k != CONF_POWER_METER_ENTITY
+                }
+                return self.async_create_entry(title="", data=options)
 
         # Pre-fill with current values (options take priority, then data)
         current = {**self.config_entry.data, **self.config_entry.options}
 
         data_schema = vol.Schema(
             {
+                vol.Required(
+                    CONF_POWER_METER_ENTITY,
+                    description={
+                        "suggested_value": current.get(CONF_POWER_METER_ENTITY),
+                    },
+                ): EntitySelector(
+                    EntitySelectorConfig(domain="sensor", device_class="power"),
+                ),
                 vol.Required(
                     CONF_VOLTAGE,
                     default=current.get(CONF_VOLTAGE, DEFAULT_VOLTAGE),
@@ -241,4 +287,5 @@ class EvLbOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=data_schema,
+            errors=errors,
         )

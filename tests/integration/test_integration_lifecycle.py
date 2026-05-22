@@ -20,6 +20,7 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_POWER_METER_ENTITY,
     DOMAIN,
     SERVICE_SET_LIMIT,
 )
@@ -133,6 +134,7 @@ class TestOptionsFlowDuringOperation:
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={
+                CONF_POWER_METER_ENTITY: POWER_METER,
                 CONF_ACTION_SET_CURRENT: SET_CURRENT_SCRIPT,
                 CONF_ACTION_STOP_CHARGING: STOP_CHARGING_SCRIPT,
                 CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,

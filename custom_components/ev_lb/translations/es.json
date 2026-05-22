@@ -34,8 +34,9 @@
     "step": {
       "init": {
         "title": "Configuración del Balanceador de Carga para VE",
-        "description": "Actualiza la configuración de la integración. El sensor de consumo eléctrico no puede cambiarse una vez configurada la integración.",
+        "description": "Actualiza la configuración de la integración.",
         "data": {
+          "power_meter_entity": "Sensor de consumo eléctrico",
           "voltage": "Voltaje de suministro",
           "unavailable_behavior": "Cuando el medidor no está disponible",
           "unavailable_fallback_current": "Corriente de respaldo (para modo 'Establecer una corriente específica')",
@@ -45,6 +46,7 @@
           "charger_status_entity": "Sensor de estado del cargador (opcional)"
         },
         "data_description": {
+          "power_meter_entity": "Entidad de sensor que reporta la potencia total del servicio en Watts.",
           "voltage": "Voltaje nominal de suministro en Volts (usado para convertir W ↔ A).",
           "unavailable_behavior": "Qué hacer cuando el medidor de consumo no está disponible: detener la carga (más seguro), ignorar y mantener el último valor, o establecer una corriente específica (limitada a la corriente máxima del cargador).",
           "unavailable_fallback_current": "Corriente de carga (A) a usar cuando el medidor no está disponible y el modo es 'Establecer una corriente específica'. Este valor se limitará a la corriente máxima del cargador.",
@@ -54,6 +56,10 @@
           "charger_status_entity": "Sensor cuyo estado es 'Charging' cuando el VE está cargando activamente (p. ej. de la integración OCPP). Cuando se configura, el balanceador lo usa para evitar restar demasiado margen cuando el cargador está inactivo o terminado."
         }
       }
+    },
+    "error": {
+      "entity_not_found": "No se encontró la entidad del sensor de consumo eléctrico seleccionado.",
+      "meter_already_configured": "Ya existe un balanceador de carga configurado para este medidor de consumo."
     }
   },
   "entity": {

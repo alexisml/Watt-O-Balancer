@@ -62,6 +62,7 @@ Each charger has:
 
 | Property | Description |
 |---|---|
+| `power_meter_entity` | Shared power-meter sensor for the whole balancer config entry. All chargers in the group are balanced against this one meter. |
 | `service_limit` | Maximum total supply current (A). |
 | `voltage` | Nominal supply voltage (V). Used to convert Watts to Amps. |
 | `unavailability_mode` | What to do when the power meter is unavailable: stop / hold / fallback / per-charger. |
@@ -267,5 +268,5 @@ Single-charger entries configured before multi-charger support was added continu
 |---|---|
 | Per-charger sensor entities | `sensor.ev_lb_charger_N_current_set` etc. Currently only the aggregate is reported. |
 | Per-charger `min`/`max` current | Currently global. Per-charger limits would require extending the number entities and distribution algorithm inputs. |
-| More than 3 chargers | There is no hard limit on the number of chargers. Each additional charger is added as a new entry in the integration settings. `charger_status_sensor` and `power_meter` entity IDs must be unique across all charger entries. |
+| More than 3 chargers | There is no algorithmic hard limit. The remaining work is mostly in the Configure UI / config model, which needs a repeatable `chargers` list inside one config entry. Each charger's `charger_status_sensor` must be unique. The shared `power_meter_entity` stays at the config-entry level, matching today's single-charger entry model where the power meter can already be changed via Configure. |
 | Charger groups / sub-circuits | Not scoped. Would require grouping chargers by sub-circuit before the distribution step. |

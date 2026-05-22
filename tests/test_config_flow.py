@@ -219,6 +219,7 @@ async def test_options_flow_saves_action_scripts(
     integration can call them when controlling the charger.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
+    hass.states.async_set("sensor.house_power_w", "0")
 
     result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
     assert result["type"] is FlowResultType.FORM
@@ -226,6 +227,7 @@ async def test_options_flow_saves_action_scripts(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
             CONF_ACTION_SET_CURRENT: "script.ev_lb_set_current",
             CONF_ACTION_STOP_CHARGING: "script.ev_lb_stop_charging",
             CONF_ACTION_START_CHARGING: "script.ev_lb_start_charging",
@@ -247,13 +249,17 @@ async def test_options_flow_saves_charger_status_entity(
     so the coordinator can check charging state on every meter update.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
+    hass.states.async_set("sensor.house_power_w", "0")
 
     result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
     assert result["type"] is FlowResultType.FORM
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {CONF_CHARGER_STATUS_ENTITY: "sensor.ocpp_status"},
+        {
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
+            CONF_CHARGER_STATUS_ENTITY: "sensor.ocpp_status",
+        },
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -296,6 +302,7 @@ async def test_options_flow_saves_voltage(
     via the number.*_max_service_current entity.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
+    hass.states.async_set("sensor.house_power_w", "0")
 
     result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
     assert result["type"] is FlowResultType.FORM
@@ -303,6 +310,7 @@ async def test_options_flow_saves_voltage(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
             CONF_VOLTAGE: 120.0,
         },
     )
@@ -320,6 +328,7 @@ async def test_options_flow_saves_unavailable_behavior(
     and set-current modes without recreating the integration.
     """
     mock_config_entry_no_actions.add_to_hass(hass)
+    hass.states.async_set("sensor.house_power_w", "0")
 
     result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
     assert result["type"] is FlowResultType.FORM
@@ -327,6 +336,7 @@ async def test_options_flow_saves_unavailable_behavior(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
             CONF_VOLTAGE: 230.0,
             CONF_UNAVAILABLE_BEHAVIOR: "set_current",
             CONF_UNAVAILABLE_FALLBACK_CURRENT: 8.0,
@@ -357,3 +367,161 @@ async def test_options_flow_prefills_current_values(
         k for k in schema.schema if getattr(k, "schema", None) == CONF_VOLTAGE
     )
     assert voltage_key.default() == mock_config_entry_no_actions.data[CONF_VOLTAGE]
+
+
+async def test_options_flow_prefills_power_meter_entity(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that the options form pre-fills the power meter field with the current sensor.
+
+    When the user opens Configure, the power meter field should show the
+    currently configured sensor so the user does not need to re-select it
+    if they only want to change other settings.
+    """
+    mock_config_entry_no_actions.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    schema: vol.Schema = result["data_schema"]
+    meter_key = next(
+        k for k in schema.schema if getattr(k, "schema", None) == CONF_POWER_METER_ENTITY
+    )
+    assert isinstance(meter_key, vol.Required)
+    assert meter_key.description == {
+        "suggested_value": mock_config_entry_no_actions.data[CONF_POWER_METER_ENTITY]
+    }
+
+
+async def test_options_flow_power_meter_selector_filters_by_power_device_class(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that the power meter field in the options form only accepts power-class sensors.
+
+    Users must only be able to select sensors that report instantaneous power
+    in Watts, preventing accidental selection of unrelated sensors.
+    """
+    mock_config_entry_no_actions.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    schema: vol.Schema = result["data_schema"]
+    power_meter_validator = next(
+        v
+        for k, v in schema.schema.items()
+        if getattr(k, "schema", None) == CONF_POWER_METER_ENTITY
+    )
+    assert isinstance(power_meter_validator, EntitySelector)
+    assert power_meter_validator.config.get("device_class") == ["power"]
+
+
+async def test_options_flow_changes_power_meter(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that a user can change the power meter sensor via the Configure dialog.
+
+    After saving, the config entry data and unique_id should reflect the
+    newly selected sensor, and the integration title should update accordingly.
+    """
+    mock_config_entry_no_actions.add_to_hass(hass)
+    hass.states.async_set("sensor.new_power_meter", "2000")
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_POWER_METER_ENTITY: "sensor.new_power_meter", CONF_VOLTAGE: 230.0},
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert mock_config_entry_no_actions.data[CONF_POWER_METER_ENTITY] == "sensor.new_power_meter"
+    assert mock_config_entry_no_actions.unique_id == "sensor.new_power_meter"
+    assert mock_config_entry_no_actions.title == "EV Load Balancing (sensor.new_power_meter)"
+    # Power meter must not appear in options — it lives in entry.data
+    assert CONF_POWER_METER_ENTITY not in mock_config_entry_no_actions.options
+
+
+async def test_options_flow_power_meter_entity_not_found(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that the options form shows an error when the selected power meter does not exist.
+
+    Selecting a sensor that has no state in Home Assistant must be rejected
+    so the integration is never left tracking a non-existent entity.
+    """
+    mock_config_entry_no_actions.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_POWER_METER_ENTITY: "sensor.nonexistent_meter", CONF_VOLTAGE: 230.0},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_POWER_METER_ENTITY: "entity_not_found"}
+
+
+async def test_options_flow_error_prefills_from_user_input(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that the re-shown error form is pre-filled with the user's attempted input.
+
+    When the form is re-shown after a validation error the power meter field
+    should display the value the user entered, not snap back to the previously
+    saved meter.
+    """
+    mock_config_entry_no_actions.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    attempted_meter = "sensor.nonexistent_meter"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_POWER_METER_ENTITY: attempted_meter, CONF_VOLTAGE: 230.0},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_POWER_METER_ENTITY: "entity_not_found"}
+
+    schema: vol.Schema = result["data_schema"]
+    meter_key = next(
+        k for k in schema.schema if getattr(k, "schema", None) == CONF_POWER_METER_ENTITY
+    )
+    assert meter_key.description == {"suggested_value": attempted_meter}
+
+
+async def test_options_flow_power_meter_already_configured(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that choosing a power meter already used by another entry is rejected.
+
+    Each power meter may only be monitored by one config entry. Attempting
+    to reassign a meter already claimed by a different instance should show
+    an error rather than silently creating a duplicate.
+    """
+    # Second entry that already monitors sensor.other_power_meter
+    other_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_POWER_METER_ENTITY: "sensor.other_power_meter", CONF_VOLTAGE: 230.0},
+        unique_id="sensor.other_power_meter",
+        title="EV Load Balancing (sensor.other_power_meter)",
+    )
+    other_entry.add_to_hass(hass)
+    mock_config_entry_no_actions.add_to_hass(hass)
+    hass.states.async_set("sensor.other_power_meter", "1500")
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_POWER_METER_ENTITY: "sensor.other_power_meter", CONF_VOLTAGE: 230.0},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_POWER_METER_ENTITY: "meter_already_configured"}

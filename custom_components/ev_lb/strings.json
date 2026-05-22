@@ -37,8 +37,9 @@
     "step": {
       "init": {
         "title": "EV Charger Load Balancing Settings",
-        "description": "Update the integration settings. The power meter sensor cannot be changed after initial setup.",
+        "description": "Update the integration settings.",
         "data": {
+          "power_meter_entity": "Power meter sensor",
           "voltage": "Supply voltage",
           "unavailable_behavior": "When power meter is unavailable",
           "unavailable_fallback_current": "Fallback current (for 'Set a specific current' mode)",
@@ -48,6 +49,7 @@
           "charger_status_entity": "Charger status sensor (optional)"
         },
         "data_description": {
+          "power_meter_entity": "Sensor entity that reports total service power in Watts.",
           "voltage": "Nominal supply voltage in Volts (used to convert W ↔ A).",
           "unavailable_behavior": "What to do when the power meter becomes unavailable: stop charging (safest), ignore and keep last value, or set a specific current (capped at the charger maximum).",
           "unavailable_fallback_current": "Charging current (A) to use when the meter is unavailable and mode is 'Set a specific current'. This value will be capped at the charger maximum.",
@@ -57,6 +59,10 @@
           "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished."
         }
       }
+    },
+    "error": {
+      "entity_not_found": "The selected power meter entity was not found.",
+      "meter_already_configured": "A load balancer for this power meter is already configured."
     }
   },
   "entity": {

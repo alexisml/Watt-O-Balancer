@@ -9,6 +9,9 @@ Summary: High-level abstraction of how multi-charger load balancing works in Wat
 
 This document abstracts the core concepts behind Watt-O-Balancer's multi-charger load balancing approach. It is implementation-agnostic: the ideas here apply regardless of whether you are reading code, designing a new feature, or extending the system.
 
+Finish-by-time scheduled charging (Phase 3) is tracked in a separate document:
+[`03-2026-05-22-scheduled-charging-plan.md`](03-2026-05-22-scheduled-charging-plan.md).
+
 ---
 
 ## 1. The Problem

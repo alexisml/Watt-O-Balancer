@@ -465,6 +465,36 @@ async def test_options_flow_power_meter_entity_not_found(
     assert result["errors"] == {CONF_POWER_METER_ENTITY: "entity_not_found"}
 
 
+async def test_options_flow_error_prefills_from_user_input(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that the re-shown error form is pre-filled with the user's attempted input.
+
+    When the form is re-shown after a validation error the power meter field
+    should display the value the user entered, not snap back to the previously
+    saved meter.
+    """
+    mock_config_entry_no_actions.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    attempted_meter = "sensor.nonexistent_meter"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_POWER_METER_ENTITY: attempted_meter, CONF_VOLTAGE: 230.0},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_POWER_METER_ENTITY: "entity_not_found"}
+
+    schema: vol.Schema = result["data_schema"]
+    meter_key = next(
+        k for k in schema.schema if getattr(k, "schema", None) == CONF_POWER_METER_ENTITY
+    )
+    assert meter_key.description == {"suggested_value": attempted_meter}
+
+
 async def test_options_flow_power_meter_already_configured(
     hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
 ) -> None:

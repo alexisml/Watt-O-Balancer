@@ -207,21 +207,31 @@ class EvLbOptionsFlow(OptionsFlow):
                             break
 
             if not errors:
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry,
-                    title=f"EV Load Balancing ({new_meter})",
-                    data={**self.config_entry.data, CONF_POWER_METER_ENTITY: new_meter},
-                    unique_id=new_meter,
-                )
                 # Store everything except the power meter in options;
                 # the power meter lives in entry.data and unique_id.
                 options = {
                     k: v for k, v in user_input.items() if k != CONF_POWER_METER_ENTITY
                 }
+                if new_meter != current_meter:
+                    # Apply all meter-related changes in a single update to avoid
+                    # a transient state and the extra reload that would otherwise
+                    # fire when async_update_entry triggers the update listener
+                    # before the options are written by async_create_entry.
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry,
+                        title=f"EV Load Balancing ({new_meter})",
+                        data={**self.config_entry.data, CONF_POWER_METER_ENTITY: new_meter},
+                        unique_id=new_meter,
+                        options=options,
+                    )
                 return self.async_create_entry(title="", data=options)
 
-        # Pre-fill with current values (options take priority, then data)
+        # Pre-fill with current values (options take priority, then data),
+        # then overlay the user's attempted input so a re-shown error form
+        # reflects what they entered rather than snapping back to saved values.
         current = {**self.config_entry.data, **self.config_entry.options}
+        if user_input is not None:
+            current = {**current, **user_input}
 
         data_schema = vol.Schema(
             {

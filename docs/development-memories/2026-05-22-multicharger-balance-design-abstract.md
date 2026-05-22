@@ -83,6 +83,10 @@ Repeat until all remaining cups hold a stable, valid amount.
 Input:  available_A, [(min_i, max_i, weight_i) for each charger i]
 Output: allocation_i for each charger (or None = stop this charger)
 
+# step_A = current resolution (e.g. 1 A); floor() means floor-to-step_A
+# achievable_min_i = ceil(min_i / step_A) × step_A
+#   (smallest whole multiple of step_A that is ≥ min_i)
+
 remaining ← available_A
 active ← {all charger indices}
 
@@ -90,8 +94,10 @@ while active is not empty:
     shares ← { i: remaining × (weight_i / Σ weight_j for j in active) }
     # Equal-weight fallback when all weights are 0 or negative
 
-    capped   ← { i in active : floor(shares[i]) ≥ floor(max_i) }
+    capped    ← { i in active : floor(shares[i]) ≥ floor(max_i) }
     below_min ← { i in active : floor(shares[i]) < min_i }
+    # Note: capped uses floor(max_i) because the allocation is floored;
+    # below_min compares the floored share against the raw min_i threshold.
 
     if capped and below_min are both empty:
         assign floor(shares[i]) to each i in active
@@ -103,12 +109,15 @@ while active is not empty:
         active        −= {i}
 
     if all remaining active chargers are in below_min:
-        # Priority tie-break: serve highest-weight chargers first
+        # Priority tie-break: serve highest-weight chargers first.
+        # Uses achievable_min_i (the smallest step_A multiple ≥ min_i) as the
+        # reservation amount so that the greedy loop converges even when
+        # step_A > 1 A and the raw min_i is not a whole multiple of step_A.
         sort below_min by (-weight, index)
         for i in sorted order:
-            if remaining ≥ achievable_min(i):
-                remaining −= achievable_min(i)
-                # keep i in active for final assignment
+            if remaining ≥ achievable_min_i:
+                remaining −= achievable_min_i
+                # keep i in active; final share assigned on next iteration
             else:
                 allocation[i] ← None   # stop
                 active −= {i}
@@ -224,7 +233,7 @@ Single-charger entries configured before multi-charger support was added continu
 │                   Coordinator                       │
 │                                                     │
 │  1. service_W → service_A                           │
-│  2. non_EV_A = service_A − Σ(ev_charging ? set_A)  │
+│  2. non_EV_A = service_A − Σ(set_A for chargers where ev_charging = true)  │
 │  3. available_A = service_limit_A − non_EV_A        │
 │  4. distribute_weighted(available_A, chargers)      │
 │  5. per-charger: idle_clamp → ramp_up_limit         │

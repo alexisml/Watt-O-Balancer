@@ -169,6 +169,7 @@ Limitations of the blueprint approach:
 > The implementation roadmap has been moved to dedicated milestone documents:
 > - **Phase 1 — MVP plan**: [`docs/documentation/milestones/01-2026-02-19-mvp-plan.md`](../documentation/milestones/01-2026-02-19-mvp-plan.md) — single-charger integration, action execution, observability, and HACS release.
 > - **Phase 2 — Multi-charger plan**: [`docs/documentation/milestones/02-2026-02-19-multi-charger-plan.md`](../documentation/milestones/02-2026-02-19-multi-charger-plan.md) — multi-charger support with per-charger prioritization/weighting, to be started after the MVP is released and stable.
+> - **Phase 3 — Scheduled charging plan**: [`docs/documentation/milestones/03-2026-05-22-scheduled-charging-plan.md`](../documentation/milestones/03-2026-05-22-scheduled-charging-plan.md) — finish-by-time scheduling with per-charger battery size, losses, deadline, safety margin, and optional live SOC sensor.
 
 ---
 

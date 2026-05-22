@@ -8,6 +8,8 @@ Summary: Phase 2 plan for adding multi-charger support with per-charger priority
 
 This document covers Phase 2 of the integration — multi-charger support. Phase 2 begins after the MVP (Phase 1) is released and stable. See the MVP plan: [`01-2026-02-19-mvp-plan.md`](01-2026-02-19-mvp-plan.md).
 
+Scheduled charging (Phase 3) is tracked in a separate document: [`03-2026-05-22-scheduled-charging-plan.md`](03-2026-05-22-scheduled-charging-plan.md).
+
 ## Goal
 
 Extend the single-charger integration to support N EV chargers sharing the same service connection. Available current is distributed across all configured chargers **proportionally to their priority values**, always maximising the total current delivered. Each charger is configured independently with its own scripts, limits, and priority.

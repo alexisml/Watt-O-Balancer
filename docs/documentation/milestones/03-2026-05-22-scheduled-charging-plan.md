@@ -2,7 +2,7 @@ Title: Scheduled Charging Plan
 Date: 2026-05-22
 Author: alexisml
 Status: draft
-Summary: Phase 3 plan for finish-by-time scheduled charging — per-charger battery size, losses, deadline, safety margin, and optional live SOC sensor, wired into the load balancer as a minimum current floor.
+Summary: Phase 3 plan for finish-by-time scheduled charging — per-charger enable/disable toggle, battery size, losses, deadline, safety margin, and optional live SOC sensor, wired into the load balancer as a minimum current floor.
 
 ---
 
@@ -25,6 +25,7 @@ All inputs below are per-charger and configured through the options flow introdu
 
 | Input | Description | Recommended default |
 |---|---|---|
+| `schedule_enabled` | Master on/off toggle for this charger's schedule. When `false` the scheduler is entirely bypassed — no floor is applied, `scheduled_status` is `inactive`, and all other schedule parameters are ignored | `false` |
 | `battery_capacity_kwh` | Usable battery capacity of the EV in kWh | — (required) |
 | `charging_losses_pct` | Estimated charging losses as a percentage of energy delivered to the charger, covering cable, onboard-charger, and battery inefficiency | `15` % (85 % efficiency — typical for AC Level 2 residential charging) |
 | `target_soc_pct` | Target state of charge the EV must reach by the deadline | `80` % |
@@ -56,6 +57,12 @@ All inputs below are per-charger and configured through the options flow introdu
 The integration recalculates the required current on every coordinator cycle (i.e., on every power-meter update).
 
 ```
+# Short-circuit when the scheduler is disabled
+if not schedule_enabled:
+    required_current_a = 0   # no floor
+    scheduled_status   = "inactive"
+    return
+
 # Energy still needed at the charger terminals, accounting for losses
 delta_soc          = max(0, target_soc_pct - current_soc_pct) / 100
 efficiency         = 1 - charging_losses_pct / 100
@@ -79,7 +86,7 @@ else:
 
 | Status | Condition |
 |---|---|
-| `inactive` | No schedule configured or schedule is disabled |
+| `inactive` | `schedule_enabled = false`, or no schedule configured |
 | `on_track` | `required_current_a ≤ current_set_a` — current delivery is sufficient to meet the deadline |
 | `at_risk` | `required_current_a > current_set_a` and `time_remaining_h > 0` — current delivery is below the required floor (e.g., site headroom is insufficient) |
 | `urgent` | `effective_deadline − now ≤ safety_margin_min` — inside the safety margin window; the integration requests `max_charger_current` unconditionally |
@@ -94,6 +101,7 @@ else:
 - **`target_time` rolls over midnight:** if `target_time` is before the current wall-clock time, the deadline is interpreted as tomorrow.
 - **Required current below `min_ev_current`:** the floor is treated as `0` (schedule demands no minimum); the balancer may stop the charger normally if headroom is insufficient.
 - **Required current above `max_charger_current`:** clamped to `max_charger_current`; status is `at_risk` because the charger cannot physically meet the deadline.
+- **Schedule disabled mid-session (`schedule_enabled` toggled off):** the floor drops to `0` immediately on the next coordinator cycle; `scheduled_status` transitions to `inactive`. All other schedule parameters are preserved so re-enabling the schedule resumes computation from the current state.
 
 ---
 
@@ -114,7 +122,7 @@ The scheduled charging floor operates **inside** the existing load-balancing alg
 
 | PR milestone | Scope | Exit criteria |
 |---|---|---|
-| PR-1-ph3: Per-charger schedule config | Extend the options flow and config-entry schema to store schedule inputs: `battery_capacity_kwh`, `charging_losses_pct`, `target_soc_pct`, `target_time`, `safety_margin_min`, `current_soc_mode`, `current_soc_pct`, `soc_sensor_entity`, `soc_sensor_unavailable_behavior`. | All fields round-trip correctly through the options flow; default values are applied when not provided; schema validation unit tests pass. |
+| PR-1-ph3: Per-charger schedule config | Extend the options flow and config-entry schema to store schedule inputs: `schedule_enabled`, `battery_capacity_kwh`, `charging_losses_pct`, `target_soc_pct`, `target_time`, `safety_margin_min`, `current_soc_mode`, `current_soc_pct`, `soc_sensor_entity`, `soc_sensor_unavailable_behavior`. | All fields round-trip correctly through the options flow; `schedule_enabled = false` by default; enabling/disabling via the options flow is verified by unit tests; schema validation unit tests pass. |
 | PR-2-ph3: Schedule computation engine | Implement `compute_required_current(schedule_params, now, voltage)` as a pure function in `load_balancer.py`. Cover all edge cases (complete, overdue, midnight rollover, sensor unavailable, below-minimum floor). | Pure-function unit tests cover every status transition and edge case; no HA runtime required. |
 | PR-3-ph3: Wire schedule floor into coordinator | After Phase 2 proportional allocation, apply each charger's `required_current_a` floor. Implement tie-breaking when multiple floors exceed available headroom. Update `balancer_state` and `last_action_reason` to reflect schedule-driven commands. | Integration test: charger with active schedule receives at least its floor current when headroom is available; charger without schedule is unaffected; CI green. |
 | PR-4-ph3: Live SOC sensor support | Subscribe to `soc_sensor_entity` state changes. Implement `last_known` and `static` fallback paths when the sensor is unavailable. Fire a persistent notification when SOC sensor becomes unavailable. | Integration tests: floor updates when live SOC changes; correct fallback current is applied when sensor goes unavailable; notification is fired; CI green. |

@@ -207,7 +207,6 @@ class EvLbOptionsFlow(OptionsFlow):
                             break
 
             if not errors:
-                new_meter = user_input[CONF_POWER_METER_ENTITY]
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
                     title=f"EV Load Balancing ({new_meter})",

@@ -114,7 +114,7 @@ sequenceDiagram
     participant M as Power Meter
     participant C as Coordinator
     participant Timer as Trigger Timer
-    participant Loop as Loop Timer
+    participant LoopTimer as Loop Timer
 
     M->>C: state_change (high load)
     C->>C: _recompute() → available_a = -4 A
@@ -125,16 +125,16 @@ sequenceDiagram
 
     Timer->>C: _on_overload_triggered()
     C->>C: _force_recompute_from_meter() → apply correction
-    C->>Loop: async_track_time_interval(5s, _overload_loop_callback)
+    C->>LoopTimer: async_track_time_interval(5s, _overload_loop_callback)
 
     loop Every 5 s while overloaded
-        Loop->>C: _overload_loop_callback()
+        LoopTimer->>C: _overload_loop_callback()
         C->>C: _force_recompute_from_meter() → apply correction
     end
 
     M->>C: state_change (load reduced)
     C->>C: _recompute() → available_a = +8 A
-    C->>Loop: cancel loop
+    C->>LoopTimer: cancel loop
     C->>Timer: cancel trigger (if any)
 ```
 

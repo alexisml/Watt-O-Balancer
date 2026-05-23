@@ -1031,7 +1031,7 @@ class EvLoadBalancerCoordinator:
 
         Transition rules:
         - **Resume** (was stopped, now active): call start_charging then set_current.
-        - **Stop** (was active, now stopped): call stop_charging.
+        - **Stop** (was active, now stopped): call set_current(0) then stop_charging.
         - **Adjust** (was active, still active, current changed): call set_current.
         - **No change**: no action is executed.
 
@@ -1063,7 +1063,14 @@ class EvLoadBalancerCoordinator:
                 current_w=current_w,
             )
         elif not new_active and prev_active:
-            # Stop charging
+            # Stop: set current to 0 first, then stop charging
+            await self._call_action(
+                self._action_set_current,
+                "set_current",
+                charger_id=charger_id,
+                current_a=0.0,
+                current_w=0.0,
+            )
             await self._call_action(
                 self._action_stop_charging,
                 "stop_charging",

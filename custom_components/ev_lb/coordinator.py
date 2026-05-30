@@ -723,7 +723,14 @@ class EvLoadBalancerCoordinator:
         # the service maximum and causing the coordinator to keep commanding max amps
         # indefinitely.  Use 0 as the EV estimate in this case so that all measured
         # load is treated as non-EV — a conservative, safe lower bound on headroom.
-        if service_current_a < ev_current_estimate:
+        #
+        # A tolerance of one ramp-up step is applied: after a step increase the meter
+        # naturally lags behind the new commanded value by up to one step.  Without
+        # this tolerance the safety check fires on every post-step meter reading,
+        # instantly reverting the increase and creating an endless hold/adjust loop.
+        # Genuine throttling (EV drawing significantly less than commanded) produces a
+        # shortfall larger than one step and still triggers the conservative fallback.
+        if service_current_a < ev_current_estimate - self.ramp_up_step_a:
             ev_current_estimate = 0.0
         available_a, clamped = compute_target_current(
             service_current_a,

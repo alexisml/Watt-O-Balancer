@@ -17,9 +17,13 @@ from typing import Optional
 import pytest
 
 from custom_components.ev_lb.load_balancer import (
+    apply_ramp_up_limit,
     clamp_to_safe_output,
+    compute_available_current,
+    compute_fallback_reapply,
     compute_target_current,
     distribute_current,
+    resolve_fallback_current,
 )
 
 
@@ -719,3 +723,746 @@ class TestMultiChargerEndToEnd:
                 assert clamped <= chargers[i][1] + 1e-9, (
                     f"charger {i} output {clamped} A exceeds its max {chargers[i][1]} A"
                 )
+
+
+# ---------------------------------------------------------------------------
+# compute_available_current — boundary limit values
+# ---------------------------------------------------------------------------
+
+# Validation limits from const.py:
+#   MIN_VOLTAGE = 100.0, MAX_VOLTAGE = 480.0
+#   MIN_SERVICE_CURRENT = 1.0, MAX_SERVICE_CURRENT = 200.0
+
+# Each row:  (service_power_w, max_service_a, voltage_v, expected_available)
+COMPUTE_AVAILABLE_BOUNDARY_TABLE = [
+    # --- Voltage boundaries ---
+    # MIN_VOLTAGE (100 V): same Watt draw → higher Amps → less headroom
+    pytest.param(1000.0, 32.0, 100.0, 22.0,
+                 id="voltage_min_100v"),
+    # MAX_VOLTAGE (480 V): same Watt draw → lower Amps → more headroom
+    pytest.param(1000.0, 32.0, 480.0, 32.0 - 1000.0 / 480.0,
+                 id="voltage_max_480v"),
+    # Default voltage (230 V)
+    pytest.param(1000.0, 32.0, 230.0, 32.0 - 1000.0 / 230.0,
+                 id="voltage_default_230v"),
+
+    # --- Service current boundaries ---
+    # MIN_SERVICE_CURRENT (1 A)
+    pytest.param(0.0, 1.0, 230.0, 1.0,
+                 id="service_min_1a_no_load"),
+    pytest.param(230.0, 1.0, 230.0, 0.0,
+                 id="service_min_1a_at_limit"),
+    pytest.param(460.0, 1.0, 230.0, -1.0,
+                 id="service_min_1a_overload"),
+    # MAX_SERVICE_CURRENT (200 A)
+    pytest.param(0.0, 200.0, 230.0, 200.0,
+                 id="service_max_200a_no_load"),
+    pytest.param(46000.0, 200.0, 230.0, 0.0,
+                 id="service_max_200a_at_limit"),
+    pytest.param(50000.0, 200.0, 230.0, 200.0 - 50000.0 / 230.0,
+                 id="service_max_200a_overload"),
+
+    # --- Combinations of boundary voltage and service ---
+    pytest.param(0.0, 1.0, 100.0, 1.0,
+                 id="min_service_min_voltage_no_load"),
+    pytest.param(0.0, 200.0, 480.0, 200.0,
+                 id="max_service_max_voltage_no_load"),
+    pytest.param(100.0, 1.0, 100.0, 0.0,
+                 id="min_service_min_voltage_at_limit"),
+    pytest.param(96000.0, 200.0, 480.0, 0.0,
+                 id="max_service_max_voltage_at_limit"),
+
+    # --- Zero power (no load) ---
+    pytest.param(0.0, 32.0, 230.0, 32.0,
+                 id="zero_power_default"),
+
+    # --- Negative power (solar export) at boundary voltages ---
+    pytest.param(-5000.0, 32.0, 100.0, 32.0 + 5000.0 / 100.0,
+                 id="solar_export_min_voltage"),
+    pytest.param(-5000.0, 32.0, 480.0, 32.0 + 5000.0 / 480.0,
+                 id="solar_export_max_voltage"),
+]
+
+
+class TestComputeAvailableBoundary:
+    """Boundary-value tests for compute_available_current using const.py limits."""
+
+    @pytest.mark.parametrize(
+        "service_power_w, max_service_a, voltage_v, expected",
+        COMPUTE_AVAILABLE_BOUNDARY_TABLE,
+    )
+    def test_expected_available(
+        self,
+        service_power_w: float,
+        max_service_a: float,
+        voltage_v: float,
+        expected: float,
+    ):
+        """Available current matches the expected value at boundary inputs."""
+        result = compute_available_current(
+            service_power_w=service_power_w,
+            max_service_a=max_service_a,
+            voltage_v=voltage_v,
+        )
+        assert abs(result - expected) < 1e-9
+
+    @pytest.mark.parametrize(
+        "service_power_w, max_service_a, voltage_v, expected",
+        COMPUTE_AVAILABLE_BOUNDARY_TABLE,
+    )
+    def test_formula_is_correct(
+        self,
+        service_power_w: float,
+        max_service_a: float,
+        voltage_v: float,
+        expected: float,
+    ):
+        """Formula: available = max_service_a - service_power_w / voltage_v."""
+        result = compute_available_current(
+            service_power_w=service_power_w,
+            max_service_a=max_service_a,
+            voltage_v=voltage_v,
+        )
+        hand_calc = max_service_a - service_power_w / voltage_v
+        assert abs(result - hand_calc) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# compute_target_current — const.py boundary limit values
+# ---------------------------------------------------------------------------
+
+# Validation limits from const.py for each input:
+#   service_current_a: 0 .. (derived from power/voltage, no fixed const max)
+#   current_set_a: 0 .. max_charger (0 .. 80)
+#   max_service_a: MIN_SERVICE_CURRENT=1.0 .. MAX_SERVICE_CURRENT=200.0
+#   max_charger_a: MIN_CHARGER_CURRENT=0.0 .. MAX_CHARGER_CURRENT=80.0
+#   min_charger_a: MIN_EV_CURRENT_MIN=1.0 .. MIN_EV_CURRENT_MAX=32.0
+#   step_a: MIN_RAMP_UP_STEP=1.0 .. MAX_RAMP_UP_STEP=32.0
+
+COMPUTE_TARGET_BOUNDARY_TABLE = [
+    # --- max_service_a at MIN_SERVICE_CURRENT (1 A) ---
+    pytest.param(0.0, 0.0, 1.0, 32.0, 1.0, 1.0, 1.0,
+                 id="service_1a_no_load_min_ev_1a"),
+    pytest.param(0.5, 0.0, 1.0, 32.0, 1.0, 1.0, None,
+                 id="service_1a_half_amp_load"),
+    pytest.param(0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                 id="service_1a_charger_1a"),
+
+    # --- max_service_a at MAX_SERVICE_CURRENT (200 A) ---
+    pytest.param(0.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+                 id="service_200a_no_load_charger_80a"),
+    pytest.param(120.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+                 id="service_200a_120a_load_charger_80a"),
+    pytest.param(195.0, 0.0, 200.0, 80.0, 6.0, 1.0, None,
+                 id="service_200a_195a_load_below_min"),
+    pytest.param(194.0, 0.0, 200.0, 80.0, 6.0, 1.0, 6.0,
+                 id="service_200a_194a_load_exactly_min"),
+
+    # --- max_charger_a at MIN_CHARGER_CURRENT (0 A) ---
+    # clamp_current(32, 0, 0, 1): min(32,0)=0, floor=0, 0 >= 0 → returns 0
+    pytest.param(0.0, 0.0, 32.0, 0.0, 0.0, 1.0, 0.0,
+                 id="charger_max_0a"),
+
+    # --- max_charger_a at MAX_CHARGER_CURRENT (80 A) ---
+    pytest.param(0.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+                 id="charger_max_80a_no_load"),
+    pytest.param(0.0, 0.0, 32.0, 80.0, 6.0, 1.0, 32.0,
+                 id="charger_max_80a_service_32a_caps"),
+
+    # --- min_charger_a at MIN_EV_CURRENT_MIN (1 A) ---
+    pytest.param(31.0, 0.0, 32.0, 32.0, 1.0, 1.0, 1.0,
+                 id="min_ev_1a_just_enough"),
+    pytest.param(31.5, 0.0, 32.0, 32.0, 1.0, 1.0, None,
+                 id="min_ev_1a_not_enough_after_floor"),
+    pytest.param(20.0, 0.0, 32.0, 32.0, 1.0, 1.0, 12.0,
+                 id="min_ev_1a_moderate_load"),
+
+    # --- min_charger_a at MIN_EV_CURRENT_MAX (32 A) ---
+    pytest.param(0.0, 0.0, 32.0, 32.0, 32.0, 1.0, 32.0,
+                 id="min_ev_32a_no_load_at_service_limit"),
+    pytest.param(1.0, 0.0, 32.0, 32.0, 32.0, 1.0, None,
+                 id="min_ev_32a_any_load_stops"),
+    pytest.param(0.0, 0.0, 64.0, 64.0, 32.0, 1.0, 64.0,
+                 id="min_ev_32a_full_headroom"),
+    pytest.param(33.0, 0.0, 64.0, 64.0, 32.0, 1.0, None,
+                 id="min_ev_32a_load_drops_below"),
+
+    # --- step_a at MIN_RAMP_UP_STEP (1 A) ---
+    pytest.param(10.5, 0.0, 32.0, 32.0, 6.0, 1.0, 21.0,
+                 id="step_1a_fractional"),
+
+    # --- step_a at MAX_RAMP_UP_STEP (32 A) ---
+    pytest.param(0.0, 0.0, 32.0, 32.0, 6.0, 32.0, 32.0,
+                 id="step_32a_full_available"),
+    pytest.param(10.0, 0.0, 32.0, 32.0, 6.0, 32.0, None,
+                 id="step_32a_22a_available_floors_to_0"),
+    pytest.param(0.0, 0.0, 64.0, 64.0, 6.0, 32.0, 64.0,
+                 id="step_32a_64a_available"),
+    pytest.param(1.0, 0.0, 64.0, 64.0, 6.0, 32.0, 32.0,
+                 id="step_32a_63a_available_floors_to_32"),
+
+    # --- current_set_a at boundary values ---
+    pytest.param(80.0, 80.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+                 id="current_set_at_max_charger_80a"),
+    pytest.param(0.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+                 id="current_set_zero_idle"),
+
+    # --- Extreme combinations ---
+    pytest.param(0.0, 0.0, 1.0, 80.0, 1.0, 1.0, 1.0,
+                 id="min_service_max_charger"),
+    pytest.param(0.0, 0.0, 200.0, 1.0, 1.0, 1.0, 1.0,
+                 id="max_service_min_charger_1a"),
+    pytest.param(199.0, 0.0, 200.0, 80.0, 1.0, 1.0, 1.0,
+                 id="max_service_199a_load_min_ev_1a"),
+]
+
+
+class TestComputeTargetBoundary:
+    """Boundary-value tests for compute_target_current using const.py limits."""
+
+    @pytest.mark.parametrize(
+        "service_current_a, current_set_a, max_service_a, "
+        "max_charger_a, min_charger_a, step_a, expected_target",
+        COMPUTE_TARGET_BOUNDARY_TABLE,
+    )
+    def test_expected_target(
+        self,
+        service_current_a: float,
+        current_set_a: float,
+        max_service_a: float,
+        max_charger_a: float,
+        min_charger_a: float,
+        step_a: float,
+        expected_target: Optional[float],
+    ):
+        """Target matches expected at boundary inputs."""
+        _, target_a = compute_target_current(
+            service_current_a=service_current_a,
+            current_set_a=current_set_a,
+            max_service_a=max_service_a,
+            max_charger_a=max_charger_a,
+            min_charger_a=min_charger_a,
+            step_a=step_a,
+        )
+        assert target_a == expected_target
+
+    @pytest.mark.parametrize(
+        "service_current_a, current_set_a, max_service_a, "
+        "max_charger_a, min_charger_a, step_a, expected_target",
+        COMPUTE_TARGET_BOUNDARY_TABLE,
+    )
+    def test_never_exceeds_max_service(
+        self,
+        service_current_a: float,
+        current_set_a: float,
+        max_service_a: float,
+        max_charger_a: float,
+        min_charger_a: float,
+        step_a: float,
+        expected_target: Optional[float],
+    ):
+        """SAFETY: target must never exceed max service current at boundary values."""
+        _, target_a = compute_target_current(
+            service_current_a=service_current_a,
+            current_set_a=current_set_a,
+            max_service_a=max_service_a,
+            max_charger_a=max_charger_a,
+            min_charger_a=min_charger_a,
+            step_a=step_a,
+        )
+        if target_a is not None:
+            assert target_a <= max_service_a
+
+    @pytest.mark.parametrize(
+        "service_current_a, current_set_a, max_service_a, "
+        "max_charger_a, min_charger_a, step_a, expected_target",
+        COMPUTE_TARGET_BOUNDARY_TABLE,
+    )
+    def test_never_exceeds_max_charger(
+        self,
+        service_current_a: float,
+        current_set_a: float,
+        max_service_a: float,
+        max_charger_a: float,
+        min_charger_a: float,
+        step_a: float,
+        expected_target: Optional[float],
+    ):
+        """SAFETY: target must never exceed max charger current at boundary values."""
+        _, target_a = compute_target_current(
+            service_current_a=service_current_a,
+            current_set_a=current_set_a,
+            max_service_a=max_service_a,
+            max_charger_a=max_charger_a,
+            min_charger_a=min_charger_a,
+            step_a=step_a,
+        )
+        if target_a is not None:
+            assert target_a <= max_charger_a
+
+
+# ---------------------------------------------------------------------------
+# apply_ramp_up_limit — boundary limit values
+# ---------------------------------------------------------------------------
+
+# Validation limits from const.py:
+#   MIN_RAMP_UP_TIME = 5.0, MAX_RAMP_UP_TIME = 300.0
+#   MIN_RAMP_UP_STEP = 1.0, MAX_RAMP_UP_STEP = 32.0
+
+# Each row:  (prev_a, target_a, headroom_stable_since, now,
+#             ramp_up_time_s, step_a, expected_final, expected_stable_since)
+RAMP_UP_BOUNDARY_TABLE = [
+    # --- ramp_up_time_s at MIN_RAMP_UP_TIME (5 s) ---
+    pytest.param(10.0, 20.0, 1000.0, 1004.0, 5.0, 4.0, 10.0, 1000.0,
+                 id="min_ramp_time_5s_not_elapsed"),
+    pytest.param(10.0, 20.0, 1000.0, 1005.0, 5.0, 4.0, 14.0, None,
+                 id="min_ramp_time_5s_exactly_elapsed"),
+    pytest.param(10.0, 20.0, 1000.0, 1006.0, 5.0, 4.0, 14.0, None,
+                 id="min_ramp_time_5s_past_elapsed"),
+
+    # --- ramp_up_time_s at MAX_RAMP_UP_TIME (300 s) ---
+    pytest.param(10.0, 20.0, 1000.0, 1299.0, 300.0, 4.0, 10.0, 1000.0,
+                 id="max_ramp_time_300s_not_elapsed"),
+    pytest.param(10.0, 20.0, 1000.0, 1300.0, 300.0, 4.0, 14.0, None,
+                 id="max_ramp_time_300s_exactly_elapsed"),
+
+    # --- step_a at MIN_RAMP_UP_STEP (1 A) ---
+    pytest.param(10.0, 20.0, 1000.0, 1016.0, 15.0, 1.0, 11.0, None,
+                 id="min_step_1a_takes_one_step"),
+    pytest.param(10.0, 11.0, 1000.0, 1016.0, 15.0, 1.0, 11.0, None,
+                 id="min_step_1a_reaches_target"),
+
+    # --- step_a at MAX_RAMP_UP_STEP (32 A) ---
+    pytest.param(10.0, 50.0, 1000.0, 1016.0, 15.0, 32.0, 42.0, None,
+                 id="max_step_32a_takes_big_step"),
+    pytest.param(10.0, 20.0, 1000.0, 1016.0, 15.0, 32.0, 20.0, None,
+                 id="max_step_32a_capped_at_target"),
+    pytest.param(0.0, 32.0, 1000.0, 1016.0, 15.0, 32.0, 32.0, None,
+                 id="max_step_32a_from_zero_to_target"),
+
+    # --- Decrease always instant at all boundary values ---
+    pytest.param(20.0, 10.0, None, 1000.0, 5.0, 1.0, 10.0, None,
+                 id="decrease_instant_min_ramp_min_step"),
+    pytest.param(80.0, 6.0, None, 1000.0, 300.0, 32.0, 6.0, None,
+                 id="decrease_instant_max_ramp_max_step"),
+
+    # --- Edge: prev_a=0 (starting from stopped) ---
+    pytest.param(0.0, 16.0, None, 1000.0, 15.0, 4.0, 0.0, 1000.0,
+                 id="start_from_zero_begins_tracking"),
+    pytest.param(0.0, 16.0, 1000.0, 1016.0, 15.0, 4.0, 4.0, None,
+                 id="start_from_zero_first_step"),
+
+    # --- Combination: min ramp_up + max step ---
+    pytest.param(6.0, 80.0, 1000.0, 1005.0, 5.0, 32.0, 38.0, None,
+                 id="min_ramp_max_step"),
+    # --- Combination: max ramp_up + min step ---
+    pytest.param(6.0, 80.0, 1000.0, 1300.0, 300.0, 1.0, 7.0, None,
+                 id="max_ramp_min_step"),
+]
+
+
+class TestApplyRampUpBoundary:
+    """Boundary-value tests for apply_ramp_up_limit using const.py limits."""
+
+    @pytest.mark.parametrize(
+        "prev_a, target_a, headroom_stable_since, now, "
+        "ramp_up_time_s, step_a, expected_final, expected_stable",
+        RAMP_UP_BOUNDARY_TABLE,
+    )
+    def test_expected_output(
+        self,
+        prev_a: float,
+        target_a: float,
+        headroom_stable_since: Optional[float],
+        now: float,
+        ramp_up_time_s: float,
+        step_a: float,
+        expected_final: float,
+        expected_stable: Optional[float],
+    ):
+        """Output matches expected at boundary ramp-up inputs."""
+        final_a, stable_since = apply_ramp_up_limit(
+            prev_a=prev_a,
+            target_a=target_a,
+            headroom_stable_since=headroom_stable_since,
+            now=now,
+            ramp_up_time_s=ramp_up_time_s,
+            step_a=step_a,
+        )
+        assert final_a == expected_final
+        assert stable_since == expected_stable
+
+    @pytest.mark.parametrize(
+        "prev_a, target_a, headroom_stable_since, now, "
+        "ramp_up_time_s, step_a, expected_final, expected_stable",
+        RAMP_UP_BOUNDARY_TABLE,
+    )
+    def test_never_exceeds_target(
+        self,
+        prev_a: float,
+        target_a: float,
+        headroom_stable_since: Optional[float],
+        now: float,
+        ramp_up_time_s: float,
+        step_a: float,
+        expected_final: float,
+        expected_stable: Optional[float],
+    ):
+        """SAFETY: ramp-up output must never exceed the target."""
+        final_a, _ = apply_ramp_up_limit(
+            prev_a=prev_a,
+            target_a=target_a,
+            headroom_stable_since=headroom_stable_since,
+            now=now,
+            ramp_up_time_s=ramp_up_time_s,
+            step_a=step_a,
+        )
+        assert final_a <= target_a + 1e-9
+
+
+# ---------------------------------------------------------------------------
+# resolve_fallback_current — boundary limit values
+# ---------------------------------------------------------------------------
+
+# Each row:  (behavior, fallback_a, max_charger_a, expected)
+FALLBACK_BOUNDARY_TABLE = [
+    # --- fallback_a at boundary values ---
+    pytest.param("set_current", 0.0, 32.0, 0.0,
+                 id="fallback_0a"),
+    pytest.param("set_current", 80.0, 80.0, 80.0,
+                 id="fallback_at_max_charger_80a"),
+    pytest.param("set_current", 80.0, 32.0, 32.0,
+                 id="fallback_80a_capped_at_32a"),
+    pytest.param("set_current", 1.0, 32.0, 1.0,
+                 id="fallback_min_1a"),
+    pytest.param("set_current", 200.0, 80.0, 80.0,
+                 id="fallback_exceeds_max_charger"),
+
+    # --- max_charger_a at boundary values ---
+    pytest.param("set_current", 10.0, 1.0, 1.0,
+                 id="charger_max_1a_caps_fallback"),
+    pytest.param("set_current", 10.0, 80.0, 10.0,
+                 id="charger_max_80a_no_cap"),
+
+    # --- stop mode always returns 0 regardless of inputs ---
+    pytest.param("stop", 80.0, 80.0, 0.0,
+                 id="stop_max_fallback_max_charger"),
+    pytest.param("stop", 0.0, 1.0, 0.0,
+                 id="stop_min_values"),
+
+    # --- ignore mode always returns None ---
+    pytest.param("ignore", 80.0, 80.0, None,
+                 id="ignore_max_values"),
+    pytest.param("ignore", 0.0, 1.0, None,
+                 id="ignore_min_values"),
+]
+
+
+class TestResolveFallbackBoundary:
+    """Boundary-value tests for resolve_fallback_current."""
+
+    @pytest.mark.parametrize(
+        "behavior, fallback_a, max_charger_a, expected",
+        FALLBACK_BOUNDARY_TABLE,
+    )
+    def test_expected_output(
+        self,
+        behavior: str,
+        fallback_a: float,
+        max_charger_a: float,
+        expected: Optional[float],
+    ):
+        """Fallback current matches expected at boundary inputs."""
+        result = resolve_fallback_current(behavior, fallback_a, max_charger_a)
+        assert result == expected
+
+    @pytest.mark.parametrize(
+        "behavior, fallback_a, max_charger_a, expected",
+        FALLBACK_BOUNDARY_TABLE,
+    )
+    def test_never_exceeds_charger_max(
+        self,
+        behavior: str,
+        fallback_a: float,
+        max_charger_a: float,
+        expected: Optional[float],
+    ):
+        """SAFETY: fallback current must never exceed charger maximum."""
+        result = resolve_fallback_current(behavior, fallback_a, max_charger_a)
+        if result is not None and result > 0:
+            assert result <= max_charger_a
+
+
+# ---------------------------------------------------------------------------
+# compute_fallback_reapply — boundary limit values
+# ---------------------------------------------------------------------------
+
+# Each row:  (behavior, fallback_a, max_charger_a, current_set_a,
+#             min_charger_a, max_service_a, expected)
+FALLBACK_REAPPLY_BOUNDARY_TABLE = [
+    # --- max_service_a at MIN_SERVICE_CURRENT (1 A) ---
+    pytest.param("set_current", 10.0, 32.0, 10.0, 6.0, 1.0, 1.0,
+                 id="reapply_service_1a_caps_fallback"),
+    pytest.param("ignore", 0.0, 32.0, 10.0, 6.0, 1.0, 0.0,
+                 id="reapply_ignore_service_1a_below_min"),
+
+    # --- max_service_a at MAX_SERVICE_CURRENT (200 A) ---
+    pytest.param("set_current", 80.0, 80.0, 80.0, 6.0, 200.0, 80.0,
+                 id="reapply_service_200a_charger_caps"),
+    pytest.param("ignore", 0.0, 80.0, 80.0, 6.0, 200.0, 80.0,
+                 id="reapply_ignore_service_200a_held_ok"),
+
+    # --- max_charger_a at boundaries ---
+    pytest.param("set_current", 10.0, 1.0, 10.0, 1.0, 32.0, 1.0,
+                 id="reapply_charger_1a"),
+    pytest.param("set_current", 80.0, 80.0, 80.0, 6.0, 32.0, 32.0,
+                 id="reapply_charger_80a_service_32a_caps"),
+
+    # --- min_charger_a at MIN_EV_CURRENT_MIN (1 A) ---
+    pytest.param("ignore", 0.0, 32.0, 1.0, 1.0, 32.0, 1.0,
+                 id="reapply_ignore_min_ev_1a_held_at_min"),
+    pytest.param("ignore", 0.0, 32.0, 0.5, 1.0, 32.0, 0.0,
+                 id="reapply_ignore_min_ev_1a_below_stops"),
+
+    # --- min_charger_a at MIN_EV_CURRENT_MAX (32 A) ---
+    pytest.param("ignore", 0.0, 32.0, 32.0, 32.0, 32.0, 32.0,
+                 id="reapply_ignore_min_ev_32a_exactly"),
+    pytest.param("ignore", 0.0, 64.0, 20.0, 32.0, 200.0, 0.0,
+                 id="reapply_ignore_min_ev_32a_below_stops"),
+
+    # --- stop mode at boundary values ---
+    pytest.param("stop", 80.0, 80.0, 80.0, 1.0, 200.0, 0.0,
+                 id="reapply_stop_all_max"),
+    pytest.param("stop", 1.0, 1.0, 1.0, 1.0, 1.0, 0.0,
+                 id="reapply_stop_all_min"),
+
+    # --- Effective max = min(charger, service) boundary ---
+    pytest.param("set_current", 50.0, 32.0, 50.0, 6.0, 16.0, 16.0,
+                 id="reapply_effective_max_is_service"),
+    pytest.param("set_current", 50.0, 16.0, 50.0, 6.0, 32.0, 16.0,
+                 id="reapply_effective_max_is_charger"),
+]
+
+
+class TestComputeFallbackReapplyBoundary:
+    """Boundary-value tests for compute_fallback_reapply."""
+
+    @pytest.mark.parametrize(
+        "behavior, fallback_a, max_charger_a, current_set_a, "
+        "min_charger_a, max_service_a, expected",
+        FALLBACK_REAPPLY_BOUNDARY_TABLE,
+    )
+    def test_expected_output(
+        self,
+        behavior: str,
+        fallback_a: float,
+        max_charger_a: float,
+        current_set_a: float,
+        min_charger_a: float,
+        max_service_a: float,
+        expected: float,
+    ):
+        """Reapply current matches expected at boundary inputs."""
+        result = compute_fallback_reapply(
+            behavior, fallback_a, max_charger_a,
+            current_set_a, min_charger_a, max_service_a,
+        )
+        assert result == expected
+
+    @pytest.mark.parametrize(
+        "behavior, fallback_a, max_charger_a, current_set_a, "
+        "min_charger_a, max_service_a, expected",
+        FALLBACK_REAPPLY_BOUNDARY_TABLE,
+    )
+    def test_never_exceeds_effective_max(
+        self,
+        behavior: str,
+        fallback_a: float,
+        max_charger_a: float,
+        current_set_a: float,
+        min_charger_a: float,
+        max_service_a: float,
+        expected: float,
+    ):
+        """SAFETY: reapply current must never exceed min(charger, service)."""
+        result = compute_fallback_reapply(
+            behavior, fallback_a, max_charger_a,
+            current_set_a, min_charger_a, max_service_a,
+        )
+        effective_max = min(max_charger_a, max_service_a)
+        assert result <= effective_max + 1e-9
+
+
+# ---------------------------------------------------------------------------
+# distribute_current — const.py boundary limit values
+# ---------------------------------------------------------------------------
+
+DISTRIBUTE_BOUNDARY_TABLE = [
+    # --- Charger limits at MIN/MAX from const.py ---
+    # MIN_EV_CURRENT_MIN (1 A) / MAX_CHARGER_CURRENT (80 A)
+    pytest.param(60.0, [(1.0, 80.0)], 1.0, [60.0],
+                 id="dist_min_ev_1a_charger_80a"),
+    pytest.param(0.5, [(1.0, 80.0)], 1.0, [None],
+                 id="dist_min_ev_1a_below_min"),
+    pytest.param(1.0, [(1.0, 80.0)], 1.0, [1.0],
+                 id="dist_min_ev_1a_exactly_min"),
+    pytest.param(80.0, [(1.0, 80.0)], 1.0, [80.0],
+                 id="dist_charger_80a_exactly_max"),
+    pytest.param(100.0, [(1.0, 80.0)], 1.0, [80.0],
+                 id="dist_charger_80a_capped"),
+
+    # MIN_EV_CURRENT_MAX (32 A) as min
+    pytest.param(32.0, [(32.0, 80.0)], 1.0, [32.0],
+                 id="dist_min_ev_32a_exactly_min"),
+    pytest.param(31.0, [(32.0, 80.0)], 1.0, [None],
+                 id="dist_min_ev_32a_below_min"),
+
+    # Two chargers at extreme limits
+    pytest.param(160.0, [(1.0, 80.0), (1.0, 80.0)], 1.0, [80.0, 80.0],
+                 id="dist_two_80a_chargers_both_capped"),
+    pytest.param(2.0, [(1.0, 80.0), (1.0, 80.0)], 1.0, [1.0, 1.0],
+                 id="dist_two_80a_chargers_exactly_1a_each"),
+    pytest.param(1.0, [(1.0, 80.0), (1.0, 80.0)], 1.0, [None, None],
+                 id="dist_two_80a_chargers_below_min_each"),
+
+    # Mixed boundary chargers — water-filling splits fairly before capping
+    pytest.param(81.0, [(1.0, 80.0), (32.0, 80.0)], 1.0, [40.0, 40.0],
+                 id="dist_mixed_min_fair_split"),
+    pytest.param(112.0, [(1.0, 80.0), (32.0, 80.0)], 1.0, [56.0, 56.0],
+                 id="dist_mixed_min_fair_split_larger"),
+
+    # --- Step at MAX_RAMP_UP_STEP (32 A) ---
+    pytest.param(80.0, [(6.0, 80.0)], 32.0, [64.0],
+                 id="dist_step_32a_floors_80_to_64"),
+    pytest.param(32.0, [(6.0, 80.0)], 32.0, [32.0],
+                 id="dist_step_32a_exact_multiple"),
+    pytest.param(31.0, [(6.0, 80.0)], 32.0, [None],
+                 id="dist_step_32a_below_min_after_floor"),
+]
+
+
+class TestDistributeBoundary:
+    """Boundary-value tests for distribute_current using const.py limits."""
+
+    @pytest.mark.parametrize(
+        "available_a, chargers, step_a, expected",
+        DISTRIBUTE_BOUNDARY_TABLE,
+    )
+    def test_expected_allocations(
+        self,
+        available_a: float,
+        chargers: list[tuple[float, float]],
+        step_a: float,
+        expected: list[Optional[float]],
+    ):
+        """Allocations match expected at boundary charger limits."""
+        result = distribute_current(
+            available_a=available_a, chargers=chargers, step_a=step_a
+        )
+        assert result == expected
+
+    @pytest.mark.parametrize(
+        "available_a, chargers, step_a, expected",
+        DISTRIBUTE_BOUNDARY_TABLE,
+    )
+    def test_total_never_exceeds_available(
+        self,
+        available_a: float,
+        chargers: list[tuple[float, float]],
+        step_a: float,
+        expected: list[Optional[float]],
+    ):
+        """SAFETY: total allocation must not exceed available at boundary values."""
+        result = distribute_current(
+            available_a=available_a, chargers=chargers, step_a=step_a
+        )
+        total = sum(a for a in result if a is not None)
+        assert total <= max(available_a, 0.0) + 1e-9
+
+    @pytest.mark.parametrize(
+        "available_a, chargers, step_a, expected",
+        DISTRIBUTE_BOUNDARY_TABLE,
+    )
+    def test_no_charger_exceeds_its_max(
+        self,
+        available_a: float,
+        chargers: list[tuple[float, float]],
+        step_a: float,
+        expected: list[Optional[float]],
+    ):
+        """SAFETY: no charger exceeds its maximum at boundary values."""
+        result = distribute_current(
+            available_a=available_a, chargers=chargers, step_a=step_a
+        )
+        for i, alloc in enumerate(result):
+            if alloc is not None:
+                _, max_a = chargers[i]
+                assert alloc <= max_a + 1e-9
+
+
+# ---------------------------------------------------------------------------
+# clamp_to_safe_output — const.py boundary limit values
+# ---------------------------------------------------------------------------
+
+CLAMP_SAFE_OUTPUT_BOUNDARY_TABLE = [
+    # --- max_charger_a at MIN/MAX ---
+    pytest.param(1.0, 1.0, 200.0, 1.0, id="charger_1a_current_at_max"),
+    pytest.param(2.0, 1.0, 200.0, 1.0, id="charger_1a_current_over"),
+    pytest.param(80.0, 80.0, 200.0, 80.0, id="charger_80a_current_at_max"),
+    pytest.param(81.0, 80.0, 200.0, 80.0, id="charger_80a_current_over"),
+
+    # --- max_service_a at MIN/MAX ---
+    pytest.param(1.0, 80.0, 1.0, 1.0, id="service_1a_current_at_max"),
+    pytest.param(2.0, 80.0, 1.0, 1.0, id="service_1a_current_over"),
+    pytest.param(200.0, 200.0, 200.0, 200.0, id="service_200a_current_at_max"),
+    pytest.param(201.0, 200.0, 200.0, 200.0, id="service_200a_current_over"),
+
+    # --- Both at min ---
+    pytest.param(1.0, 1.0, 1.0, 1.0, id="both_1a_at_limit"),
+    pytest.param(2.0, 1.0, 1.0, 1.0, id="both_1a_over"),
+
+    # --- Both at max ---
+    pytest.param(80.0, 80.0, 200.0, 80.0, id="charger_80_service_200"),
+    pytest.param(200.0, 80.0, 200.0, 80.0, id="current_200_charger_80_service_200"),
+
+    # --- Charger max > service max at limits ---
+    pytest.param(100.0, 80.0, 32.0, 32.0, id="charger_80_service_32_over"),
+    # --- Service max > charger max at limits ---
+    pytest.param(100.0, 32.0, 200.0, 32.0, id="charger_32_service_200_over"),
+]
+
+
+class TestClampSafeOutputBoundary:
+    """Boundary-value tests for clamp_to_safe_output using const.py limits."""
+
+    @pytest.mark.parametrize(
+        "current_a, max_charger_a, max_service_a, expected",
+        CLAMP_SAFE_OUTPUT_BOUNDARY_TABLE,
+    )
+    def test_expected_output(
+        self,
+        current_a: float,
+        max_charger_a: float,
+        max_service_a: float,
+        expected: float,
+    ):
+        """Output matches expected at boundary limits."""
+        result = clamp_to_safe_output(current_a, max_charger_a, max_service_a)
+        assert result == expected
+
+    @pytest.mark.parametrize(
+        "current_a, max_charger_a, max_service_a, expected",
+        CLAMP_SAFE_OUTPUT_BOUNDARY_TABLE,
+    )
+    def test_never_exceeds_either_limit(
+        self,
+        current_a: float,
+        max_charger_a: float,
+        max_service_a: float,
+        expected: float,
+    ):
+        """SAFETY: output must never exceed charger or service max at boundary values."""
+        result = clamp_to_safe_output(current_a, max_charger_a, max_service_a)
+        if result > 0:
+            assert result <= max_charger_a
+            assert result <= max_service_a

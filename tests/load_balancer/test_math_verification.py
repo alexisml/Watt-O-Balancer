@@ -6,9 +6,13 @@ functions.  Every test case asserts the **critical safety invariant**: the
 output current must **never** exceed the max service current.
 
 The tables cover:
+- ``compute_available_current``: max EV current from power draw and voltage
 - ``compute_target_current``: single-charger target from service meter
 - ``distribute_current``: multi-charger water-filling allocation
 - ``clamp_to_safe_output``: defense-in-depth output clamp
+- ``apply_ramp_up_limit``: stability window before allowing current increase
+- ``resolve_fallback_current``: fallback current when meter is unavailable
+- ``compute_fallback_reapply``: adjusted fallback after charger parameter changes
 - End-to-end pipeline: compute_target → clamp_to_safe_output
 """
 

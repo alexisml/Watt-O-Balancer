@@ -443,11 +443,16 @@ class EvLoadBalancerCoordinator:
         min EV current, or the enabled switch) so the new value takes
         effect immediately without waiting for the next power-meter event.
 
-        When raising ``max_charger_current`` while the charger is actively
-        running, the ramp-up stability window is armed so the new target is
-        approached gradually.  This arm is skipped when re-enabling from a
-        ``STATE_DISABLED`` state — in that case the user expects an immediate
-        jump to the optimal current rather than a hold.
+        When a runtime parameter changes while the charger is actively running
+        at or above ``min_ev_current``, the ramp-up stability window is armed
+        so any new higher target is approached gradually.  This arm is skipped
+        when re-enabling from a ``STATE_DISABLED`` state — in that case the
+        user expects an immediate jump to the optimal current rather than a hold.
+
+        If ``min_ev_current`` was raised above the current set-point, the
+        stability window cannot hold at the old below-minimum value; that case
+        is handled inside ``_recompute`` which advances directly to
+        ``min_ev_current`` before continuing the normal ramp.
         """
         if not self.enabled:
             _LOGGER.debug("Parameter changed but load balancing is disabled — skipping recompute")
@@ -494,6 +499,10 @@ class EvLoadBalancerCoordinator:
         # Skip arming when re-enabling from a disabled state — in that case
         # the balancer_state is STATE_DISABLED and the user expects an immediate
         # jump to the current optimal rather than a stability hold.
+        # Note: if min_ev_current was raised above the current set-point the arm
+        # may fire here, but _recompute will advance directly to min_ev_current
+        # before the stability window can hold at the now-invalid below-minimum
+        # current (see the guard in _recompute after apply_ramp_up_limit).
         if (
             self.current_set_a > 0
             and not self._ramp_up_armed
@@ -825,6 +834,15 @@ class EvLoadBalancerCoordinator:
                 self.ramp_up_time_s,
                 effective_step,
             )
+            # Never hold the commanded current below the charger minimum.
+            # This can happen when min_ev_current is raised above the current
+            # set-point: the stability window would otherwise hold at the old,
+            # now-invalid below-minimum value.  Advance immediately to
+            # min_ev_current so that the ramp-up hold never commands an
+            # invalid current.
+            if 0 < final_a < self.min_ev_current:
+                final_a = self.min_ev_current
+                self._headroom_stable_since = None
         else:
             final_a = target_a
             self._headroom_stable_since = None

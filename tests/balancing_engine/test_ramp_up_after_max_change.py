@@ -250,3 +250,65 @@ class TestRampUpAfterMaxIncrease:
 
         # Final state: converged at 20 A
         assert float(hass.states.get(current_set_id).state) == 20.0
+
+
+class TestRampUpAfterMinCurrentIncrease:
+    """Verify that raising min_ev_current above the current set-point is handled safely.
+
+    Regression test: before the fix, the stability window could hold the commanded
+    current at the old (now below-minimum) value for up to ramp_up_time_s seconds.
+    """
+
+    async def test_min_ev_current_raised_above_set_point_jumps_immediately(
+        self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    ) -> None:
+        """When min_ev_current is raised above current_set_a the charger must not hold below minimum.
+
+        Scenario:
+        - Service limit: 31 A, max charger: 20 A, min EV current: 6 A
+        - EV running at 6 A (was the old minimum)
+        - User raises min_ev_current to 10 A (plenty of headroom available)
+
+        The coordinator must NOT hold at 6 A (now below the new minimum) for the
+        stability window.  It should advance immediately to 10 A (the new minimum),
+        then continue ramping normally from there.
+        """
+        await setup_integration(hass, mock_config_entry)
+        coordinator = mock_config_entry.runtime_data
+
+        coordinator.max_service_current = 31.0
+        coordinator.max_charger_current = 20.0
+        coordinator.min_ev_current = 6.0
+        coordinator.ramp_up_time_s = 30.0
+        coordinator.ramp_up_step_a = 4.0
+
+        mock_time = 1000.0
+
+        def fake_monotonic():
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(
+            hass, mock_config_entry, "sensor", "current_set"
+        )
+
+        # Phase 1: Establish steady state at 6 A (old minimum) with low house load.
+        # meter = (6 A EV + 3 A house) × 230 V
+        hass.states.async_set(POWER_METER, meter_w(3.0, 6.0))
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 6.0
+
+        # Phase 2: Raise min_ev_current to 10 A while stability window is long (30 s).
+        # The old code would arm the stability window and hold at 6 A (below-minimum).
+        mock_time = 1010.0
+        coordinator.min_ev_current = 10.0
+        coordinator.async_recompute_from_current_state()
+        await hass.async_block_till_done()
+
+        after_raise = float(hass.states.get(current_set_id).state)
+        assert after_raise == 10.0, (
+            f"Expected immediate advance to 10 A (new minimum) but got {after_raise} A — "
+            "the stability hold must never keep the current below min_ev_current"
+        )
+

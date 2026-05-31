@@ -479,12 +479,20 @@ class EvLoadBalancerCoordinator:
             "Runtime parameter changed — recomputing with last meter value %.1f W",
             service_power_w,
         )
-        # Arm the ramp-up stability window when the charger is actively running.
+        # Arm the ramp-up stability window when the charger is actively running
+        # and a runtime parameter (e.g. max_charger_current) is being changed.
         # Without this, a charger that reached its steady state without a prior
         # reduction (so _ramp_up_armed is False) would jump immediately to a new
         # higher target when max_charger_current is raised, bypassing the
         # stability window entirely.
-        if self.current_set_a > 0 and not self._ramp_up_armed:
+        # Skip arming when re-enabling from a disabled state — in that case
+        # the balancer_state is STATE_DISABLED and the user expects an immediate
+        # jump to the current optimal rather than a stability hold.
+        if (
+            self.current_set_a > 0
+            and not self._ramp_up_armed
+            and self.balancer_state != STATE_DISABLED
+        ):
             self._ramp_up_armed = True
             self._headroom_stable_since = None
         self._recompute(service_power_w, REASON_PARAMETER_CHANGE)
@@ -716,6 +724,11 @@ class EvLoadBalancerCoordinator:
         """Run the balancing algorithm for this instance and publish updates."""
         if self.max_charger_current == 0.0:
             _LOGGER.debug("Max charger current is 0 A — skipping load balancing, outputting 0 A")
+            # Clear ramp-up state so it does not persist across a max=0 stop/resume
+            # cycle.  Without this, a ramp arm set before the max-zero transition
+            # would cause an unexpected stability hold when charging later resumes.
+            self._ramp_up_armed = False
+            self._headroom_stable_since = None
             self._update_and_notify(0.0, 0.0, reason)
             return
 

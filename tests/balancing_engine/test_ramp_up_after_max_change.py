@@ -73,8 +73,10 @@ class TestRampUpAfterMaxIncrease:
 
         # Phase 3: Stability window elapses → step from 14 to 18
         mock_time = 1026.0  # 16s after recompute (> 15s ramp_up_time)
-        # Meter still shows 17A (EV at 14 + house 3) — hasn't caught up
-        hass.states.async_set(POWER_METER, meter_w(3.0, 14.0))
+        # Meter still shows ~17A (EV at 14 + house 3) — hasn't caught up.
+        # Use a value 1 W above Phase 1 to ensure a state-changed event fires
+        # (HA only fires state_changed when the value actually changes).
+        hass.states.async_set(POWER_METER, str(float(meter_w(3.0, 14.0)) + 1.0))
         await hass.async_block_till_done()
 
         stepped = float(hass.states.get(current_set_id).state)
@@ -84,7 +86,9 @@ class TestRampUpAfterMaxIncrease:
         )
 
         # Phase 4: Next meter event with lag — EV hasn't ramped to 18 yet
-        # Meter still shows 14 A EV + 3 A house = 17 A
+        # Meter still shows 14 A EV + 3 A house = 17 A.
+        # Use the original Phase 1 value so it differs from Phase 3, triggering
+        # another state-changed event while still representing the lagged reading.
         mock_time = 1027.0
         hass.states.async_set(POWER_METER, meter_w(3.0, 14.0))
         await hass.async_block_till_done()
@@ -120,8 +124,12 @@ class TestRampUpAfterMaxIncrease:
 
         coordinator._time_fn = fake_monotonic
 
-        # Establish at 20 A with matching meter
-        hass.states.async_set(POWER_METER, meter_w(3.0, 20.0))
+        # Establish at 20 A: send a low-load meter reading so the coordinator
+        # allocates the full 20 A to the charger.  With current_set_a=0 and
+        # house draw of 11 A, available = 31-11 = 20 A = max_charger.
+        # (A meter showing "23 A total" with current_set_a=0 would be treated
+        # as all non-EV load, giving only 8 A available — not 20 A.)
+        hass.states.async_set(POWER_METER, str(11.0 * 230.0))
         await hass.async_block_till_done()
 
         current_set_id = get_entity_id(
@@ -145,11 +153,13 @@ class TestRampUpAfterMaxIncrease:
         # Both give 20 in this case, but let's verify with tighter margins:
         coordinator.max_service_current = 16.0  # tight service limit
         mock_time = 1002.0
-        hass.states.async_set(POWER_METER, meter_w(3.0, 5.0))
+        # Use 1 W less than the Phase 2 value to trigger a state-changed event
+        # while still representing the same throttling scenario (~8 A service draw).
+        hass.states.async_set(POWER_METER, str(float(meter_w(3.0, 5.0)) - 1.0))
         await hass.async_block_till_done()
 
         throttled = float(hass.states.get(current_set_id).state)
-        # With safety: ev_estimate=0, non_ev=8, available=16-8=8, target=8
+        # With safety: ev_estimate=0, non_ev≈8, available=16-8≈8, target=8
         # Without safety: non_ev=0, available=16, target=16
         assert throttled == 8.0, (
             f"Expected reduction to 8 A under throttling but got {throttled} A — "
@@ -199,13 +209,17 @@ class TestRampUpAfterMaxIncrease:
         ev_draw = 14.0  # EV starts at 14
         current_time = 1010.0
 
-        for expected_step_to in [18.0, 20.0]:
+        for step_idx, expected_step_to in enumerate([18.0, 20.0]):
             # Wait for stability window
             current_time += 16.0  # just over 15s
             mock_time = current_time
 
-            # Meter shows old EV draw (lag)
-            hass.states.async_set(POWER_METER, meter_w(3.0, ev_draw))
+            # Meter shows old EV draw (lag).  Add a small per-iteration offset so
+            # the value differs from any previous state, ensuring HA fires a
+            # state_changed event.  (HA only delivers state_changed when the value
+            # actually changes, so repeating the same reading is silently ignored.)
+            lag_meter = str(float(meter_w(3.0, ev_draw)) + step_idx + 1.0)
+            hass.states.async_set(POWER_METER, lag_meter)
             await hass.async_block_till_done()
 
             current = float(hass.states.get(current_set_id).state)

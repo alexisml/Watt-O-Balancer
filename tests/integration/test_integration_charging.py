@@ -170,7 +170,7 @@ class TestRampUpCooldownFullCycle:
     """Walk through every phase of the ramp-up cooldown mechanism.
 
     Verifies the balancer state transitions: active → adjusting (reduction) →
-    ramp_up_hold (cooldown active) → adjusting (cooldown expired, increase allowed).
+    ramp_up_hold (cooldown active) → ramp_up_hold (first step taken, more remain).
     """
 
     async def test_cooldown_phases_with_state_tracking(
@@ -216,14 +216,14 @@ class TestRampUpCooldownFullCycle:
         assert float(hass.states.get(current_set_id).state) == reduced_value  # Held
         assert hass.states.get(state_id).state == STATE_RAMP_UP_HOLD
 
-        # Phase 4: Stability window expires → increase allowed → adjusting
+        # Phase 4: Stability window expires → first ramp-up step taken → ramp_up_hold (more steps remain)
         mock_time = 1041.0  # 31 s after timer start at Phase 3 (T=1010)
         hass.states.async_set(POWER_METER, "3003")
         await hass.async_block_till_done()
 
         after_cooldown = float(hass.states.get(current_set_id).state)
         assert after_cooldown > reduced_value  # Increase now allowed
-        assert hass.states.get(state_id).state == STATE_ADJUSTING
+        assert hass.states.get(state_id).state == STATE_RAMP_UP_HOLD
 
 
 # ---------------------------------------------------------------------------

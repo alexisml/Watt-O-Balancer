@@ -479,6 +479,14 @@ class EvLoadBalancerCoordinator:
             "Runtime parameter changed — recomputing with last meter value %.1f W",
             service_power_w,
         )
+        # Arm the ramp-up stability window when the charger is actively running.
+        # Without this, a charger that reached its steady state without a prior
+        # reduction (so _ramp_up_armed is False) would jump immediately to a new
+        # higher target when max_charger_current is raised, bypassing the
+        # stability window entirely.
+        if self.current_set_a > 0 and not self._ramp_up_armed:
+            self._ramp_up_armed = True
+            self._headroom_stable_since = None
         self._recompute(service_power_w, REASON_PARAMETER_CHANGE)
 
     # ------------------------------------------------------------------
@@ -715,7 +723,10 @@ class EvLoadBalancerCoordinator:
         # When we know the EV is not actively charging, do not subtract its
         # last commanded current from the available headroom estimate.
         self.ev_charging = self._is_ev_charging()
-        ev_current_estimate = self.current_set_a if self.ev_charging else 0.0
+        ev_current_estimate = min(
+            self.current_set_a if self.ev_charging else 0.0,
+            self.max_charger_current,
+        )
         # When the total service draw is less than the commanded EV current the EV
         # must be drawing less than we asked (e.g. battery throttling near 100 %).
         # Subtracting a larger commanded value than the actual draw would produce a

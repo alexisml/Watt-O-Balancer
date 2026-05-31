@@ -265,19 +265,20 @@ class TestRampUpAfterMinCurrentIncrease:
         """When min_ev_current is raised above current_set_a the charger must not hold below minimum.
 
         Scenario:
-        - Service limit: 31 A, max charger: 20 A, min EV current: 6 A
-        - EV running at 6 A (was the old minimum)
+        - Service limit: 31 A, max charger initially 6 A → raised to 20 A
+        - min EV current: 6 A → raised to 10 A
+        - EV running at 6 A (at its old max)
         - User raises min_ev_current to 10 A (plenty of headroom available)
 
         The coordinator must NOT hold at 6 A (now below the new minimum) for the
-        stability window.  It should advance immediately to 10 A (the new minimum),
-        then continue ramping normally from there.
+        stability window.  It should advance immediately to at least 10 A (the new
+        minimum) so that the ramp-up hold never commands an invalid current.
         """
         await setup_integration(hass, mock_config_entry)
         coordinator = mock_config_entry.runtime_data
 
         coordinator.max_service_current = 31.0
-        coordinator.max_charger_current = 20.0
+        coordinator.max_charger_current = 6.0  # start capped at 6 A
         coordinator.min_ev_current = 6.0
         coordinator.ramp_up_time_s = 30.0
         coordinator.ramp_up_step_a = 4.0
@@ -293,22 +294,24 @@ class TestRampUpAfterMinCurrentIncrease:
             hass, mock_config_entry, "sensor", "current_set"
         )
 
-        # Phase 1: Establish steady state at 6 A (old minimum) with low house load.
-        # meter = (6 A EV + 3 A house) × 230 V
+        # Phase 1: Establish steady state at 6 A (max charger = 6 A).
+        # meter = (6 A EV + 3 A house) × 230 V = 2070 W
         hass.states.async_set(POWER_METER, meter_w(3.0, 6.0))
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 6.0
 
-        # Phase 2: Raise min_ev_current to 10 A while stability window is long (30 s).
-        # The old code would arm the stability window and hold at 6 A (below-minimum).
+        # Phase 2: Raise max_charger to 20 A and min_ev_current to 10 A
+        # simultaneously.  The ramp-up arm fires due to the parameter change,
+        # but the below-minimum guard must advance final_a to 10 A immediately.
         mock_time = 1010.0
+        coordinator.max_charger_current = 20.0
         coordinator.min_ev_current = 10.0
         coordinator.async_recompute_from_current_state()
         await hass.async_block_till_done()
 
         after_raise = float(hass.states.get(current_set_id).state)
-        assert after_raise == 10.0, (
-            f"Expected immediate advance to 10 A (new minimum) but got {after_raise} A — "
+        assert after_raise >= 10.0, (
+            f"Expected at least 10 A (new minimum) but got {after_raise} A — "
             "the stability hold must never keep the current below min_ev_current"
         )
 

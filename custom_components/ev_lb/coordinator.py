@@ -442,6 +442,12 @@ class EvLoadBalancerCoordinator:
         Called when a runtime parameter changes (max charger current,
         min EV current, or the enabled switch) so the new value takes
         effect immediately without waiting for the next power-meter event.
+
+        When raising ``max_charger_current`` while the charger is actively
+        running, the ramp-up stability window is armed so the new target is
+        approached gradually.  This arm is skipped when re-enabling from a
+        ``STATE_DISABLED`` state — in that case the user expects an immediate
+        jump to the optimal current rather than a hold.
         """
         if not self.enabled:
             _LOGGER.debug("Parameter changed but load balancing is disabled — skipping recompute")

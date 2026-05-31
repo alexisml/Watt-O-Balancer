@@ -271,8 +271,9 @@ class TestRampUpAfterMinCurrentIncrease:
         - User raises min_ev_current to 10 A (plenty of headroom available)
 
         The coordinator must NOT hold at 6 A (now below the new minimum) for the
-        stability window.  It should advance immediately to at least 10 A (the new
-        minimum) so that the ramp-up hold never commands an invalid current.
+        stability window.  The below-minimum guard clamps final_a to exactly 10 A
+        (the new minimum), then the stability window holds there until the next
+        ramp step fires.
         """
         await setup_integration(hass, mock_config_entry)
         coordinator = mock_config_entry.runtime_data
@@ -310,8 +311,9 @@ class TestRampUpAfterMinCurrentIncrease:
         await hass.async_block_till_done()
 
         after_raise = float(hass.states.get(current_set_id).state)
-        assert after_raise >= 10.0, (
-            f"Expected at least 10 A (new minimum) but got {after_raise} A — "
-            "the stability hold must never keep the current below min_ev_current"
+        assert after_raise == 10.0, (
+            f"Expected exactly 10 A (new minimum) but got {after_raise} A — "
+            "the below-minimum guard should clamp to min_ev_current, then the "
+            "stability window holds there until the next ramp step"
         )
 

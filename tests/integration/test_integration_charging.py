@@ -170,7 +170,8 @@ class TestRampUpCooldownFullCycle:
     """Walk through every phase of the ramp-up cooldown mechanism.
 
     Verifies the balancer state transitions: active → adjusting (reduction) →
-    ramp_up_hold (cooldown active) → adjusting (cooldown expired, increase allowed).
+    ramp_up_hold (waiting for stability window) →
+    ramp_up_hold (current increased by one step, additional steps pending).
     """
 
     async def test_cooldown_phases_with_state_tracking(
@@ -216,14 +217,18 @@ class TestRampUpCooldownFullCycle:
         assert float(hass.states.get(current_set_id).state) == reduced_value  # Held
         assert hass.states.get(state_id).state == STATE_RAMP_UP_HOLD
 
-        # Phase 4: Stability window expires → increase allowed → adjusting
+        # Phase 4: Stability window expires → first ramp-up step taken → ramp_up_hold (more steps remain)
+        # The meter reading must reflect the increased EV draw so the system does
+        # not treat the lag between the step and the meter update as EV throttling
+        # and revert the increase. 4000 W ≈ 17 A @ 230 V, which is above the
+        # commanded EV current at this point.
         mock_time = 1041.0  # 31 s after timer start at Phase 3 (T=1010)
-        hass.states.async_set(POWER_METER, "3003")
+        hass.states.async_set(POWER_METER, "4000")
         await hass.async_block_till_done()
 
         after_cooldown = float(hass.states.get(current_set_id).state)
         assert after_cooldown > reduced_value  # Increase now allowed
-        assert hass.states.get(state_id).state == STATE_ADJUSTING
+        assert hass.states.get(state_id).state == STATE_RAMP_UP_HOLD
 
 
 # ---------------------------------------------------------------------------

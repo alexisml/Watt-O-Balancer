@@ -216,8 +216,8 @@ The balancer is **event-driven** — it does not poll on a timer. A recomputatio
 |---|---|---|
 | **Power meter state change** | Sensor reports a new Watt value. The coordinator reads it and runs the full algorithm. | Instant — same HA event-loop tick. |
 | **Max service current changed** | User or automation changes the number entity. The coordinator re-reads the current meter value and recomputes immediately. Reducing the limit below the current charging current causes an instant reduction; raising it makes more headroom available on the next recompute. | Instant. |
-| **Max charger current changed** | User or automation changes the number entity. If set to **0 A**, charging stops immediately and all subsequent power meter events output 0 A (load balancing bypassed). For any non-zero value, if meter is available, coordinator re-reads the current meter value and recomputes. If meter is unavailable, the fallback limit is re-applied with the new cap. | Instant. |
-| **Min EV current changed** | Same as above. If the new minimum is higher than the current target, charging stops immediately even while the meter is unavailable. | Instant. |
+| **Max charger current changed** | User or automation changes the number entity. If set to **0 A**, charging stops immediately, all ramp-up state is cleared, and all subsequent power meter events output 0 A (load balancing bypassed). For any non-zero value, if the meter is available the coordinator re-reads it and recomputes; if unavailable, the fallback limit is re-applied. If the charger was actively running and not already in a ramp-up hold, the stability window is armed so any increase toward the new higher target is gradual rather than immediate. | Instant. |
+| **Min EV current changed** | Same as above. If the new minimum is higher than the current headroom-limited target, charging stops (since operating below minimum is not allowed). If the meter is unavailable, the outcome depends on the configured unavailable behavior (e.g. `ignore` may stop due to re-clamping, while `set_current` re-applies the fallback capped to service/charger limits). If the new minimum exceeds the current commanded set-point during a ramp-up hold, the hold floor is advanced immediately to `min_ev_current`. | Instant. |
 | **Load balancing re-enabled** | The switch is turned back on. Full recomputation using current meter value. | Instant. |
 | **Overload correction loop** | When the system is overloaded, a time-based loop fires corrections at a configurable interval even if the meter has not reported a new value. | Every `overload_loop_interval` seconds. |
 
@@ -229,8 +229,21 @@ On each trigger:
 
 ```
 house_power_w = read power meter sensor
-ev_estimate_a = current_ev_a if EV is actively charging, else 0
-                (requires optional charger status sensor — see below)
+# ev_charging requires optional charger status sensor — see below
+ev_estimate_a = min(current_ev_a if ev_charging else 0, max_charger_a)
+                # clamped to max_charger_a: current_set_a can exceed max_charger_a
+                # when the charger maximum is lowered mid-session
+
+# Safety check: if service draw is less than the EV estimate, the EV must be
+# drawing less than commanded (e.g. battery near 100 %). Treat all measured load
+# as non-EV in that case.  A one-step tolerance is applied for ramp_up_time_s
+# after each step increase to absorb natural meter lag from the step itself.
+in_post_step_window = (last_step_increase_at is not None
+                       and (now - last_step_increase_at) <= ramp_up_time_s)
+tolerance = ramp_up_step_a if in_post_step_window else 0
+if house_power_w / voltage_v < ev_estimate_a - tolerance:
+    ev_estimate_a = 0
+
 non_ev_w      = max(0, house_power_w − ev_estimate_a × voltage_v)
 available_a   = service_current_a − non_ev_w / voltage_v
 target_a      = min(available_a, max_charger_a), floored to 1 A steps
@@ -280,10 +293,11 @@ flowchart TD
 
 This approach avoids large current jumps that could cause a new overload immediately after recovery, without preventing recovery when there is genuine headroom available.
 
-The **stability timer resets** whenever either of these happens:
+The **stability timer resets** whenever any of these happen:
 - The commanded current drops (direct reduction) — the timer is cleared so recovery starts fresh.
 - A ramp-up step is taken — the timer resets so the next step also requires a full stability window of continuous headroom.
 - **The EV starts charging** (status sensor transitions to `Charging`) while the charger is idling at `min_ev_current`. This prevents the current from jumping immediately to the full available headroom when the EV begins drawing; instead, the current increases gradually, step by step, just like after any other reduction.
+- **A runtime parameter changes** (`max_charger_current`, `min_ev_current`, or other number entities) while the charger is actively running and not already in a stability hold. This ensures that raising the charger limit mid-session does not bypass the gradual ramp-up — any increase toward the new target is still stepped and delayed.
 
 > ⚠️ **Very low stability-window values (below ~10 s) risk instability** if your service load has frequent spikes or is unpredictable. The recommended minimum is 15–30 s for most installations.
 

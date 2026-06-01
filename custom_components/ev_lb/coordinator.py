@@ -149,6 +149,9 @@ class EvLoadBalancerCoordinator:
         self._headroom_stable_since: float | None = None
         # Diagnostic: actual step size that will be applied on the next ramp-up step (A)
         self.ramp_up_next_step_a: float = 0.0
+        # Timestamp of the last ramp-up step increase — used to limit the
+        # meter-lag tolerance window in the EV current estimator.
+        self._last_step_increase_at: float | None = None
         self._time_fn = time.monotonic
 
         # Async sleep function — injectable for testing
@@ -442,6 +445,17 @@ class EvLoadBalancerCoordinator:
         Called when a runtime parameter changes (max charger current,
         min EV current, or the enabled switch) so the new value takes
         effect immediately without waiting for the next power-meter event.
+
+        When a runtime parameter changes while the charger is actively running
+        at or above ``min_ev_current``, the ramp-up stability window is armed
+        so any new higher target is approached gradually.  This arm is skipped
+        when re-enabling from a ``STATE_DISABLED`` state — in that case the
+        user expects an immediate jump to the optimal current rather than a hold.
+
+        If ``min_ev_current`` was raised above the current set-point, the
+        stability window cannot hold at the old below-minimum value; that case
+        is handled inside ``_recompute`` which advances directly to
+        ``min_ev_current`` before continuing the normal ramp.
         """
         if not self.enabled:
             _LOGGER.debug("Parameter changed but load balancing is disabled — skipping recompute")
@@ -479,6 +493,26 @@ class EvLoadBalancerCoordinator:
             "Runtime parameter changed — recomputing with last meter value %.1f W",
             service_power_w,
         )
+        # Arm the ramp-up stability window when the charger is actively running
+        # and a runtime parameter (e.g. max_charger_current) is being changed.
+        # Without this, a charger that reached its steady state without a prior
+        # reduction (so _ramp_up_armed is False) would jump immediately to a new
+        # higher target when max_charger_current is raised, bypassing the
+        # stability window entirely.
+        # Skip arming when re-enabling from a disabled state — in that case
+        # the balancer_state is STATE_DISABLED and the user expects an immediate
+        # jump to the current optimal rather than a stability hold.
+        # Note: if min_ev_current was raised above the current set-point the arm
+        # may fire here, but _recompute will advance directly to min_ev_current
+        # before the stability window can hold at the now-invalid below-minimum
+        # current (see the guard in _recompute after apply_ramp_up_limit).
+        if (
+            self.current_set_a > 0
+            and not self._ramp_up_armed
+            and self.balancer_state != STATE_DISABLED
+        ):
+            self._ramp_up_armed = True
+            self._headroom_stable_since = None
         self._recompute(service_power_w, REASON_PARAMETER_CHANGE)
 
     # ------------------------------------------------------------------
@@ -764,14 +798,29 @@ class EvLoadBalancerCoordinator:
         """Run the balancing algorithm for this instance and publish updates."""
         if self.max_charger_current == 0.0:
             _LOGGER.debug("Max charger current is 0 A — skipping load balancing, outputting 0 A")
+            # Clear ramp-up state so it does not persist across a max=0 stop/resume
+            # cycle.  Without this, a ramp arm set before the max-zero transition
+            # would cause an unexpected stability hold when charging later resumes.
+            self._ramp_up_armed = False
+            self._headroom_stable_since = None
+            self._last_step_increase_at = None
             self._update_and_notify(0.0, 0.0, reason)
             return
 
         service_current_a = service_power_w / self._voltage
+        now = self._time_fn()
         # When we know the EV is not actively charging, do not subtract its
         # last commanded current from the available headroom estimate.
         self.ev_charging = self._is_ev_charging()
-        ev_current_estimate = self.current_set_a if self.ev_charging else 0.0
+        # When the charger's maximum current is reduced during an active session,
+        # the commanded current may temporarily exceed the new limit.  Clamping
+        # ev_current_estimate to max_charger_current ensures we never subtract a
+        # larger value than the charger can physically deliver, which would
+        # understate non-EV load and risk overloading the service feed.
+        ev_current_estimate = min(
+            self.current_set_a if self.ev_charging else 0.0,
+            self.max_charger_current,
+        )
         # When the total service draw is less than the commanded EV current the EV
         # must be drawing less than we asked (e.g. battery throttling near 100 %).
         # Subtracting a larger commanded value than the actual draw would produce a
@@ -779,7 +828,20 @@ class EvLoadBalancerCoordinator:
         # the service maximum and causing the coordinator to keep commanding max amps
         # indefinitely.  Use 0 as the EV estimate in this case so that all measured
         # load is treated as non-EV — a conservative, safe lower bound on headroom.
-        if service_current_a < ev_current_estimate:
+        #
+        # A tolerance of one ramp-up step is applied only within a post-step lag
+        # window (duration = ramp_up_time_s) after a step increase.  During this
+        # window the meter naturally lags behind the new commanded value by up to one
+        # step; without this tolerance the safety check fires on every post-step meter
+        # reading, instantly reverting the increase and creating an endless
+        # hold/adjust loop.  Outside the lag window, fall back to the conservative
+        # estimate so a genuine EV shortfall (e.g. battery throttling) is never masked.
+        in_post_step_window = (
+            self._last_step_increase_at is not None
+            and (now - self._last_step_increase_at) <= self.ramp_up_time_s
+        )
+        tolerance = self.ramp_up_step_a if in_post_step_window else 0.0
+        if service_current_a < ev_current_estimate - tolerance:
             ev_current_estimate = 0.0
         available_a, clamped = compute_target_current(
             service_current_a,
@@ -805,7 +867,6 @@ class EvLoadBalancerCoordinator:
         # the charger jumps directly to the full target, preserving the original safe-start
         # behaviour.  Only after a reduction or EV-start event is _ramp_up_armed set to
         # True and the stability window enforced.
-        now = self._time_fn()
         effective_step = self.ramp_up_step_a
         # If the commanded current is below min_ev_current, the first step must
         # reach at least min_ev_current regardless of the configured step size.
@@ -844,6 +905,15 @@ class EvLoadBalancerCoordinator:
                 self.ramp_up_time_s,
                 effective_step,
             )
+            # Never hold the commanded current below the charger minimum.
+            # This can happen when min_ev_current is raised above the current
+            # set-point: the stability window would otherwise hold at the old,
+            # now-invalid below-minimum value.  Advance immediately to
+            # min_ev_current so that the ramp-up hold never commands an
+            # invalid current.
+            if 0 < final_a < self.min_ev_current:
+                final_a = self.min_ev_current
+                self._headroom_stable_since = None
         else:
             final_a = target_a
             self._headroom_stable_since = None
@@ -857,6 +927,11 @@ class EvLoadBalancerCoordinator:
         # Determine balancer operational state and the next expected step size
         ramp_up_held = final_a < target_a
         self.ramp_up_next_step_a = round(min(effective_step, target_a - final_a), 2) if ramp_up_held else 0.0
+
+        # Record when the commanded current increases so the post-step
+        # meter-lag tolerance window is properly bounded.
+        if final_a > self.current_set_a:
+            self._last_step_increase_at = now
 
         _LOGGER.debug(
             "Recompute (%s): service=%.0f W, available=%.1f A, target=%.1f A, final=%.1f A",

@@ -238,6 +238,9 @@ ev_estimate_a = min(current_ev_a if ev_charging else 0, max_charger_a)
 # drawing less than commanded (e.g. battery near 100 %). Treat all measured load
 # as non-EV in that case.  A one-step tolerance is applied for ramp_up_time_s
 # after each step increase to absorb natural meter lag from the step itself.
+in_post_step_window = (last_step_increase_at is not None
+                       and (now - last_step_increase_at) <= ramp_up_time_s)
+tolerance = ramp_up_step_a if in_post_step_window else 0
 if house_power_w / voltage_v < ev_estimate_a - tolerance:
     ev_estimate_a = 0
 

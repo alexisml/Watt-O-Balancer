@@ -30,8 +30,12 @@ from custom_components.ev_lb.load_balancer import (
     resolve_fallback_current,
 )
 from custom_components.ev_lb.const import (
+    MAX_RAMP_UP_STEP,
+    MAX_RAMP_UP_TIME,
     MAX_SERVICE_CURRENT,
     MAX_VOLTAGE,
+    MIN_RAMP_UP_STEP,
+    MIN_RAMP_UP_TIME,
     MIN_SERVICE_CURRENT,
     MIN_VOLTAGE,
 )
@@ -43,7 +47,7 @@ from custom_components.ev_lb.const import (
 
 # Each row:  (service_current_a, current_set_a, max_service_a,
 #             max_charger_a, min_charger_a, step_a,
-#             expected_target, description)
+#             expected_target)
 COMPUTE_TARGET_TABLE = [
     # --- Normal operation ---
     # Idle EV, moderate household load
@@ -671,7 +675,7 @@ class TestMultiChargerEndToEnd:
         step_a: float,
     ):
         """SAFETY: sum of all charger outputs must never exceed max service current."""
-        # Use the first charger's limits for computing available
+        # Derive aggregate limits across all chargers
         max_charger_a = max(c[1] for c in chargers)
         min_charger_a = min(c[0] for c in chargers)
         available_a, _ = compute_target_current(
@@ -1016,45 +1020,45 @@ class TestComputeTargetBoundary:
 # apply_ramp_up_limit — boundary limit values
 # ---------------------------------------------------------------------------
 
-# Validation limits from const.py:
-#   MIN_RAMP_UP_TIME = 5.0, MAX_RAMP_UP_TIME = 300.0
-#   MIN_RAMP_UP_STEP = 1.0, MAX_RAMP_UP_STEP = 32.0
+# Validation limits imported from const.py:
+#   MIN_RAMP_UP_TIME, MAX_RAMP_UP_TIME
+#   MIN_RAMP_UP_STEP, MAX_RAMP_UP_STEP
 
 # Each row:  (prev_a, target_a, headroom_stable_since, now,
 #             ramp_up_time_s, step_a, expected_final, expected_stable_since)
 RAMP_UP_BOUNDARY_TABLE = [
-    # --- ramp_up_time_s at MIN_RAMP_UP_TIME (5 s) ---
-    pytest.param(10.0, 20.0, 1000.0, 1004.0, 5.0, 4.0, 10.0, 1000.0,
-                 id="min_ramp_time_5s_not_elapsed"),
-    pytest.param(10.0, 20.0, 1000.0, 1005.0, 5.0, 4.0, 14.0, None,
-                 id="min_ramp_time_5s_exactly_elapsed"),
-    pytest.param(10.0, 20.0, 1000.0, 1006.0, 5.0, 4.0, 14.0, None,
-                 id="min_ramp_time_5s_past_elapsed"),
+    # --- ramp_up_time_s at MIN_RAMP_UP_TIME ---
+    pytest.param(10.0, 20.0, 1000.0, 1000.0 + MIN_RAMP_UP_TIME - 1, MIN_RAMP_UP_TIME, 4.0, 10.0, 1000.0,
+                 id="min_ramp_time_not_elapsed"),
+    pytest.param(10.0, 20.0, 1000.0, 1000.0 + MIN_RAMP_UP_TIME, MIN_RAMP_UP_TIME, 4.0, 14.0, None,
+                 id="min_ramp_time_exactly_elapsed"),
+    pytest.param(10.0, 20.0, 1000.0, 1000.0 + MIN_RAMP_UP_TIME + 1, MIN_RAMP_UP_TIME, 4.0, 14.0, None,
+                 id="min_ramp_time_past_elapsed"),
 
-    # --- ramp_up_time_s at MAX_RAMP_UP_TIME (300 s) ---
-    pytest.param(10.0, 20.0, 1000.0, 1299.0, 300.0, 4.0, 10.0, 1000.0,
-                 id="max_ramp_time_300s_not_elapsed"),
-    pytest.param(10.0, 20.0, 1000.0, 1300.0, 300.0, 4.0, 14.0, None,
-                 id="max_ramp_time_300s_exactly_elapsed"),
+    # --- ramp_up_time_s at MAX_RAMP_UP_TIME ---
+    pytest.param(10.0, 20.0, 1000.0, 1000.0 + MAX_RAMP_UP_TIME - 1, MAX_RAMP_UP_TIME, 4.0, 10.0, 1000.0,
+                 id="max_ramp_time_not_elapsed"),
+    pytest.param(10.0, 20.0, 1000.0, 1000.0 + MAX_RAMP_UP_TIME, MAX_RAMP_UP_TIME, 4.0, 14.0, None,
+                 id="max_ramp_time_exactly_elapsed"),
 
-    # --- step_a at MIN_RAMP_UP_STEP (1 A) ---
-    pytest.param(10.0, 20.0, 1000.0, 1016.0, 15.0, 1.0, 11.0, None,
-                 id="min_step_1a_takes_one_step"),
-    pytest.param(10.0, 11.0, 1000.0, 1016.0, 15.0, 1.0, 11.0, None,
-                 id="min_step_1a_reaches_target"),
+    # --- step_a at MIN_RAMP_UP_STEP ---
+    pytest.param(10.0, 20.0, 1000.0, 1016.0, 15.0, MIN_RAMP_UP_STEP, 10.0 + MIN_RAMP_UP_STEP, None,
+                 id="min_step_takes_one_step"),
+    pytest.param(10.0, 10.0 + MIN_RAMP_UP_STEP, 1000.0, 1016.0, 15.0, MIN_RAMP_UP_STEP, 10.0 + MIN_RAMP_UP_STEP, None,
+                 id="min_step_reaches_target"),
 
-    # --- step_a at MAX_RAMP_UP_STEP (32 A) ---
-    pytest.param(10.0, 50.0, 1000.0, 1016.0, 15.0, 32.0, 42.0, None,
-                 id="max_step_32a_takes_big_step"),
-    pytest.param(10.0, 20.0, 1000.0, 1016.0, 15.0, 32.0, 20.0, None,
-                 id="max_step_32a_capped_at_target"),
-    pytest.param(0.0, 32.0, 1000.0, 1016.0, 15.0, 32.0, 32.0, None,
-                 id="max_step_32a_from_zero_to_target"),
+    # --- step_a at MAX_RAMP_UP_STEP ---
+    pytest.param(10.0, 50.0, 1000.0, 1016.0, 15.0, MAX_RAMP_UP_STEP, 10.0 + MAX_RAMP_UP_STEP, None,
+                 id="max_step_takes_big_step"),
+    pytest.param(10.0, 20.0, 1000.0, 1016.0, 15.0, MAX_RAMP_UP_STEP, 20.0, None,
+                 id="max_step_capped_at_target"),
+    pytest.param(0.0, MAX_RAMP_UP_STEP, 1000.0, 1016.0, 15.0, MAX_RAMP_UP_STEP, MAX_RAMP_UP_STEP, None,
+                 id="max_step_from_zero_to_target"),
 
     # --- Decrease always instant at all boundary values ---
-    pytest.param(20.0, 10.0, None, 1000.0, 5.0, 1.0, 10.0, None,
+    pytest.param(20.0, 10.0, None, 1000.0, MIN_RAMP_UP_TIME, MIN_RAMP_UP_STEP, 10.0, None,
                  id="decrease_instant_min_ramp_min_step"),
-    pytest.param(80.0, 6.0, None, 1000.0, 300.0, 32.0, 6.0, None,
+    pytest.param(80.0, 6.0, None, 1000.0, MAX_RAMP_UP_TIME, MAX_RAMP_UP_STEP, 6.0, None,
                  id="decrease_instant_max_ramp_max_step"),
 
     # --- Edge: prev_a=0 (starting from stopped) ---
@@ -1064,11 +1068,17 @@ RAMP_UP_BOUNDARY_TABLE = [
                  id="start_from_zero_first_step"),
 
     # --- Combination: min ramp_up + max step ---
-    pytest.param(6.0, 80.0, 1000.0, 1005.0, 5.0, 32.0, 38.0, None,
-                 id="min_ramp_max_step"),
+    pytest.param(
+        6.0, 80.0, 1000.0, 1000.0 + MIN_RAMP_UP_TIME,
+        MIN_RAMP_UP_TIME, MAX_RAMP_UP_STEP, 6.0 + MAX_RAMP_UP_STEP, None,
+        id="min_ramp_max_step",
+    ),
     # --- Combination: max ramp_up + min step ---
-    pytest.param(6.0, 80.0, 1000.0, 1300.0, 300.0, 1.0, 7.0, None,
-                 id="max_ramp_min_step"),
+    pytest.param(
+        6.0, 80.0, 1000.0, 1000.0 + MAX_RAMP_UP_TIME,
+        MAX_RAMP_UP_TIME, MIN_RAMP_UP_STEP, 6.0 + MIN_RAMP_UP_STEP, None,
+        id="max_ramp_min_step",
+    ),
 ]
 
 

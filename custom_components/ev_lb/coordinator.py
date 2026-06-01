@@ -755,11 +755,11 @@ class EvLoadBalancerCoordinator:
         # When we know the EV is not actively charging, do not subtract its
         # last commanded current from the available headroom estimate.
         self.ev_charging = self._is_ev_charging()
-        # current_set_a can momentarily exceed max_charger_current when the
-        # charger maximum is lowered mid-session (e.g. via the options flow).
-        # Clamping here prevents subtracting a larger value than the charger
-        # can deliver, which would understate non-EV load and risk overloading
-        # the service feed.
+        # When the charger's maximum current is reduced during an active session,
+        # the commanded current may temporarily exceed the new limit.  Clamping
+        # ev_current_estimate to max_charger_current ensures we never subtract a
+        # larger value than the charger can physically deliver, which would
+        # understate non-EV load and risk overloading the service feed.
         ev_current_estimate = min(
             self.current_set_a if self.ev_charging else 0.0,
             self.max_charger_current,

@@ -218,12 +218,11 @@ class TestRampUpCooldownFullCycle:
         assert hass.states.get(state_id).state == STATE_RAMP_UP_HOLD
 
         # Phase 4: Stability window expires → first ramp-up step taken → ramp_up_hold (more steps remain)
-        # The meter value must be at least ev_current_estimate * voltage so the
-        # post-step lag tolerance check (restricted to a window after a step
-        # increase) does not trigger the conservative fallback.
+        # The meter reading must reflect the increased EV draw so the system does
+        # not treat the lag between the step and the meter update as EV throttling
+        # and revert the increase. 4000 W ≈ 17 A @ 230 V, which is above the
+        # commanded EV current at this point.
         mock_time = 1041.0  # 31 s after timer start at Phase 3 (T=1010)
-        # 4000 W = ~17 A @ 230 V, which is above ev_current_estimate so the
-        # post-step lag tolerance check does not trigger the conservative fallback.
         hass.states.async_set(POWER_METER, "4000")
         await hass.async_block_till_done()
 

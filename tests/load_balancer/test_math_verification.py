@@ -675,7 +675,9 @@ class TestMultiChargerEndToEnd:
         step_a: float,
     ):
         """SAFETY: sum of all charger outputs must never exceed max service current."""
-        # Derive aggregate limits across all chargers
+        # Use the widest combined envelope across all chargers so compute_target_current
+        # sees the highest possible max and the lowest possible min, matching
+        # how the coordinator aggregates charger limits at runtime.
         max_charger_a = max(c[1] for c in chargers)
         min_charger_a = min(c[0] for c in chargers)
         available_a, _ = compute_target_current(

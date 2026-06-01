@@ -757,6 +757,11 @@ class EvLoadBalancerCoordinator:
         self.ev_charging = self._is_ev_charging()
         ev_current_estimate = min(
             self.current_set_a if self.ev_charging else 0.0,
+            # current_set_a can momentarily exceed max_charger_current when the
+            # charger maximum is lowered mid-session (e.g. via the options flow).
+            # Clamping here prevents subtracting a larger value than the charger
+            # can deliver, which would understate non-EV load and risk overloading
+            # the service feed.
             self.max_charger_current,
         )
         # When the total service draw is less than the commanded EV current the EV

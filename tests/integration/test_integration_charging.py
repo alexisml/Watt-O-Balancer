@@ -170,7 +170,8 @@ class TestRampUpCooldownFullCycle:
     """Walk through every phase of the ramp-up cooldown mechanism.
 
     Verifies the balancer state transitions: active → adjusting (reduction) →
-    ramp_up_hold (cooldown active) → ramp_up_hold (first step taken, more remain).
+    ramp_up_hold (waiting for stability window) →
+    ramp_up_hold (current increased by one step, additional steps pending).
     """
 
     async def test_cooldown_phases_with_state_tracking(

@@ -184,7 +184,7 @@ class TestComputeTargetTable:
         expected_target: Optional[float],
     ):
         """Charging stops or proceeds at the correct current for each household load scenario."""
-        available_a, target_a = compute_target_current(
+        _, target_a = compute_target_current(
             service_current_a=service_current_a,
             current_set_a=current_set_a,
             max_service_a=max_service_a,

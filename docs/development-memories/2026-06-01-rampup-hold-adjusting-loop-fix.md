@@ -119,10 +119,10 @@ A zero commanded current means the charger is stopped (overload, below minimum h
 
 ### New test file: `tests/balancing_engine/test_ramp_up_after_max_change.py`
 
-- `test_ramp_up_armed_on_max_charger_increase_while_active` — Verifies that raising `max_charger_current` while charging arms the stability window.
-- `test_no_arm_on_reenable_from_disabled` — Verifies re-enabling from `STATE_DISABLED` does not arm the stability window.
-- `test_ramp_up_state_cleared_on_max_zero` — Verifies `_ramp_up_armed` and `_headroom_stable_since` are cleared when `max_charger_current` is set to 0.
-- `test_min_ev_current_raised_above_set_point_advances_immediately` — Verifies the hold floor is advanced to `min_ev_current` when raised above the current set-point.
+- `test_no_reduction_during_meter_lag_after_ramp_step` — Verifies a post-step lagging meter reading does not immediately trigger a reduction back to the previous current.
+- `test_safety_check_still_fires_for_genuine_throttling` — Verifies the EV-estimate safety check still activates when the EV draw shortfall exceeds one ramp-up step.
+- `test_full_ramp_converges_without_oscillation` — Verifies the full multi-step ramp converges to the new max without oscillation, even with meter lag.
+- `test_min_ev_current_raised_above_set_point_jumps_immediately` — Verifies the hold floor advances immediately to `min_ev_current` when raised above the current set-point.
 
 ### Updated: `tests/load_balancer/test_math_verification.py`
 

@@ -1,18 +1,19 @@
-"""Parametrized math verification tests for the load balancing engine.
+"""Verifies that the load balancing engine always keeps the EV charger within safe limits.
 
-Uses a table-driven approach with ``pytest.mark.parametrize`` to exercise
-many condition combinations and boundary values across the core balancing
-functions.  Every test case asserts the **critical safety invariant**: the
-output current must **never** exceed the max service current.
+Uses a table-driven approach with ``pytest.mark.parametrize`` to exercise many
+condition combinations and boundary values.  Every test case asserts the
+**critical safety invariant**: the charger never exceeds the configured service
+or charger current limit under any combination of house load, available headroom,
+and runtime parameters.
 
 The tables cover:
-- ``compute_available_current``: max EV current from power draw and voltage
-- ``compute_target_current``: single-charger target from service meter
-- ``distribute_current``: multi-charger water-filling allocation
-- ``clamp_to_safe_output``: defense-in-depth output clamp
-- ``apply_ramp_up_limit``: stability window before allowing current increase
-- ``resolve_fallback_current``: fallback current when meter is unavailable
-- ``compute_fallback_reapply``: adjusted fallback after charger parameter changes
+- ``compute_available_current``: headroom available to the EV for every house-load scenario
+- ``compute_target_current``: correct single-charger output across load and config combinations
+- ``distribute_current``: fair allocation across multiple chargers
+- ``clamp_to_safe_output``: defense-in-depth output clamp that can never be bypassed
+- ``apply_ramp_up_limit``: gradual recovery after any reduction
+- ``resolve_fallback_current``: correct behaviour when the power meter is unavailable
+- ``compute_fallback_reapply``: correct adjustment when charger parameters change during meter unavailability
 - End-to-end pipeline: compute_target → clamp_to_safe_output
 """
 
@@ -177,7 +178,7 @@ class TestComputeTargetTable:
         step_a: float,
         expected_target: Optional[float],
     ):
-        """Target matches the expected value for each condition combination."""
+        """Charging stops or proceeds at the correct current for each household load scenario."""
         available_a, target_a = compute_target_current(
             service_current_a=service_current_a,
             current_set_a=current_set_a,
@@ -261,7 +262,7 @@ class TestComputeTargetTable:
         step_a: float,
         expected_target: Optional[float],
     ):
-        """When charging is active (target is not None), target ≥ min charger current."""
+        """Active charging sessions never operate below the charger's minimum safe current."""
         _, target_a = compute_target_current(
             service_current_a=service_current_a,
             current_set_a=current_set_a,
@@ -369,7 +370,7 @@ class TestDistributeCurrentTable:
         step_a: float,
         expected: list[Optional[float]],
     ):
-        """Allocations match the expected values for each condition."""
+        """Each charger receives the correct current allocation for the available headroom."""
         result = distribute_current(
             available_a=available_a, chargers=chargers, step_a=step_a
         )
@@ -490,7 +491,7 @@ class TestClampToSafeOutputTable:
         max_service_a: float,
         expected: float,
     ):
-        """Output matches expected clamped value."""
+        """Output current never exceeds configured safety limits."""
         result = clamp_to_safe_output(current_a, max_charger_a, max_service_a)
         assert result == expected
 
@@ -612,7 +613,7 @@ class TestEndToEndPipeline:
         min_charger_a: float,
         step_a: float,
     ):
-        """The safety clamp does not alter a correctly computed target."""
+        """Correctly computed targets pass through the safety validation without modification."""
         _, target_a = compute_target_current(
             service_current_a=service_current_a,
             current_set_a=current_set_a,
@@ -815,7 +816,7 @@ class TestComputeAvailableBoundary:
         voltage_v: float,
         expected: float,
     ):
-        """Available current matches the expected value at boundary inputs."""
+        """Headroom calculation is accurate at minimum and maximum voltage and service current boundaries."""
         result = compute_available_current(
             service_power_w=service_power_w,
             max_service_a=max_service_a,
@@ -834,7 +835,7 @@ class TestComputeAvailableBoundary:
         voltage_v: float,
         expected: float,
     ):
-        """Formula: available = max_service_a - service_power_w / voltage_v."""
+        """Available charging headroom decreases proportionally with household power consumption."""
         result = compute_available_current(
             service_power_w=service_power_w,
             max_service_a=max_service_a,
@@ -952,7 +953,7 @@ class TestComputeTargetBoundary:
         step_a: float,
         expected_target: Optional[float],
     ):
-        """Target matches expected at boundary inputs."""
+        """Charging operates correctly at extreme service and charger current limits."""
         _, target_a = compute_target_current(
             service_current_a=service_current_a,
             current_set_a=current_set_a,
@@ -1103,7 +1104,7 @@ class TestApplyRampUpBoundary:
         expected_final: float,
         expected_stable: Optional[float],
     ):
-        """Output matches expected at boundary ramp-up inputs."""
+        """Ramp-up timing and step size work correctly at minimum and maximum configuration boundaries."""
         final_a, stable_since = apply_ramp_up_limit(
             prev_a=prev_a,
             target_a=target_a,
@@ -1195,7 +1196,7 @@ class TestResolveFallbackBoundary:
         max_charger_a: float,
         expected: Optional[float],
     ):
-        """Fallback current matches expected at boundary inputs."""
+        """Fallback charging mode respects configured limits when the power meter is unavailable."""
         result = resolve_fallback_current(behavior, fallback_a, max_charger_a)
         assert result == expected
 
@@ -1285,7 +1286,7 @@ class TestComputeFallbackReapplyBoundary:
         max_service_a: float,
         expected: float,
     ):
-        """Reapply current matches expected at boundary inputs."""
+        """Fallback current adjusts correctly when charger parameters change during meter unavailability."""
         result = compute_fallback_reapply(
             behavior, fallback_a, max_charger_a,
             current_set_a, min_charger_a, max_service_a,
@@ -1378,7 +1379,7 @@ class TestDistributeBoundary:
         step_a: float,
         expected: list[Optional[float]],
     ):
-        """Allocations match expected at boundary charger limits."""
+        """Multi-charger allocation works correctly at minimum and maximum charger current boundaries."""
         result = distribute_current(
             available_a=available_a, chargers=chargers, step_a=step_a
         )
@@ -1469,7 +1470,7 @@ class TestClampSafeOutputBoundary:
         max_service_a: float,
         expected: float,
     ):
-        """Output matches expected at boundary limits."""
+        """Safety clamping works correctly at minimum and maximum charger and service current limits."""
         result = clamp_to_safe_output(current_a, max_charger_a, max_service_a)
         assert result == expected
 

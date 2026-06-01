@@ -16,12 +16,13 @@ from conftest import POWER_METER, setup_integration, get_entity_id, meter_w
 
 
 def meter_w_offset(house_a: float, ev_a: float, offset_w: float) -> str:
-    """Return a meter reading shifted by *offset_w* watts.
+    """Generates a distinct meter reading by shifting by *offset_w* watts.
 
-    Useful when back-to-back `hass.states.async_set` calls must use
-    distinct values: HA only fires ``state_changed`` when the value
-    actually changes, so repeating an identical reading is silently
-    ignored and the coordinator is never called.
+    Home Assistant only fires ``state_changed`` when the value actually
+    changes, so back-to-back ``hass.states.async_set`` calls with an
+    identical reading are silently ignored and the coordinator is never
+    called.  Use this helper to produce a slightly different reading that
+    still represents the same physical scenario.
     """
     return str(float(meter_w(house_a, ev_a)) + offset_w)
 

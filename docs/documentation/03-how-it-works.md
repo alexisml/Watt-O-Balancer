@@ -184,6 +184,18 @@ All entities are grouped under a single device called **EV Charger Load Balancer
 |---|---|
 | `switch.*_load_balancing_enabled` | Master on/off switch for the integration. When **off**, the integration ignores all power meter events and takes no action. The charger current stays at whatever was last set. Turn it back on to resume automatic balancing. |
 
+### Button entities
+
+These buttons allow manual or automation-driven retriggering of the configured charger action scripts. They are most useful for recovery scenarios — for example, after a power outage when the charger has lost its commanded state but the coordinator still holds the last computed target.
+
+| Entity | What it does |
+|---|---|
+| `button.*_retrigger_set_current` | Immediately resends the last computed charging current to the charger via the `set_current` action. Useful when the charger restarted and needs to be told the current target again without waiting for the next power-meter event. |
+| `button.*_force_start_charging` | Calls the `start_charging` action directly, regardless of balancer state. |
+| `button.*_force_stop_charging` | Calls the `stop_charging` action directly, regardless of balancer state. |
+
+All three buttons pass `charger_id` and route through the existing retry + exponential backoff + diagnostic sensor pipeline (same as automatic commands). If no action script is configured for the relevant action, pressing the button is a no-op.
+
 ### Service
 
 | Service | What it does |

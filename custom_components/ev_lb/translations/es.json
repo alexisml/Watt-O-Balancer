@@ -169,6 +169,9 @@
     "switch": {
       "enabled": {
         "name": "Balanceo de carga habilitado"
+      },
+      "auto_recovery": {
+        "name": "Recuperación automática al reconectar cargador"
       }
     },
     "button": {

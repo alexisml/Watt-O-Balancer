@@ -183,6 +183,7 @@ All entities are grouped under a single device called **EV Charger Load Balancer
 | Entity | What it controls |
 |---|---|
 | `switch.*_load_balancing_enabled` | Master on/off switch for the integration. When **off**, the integration ignores all power meter events and takes no action. The charger current stays at whatever was last set. Turn it back on to resume automatic balancing. |
+| `switch.*_auto_recovery_on_charger_reconnect` | Enables/disables automatic recovery when the charger reconnects after a power outage. **Only available when a charger status sensor is configured.** When **on** (default), the integration automatically resends the last commanded current to the charger when its status transitions from `unavailable`/`unknown` back to a valid state. See [Automatic charger recovery](#automatic-charger-recovery) below. |
 
 ### Button entities
 
@@ -201,6 +202,30 @@ All three buttons pass `charger_id` and route through the existing retry + expon
 | Service | What it does |
 |---|---|
 | `ev_lb.set_limit` | Manually override the charger current. Accepts `current_a` (float). The value is clamped to the charger's min/max range. If it falls below the minimum EV current, charging stops. **The override is one-shot** — the next power-meter event resumes automatic balancing. Useful for temporary limits via automations. |
+
+### Automatic charger recovery
+
+When a **charger status sensor** is configured, the integration can automatically detect when the charger comes back online after a power outage and resend the last commanded current — eliminating the need for manual intervention or waiting for the next power-meter event.
+
+**How it works:**
+
+1. The charger loses power → its status sensor transitions to `unavailable` or `unknown`
+2. Power is restored → the status sensor transitions back to a valid state (e.g., "Charging", "Available")
+3. The integration detects this transition and automatically calls `async_retrigger_set_current()` to resend the last commanded current
+
+**Controls:**
+
+- **Enable/disable per charger:** Use `switch.*_auto_recovery_on_charger_reconnect` to toggle this behavior. It is **on** by default.
+- **Event:** When recovery triggers, the integration fires an `ev_lb_charger_recovered` event with `entry_id` and `current_a` fields. Use this to build custom automations (e.g., send a notification).
+- **Logging:** Recovery events are logged at INFO level with the message "Charger recovered from unavailable state — auto-retriggering set_current".
+
+**Conditions for auto-recovery to trigger:**
+
+- A `charger_status_entity` must be configured
+- `switch.*_auto_recovery_on_charger_reconnect` must be on
+- The last commanded current (`current_set_a`) must be greater than 0 A — if the charger was stopped before the outage, there's nothing to retrigger
+
+> **Note:** If no `charger_status_entity` is configured, the integration has no way to detect charger outages. In that scenario, use the manual **Retrigger set current** button or build an automation that monitors your charger's availability externally and presses the button when needed.
 
 ---
 

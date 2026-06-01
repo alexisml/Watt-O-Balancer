@@ -172,6 +172,9 @@
     "switch": {
       "enabled": {
         "name": "Load balancing enabled"
+      },
+      "auto_recovery": {
+        "name": "Auto-recovery on charger reconnect"
       }
     },
     "button": {

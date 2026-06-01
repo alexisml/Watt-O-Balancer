@@ -105,6 +105,7 @@ EVENT_OVERLOAD_STOP = f"{DOMAIN}_overload_stop"
 EVENT_CHARGING_RESUMED = f"{DOMAIN}_charging_resumed"
 EVENT_FALLBACK_ACTIVATED = f"{DOMAIN}_fallback_activated"
 EVENT_ACTION_FAILED = f"{DOMAIN}_action_failed"
+EVENT_CHARGER_RECOVERED = f"{DOMAIN}_charger_recovered"
 
 # Persistent notification ID templates (one per entry)
 NOTIFICATION_METER_UNAVAILABLE_FMT = f"{DOMAIN}_meter_unavailable_{{entry_id}}"

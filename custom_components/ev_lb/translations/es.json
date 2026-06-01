@@ -170,6 +170,17 @@
       "enabled": {
         "name": "Balanceo de carga habilitado"
       }
+    },
+    "button": {
+      "retrigger_set_current": {
+        "name": "Reenviar corriente establecida"
+      },
+      "force_start": {
+        "name": "Forzar inicio de carga"
+      },
+      "force_stop": {
+        "name": "Forzar parada de carga"
+      }
     }
   }
 }

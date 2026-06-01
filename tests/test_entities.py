@@ -62,7 +62,7 @@ class TestDeviceRegistration:
         entries = er.async_entries_for_config_entry(
             ent_reg, mock_config_entry.entry_id
         )
-        assert len(entries) == 26  # 13 sensors + 5 binary_sensors + 7 numbers + 1 switch
+        assert len(entries) == 29  # 13 sensors + 5 binary_sensors + 7 numbers + 1 switch + 3 buttons
 
         dev_reg = dr.async_get(hass)
         device = dev_reg.async_get_device(
@@ -117,6 +117,9 @@ class TestUniqueIds:
             "overload_loop_interval",
             "ramp_up_step",
             "enabled",
+            "retrigger_set_current",
+            "force_start",
+            "force_stop",
         }
         actual_suffixes = set()
         for entity_entry in entries:
@@ -720,7 +723,7 @@ class TestUnload:
         entries_before = er.async_entries_for_config_entry(
             ent_reg, mock_config_entry.entry_id
         )
-        assert len(entries_before) == 26
+        assert len(entries_before) == 29
 
         await hass.config_entries.async_unload(mock_config_entry.entry_id)
         await hass.async_block_till_done()

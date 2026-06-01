@@ -173,6 +173,17 @@
       "enabled": {
         "name": "Load balancing enabled"
       }
+    },
+    "button": {
+      "retrigger_set_current": {
+        "name": "Retrigger set current"
+      },
+      "force_start": {
+        "name": "Force start charging"
+      },
+      "force_stop": {
+        "name": "Force stop charging"
+      }
     }
   }
 }

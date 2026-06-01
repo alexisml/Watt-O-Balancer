@@ -11,6 +11,7 @@ DOMAIN = "ev_lb"
 # Platforms to set up
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
+    Platform.BUTTON,
     Platform.NUMBER,
     Platform.SENSOR,
     Platform.SWITCH,

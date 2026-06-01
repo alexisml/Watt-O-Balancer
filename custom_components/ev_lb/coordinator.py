@@ -149,6 +149,9 @@ class EvLoadBalancerCoordinator:
         self._headroom_stable_since: float | None = None
         # Diagnostic: actual step size that will be applied on the next ramp-up step (A)
         self.ramp_up_next_step_a: float = 0.0
+        # Timestamp of the last ramp-up step increase — used to limit the
+        # meter-lag tolerance window in the EV current estimator.
+        self._last_step_increase_at: float | None = None
         self._time_fn = time.monotonic
 
         # Async sleep function — injectable for testing
@@ -748,6 +751,7 @@ class EvLoadBalancerCoordinator:
             return
 
         service_current_a = service_power_w / self._voltage
+        now = self._time_fn()
         # When we know the EV is not actively charging, do not subtract its
         # last commanded current from the available headroom estimate.
         self.ev_charging = self._is_ev_charging()
@@ -763,13 +767,19 @@ class EvLoadBalancerCoordinator:
         # indefinitely.  Use 0 as the EV estimate in this case so that all measured
         # load is treated as non-EV — a conservative, safe lower bound on headroom.
         #
-        # A tolerance of one ramp-up step is applied: after a step increase the meter
-        # naturally lags behind the new commanded value by up to one step.  Without
-        # this tolerance the safety check fires on every post-step meter reading,
-        # instantly reverting the increase and creating an endless hold/adjust loop.
-        # Genuine throttling (EV drawing significantly less than commanded) produces a
-        # shortfall larger than one step and still triggers the conservative fallback.
-        if service_current_a < ev_current_estimate - self.ramp_up_step_a:
+        # A tolerance of one ramp-up step is applied only within a post-step lag
+        # window (duration = ramp_up_time_s) after a step increase.  During this
+        # window the meter naturally lags behind the new commanded value by up to one
+        # step; without this tolerance the safety check fires on every post-step meter
+        # reading, instantly reverting the increase and creating an endless
+        # hold/adjust loop.  Outside the lag window, fall back to the conservative
+        # estimate so a genuine EV shortfall (e.g. battery throttling) is never masked.
+        in_post_step_window = (
+            self._last_step_increase_at is not None
+            and (now - self._last_step_increase_at) <= self.ramp_up_time_s
+        )
+        tolerance = self.ramp_up_step_a if in_post_step_window else 0.0
+        if service_current_a < ev_current_estimate - tolerance:
             ev_current_estimate = 0.0
         available_a, clamped = compute_target_current(
             service_current_a,
@@ -795,7 +805,6 @@ class EvLoadBalancerCoordinator:
         # the charger jumps directly to the full target, preserving the original safe-start
         # behaviour.  Only after a reduction or EV-start event is _ramp_up_armed set to
         # True and the stability window enforced.
-        now = self._time_fn()
         effective_step = self.ramp_up_step_a
         # If the commanded current is below min_ev_current, the first step must
         # reach at least min_ev_current regardless of the configured step size.
@@ -856,6 +865,11 @@ class EvLoadBalancerCoordinator:
         # Determine balancer operational state and the next expected step size
         ramp_up_held = final_a < target_a
         self.ramp_up_next_step_a = round(min(effective_step, target_a - final_a), 2) if ramp_up_held else 0.0
+
+        # Record when the commanded current increases so the post-step
+        # meter-lag tolerance window is properly bounded.
+        if final_a > self.current_set_a:
+            self._last_step_increase_at = now
 
         _LOGGER.debug(
             "Recompute (%s): service=%.0f W, available=%.1f A, target=%.1f A, final=%.1f A",

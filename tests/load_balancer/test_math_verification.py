@@ -29,6 +29,12 @@ from custom_components.ev_lb.load_balancer import (
     distribute_current,
     resolve_fallback_current,
 )
+from custom_components.ev_lb.const import (
+    MAX_SERVICE_CURRENT,
+    MAX_VOLTAGE,
+    MIN_SERVICE_CURRENT,
+    MIN_VOLTAGE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -733,47 +739,48 @@ class TestMultiChargerEndToEnd:
 # compute_available_current — boundary limit values
 # ---------------------------------------------------------------------------
 
-# Validation limits from const.py:
-#   MIN_VOLTAGE = 100.0, MAX_VOLTAGE = 480.0
-#   MIN_SERVICE_CURRENT = 1.0, MAX_SERVICE_CURRENT = 200.0
+# Validation limits imported from const.py:
+#   MIN_VOLTAGE, MAX_VOLTAGE, MIN_SERVICE_CURRENT, MAX_SERVICE_CURRENT
 
 # Each row:  (service_power_w, max_service_a, voltage_v, expected_available)
 COMPUTE_AVAILABLE_BOUNDARY_TABLE = [
     # --- Voltage boundaries ---
-    # MIN_VOLTAGE (100 V): same Watt draw → higher Amps → less headroom
-    pytest.param(1000.0, 32.0, 100.0, 22.0,
-                 id="voltage_min_100v"),
-    # MAX_VOLTAGE (480 V): same Watt draw → lower Amps → more headroom
-    pytest.param(1000.0, 32.0, 480.0, 32.0 - 1000.0 / 480.0,
-                 id="voltage_max_480v"),
+    # MIN_VOLTAGE: same Watt draw → higher Amps → less headroom
+    pytest.param(1000.0, 32.0, MIN_VOLTAGE, 32.0 - 1000.0 / MIN_VOLTAGE,
+                 id="voltage_min"),
+    # MAX_VOLTAGE: same Watt draw → lower Amps → more headroom
+    pytest.param(1000.0, 32.0, MAX_VOLTAGE, 32.0 - 1000.0 / MAX_VOLTAGE,
+                 id="voltage_max"),
     # Default voltage (230 V)
     pytest.param(1000.0, 32.0, 230.0, 32.0 - 1000.0 / 230.0,
                  id="voltage_default_230v"),
 
     # --- Service current boundaries ---
-    # MIN_SERVICE_CURRENT (1 A)
-    pytest.param(0.0, 1.0, 230.0, 1.0,
-                 id="service_min_1a_no_load"),
-    pytest.param(230.0, 1.0, 230.0, 0.0,
-                 id="service_min_1a_at_limit"),
-    pytest.param(460.0, 1.0, 230.0, -1.0,
-                 id="service_min_1a_overload"),
-    # MAX_SERVICE_CURRENT (200 A)
-    pytest.param(0.0, 200.0, 230.0, 200.0,
-                 id="service_max_200a_no_load"),
-    pytest.param(46000.0, 200.0, 230.0, 0.0,
-                 id="service_max_200a_at_limit"),
-    pytest.param(50000.0, 200.0, 230.0, 200.0 - 50000.0 / 230.0,
-                 id="service_max_200a_overload"),
+    # MIN_SERVICE_CURRENT
+    pytest.param(0.0, MIN_SERVICE_CURRENT, 230.0, MIN_SERVICE_CURRENT,
+                 id="service_min_no_load"),
+    pytest.param(MIN_SERVICE_CURRENT * 230.0, MIN_SERVICE_CURRENT, 230.0, 0.0,
+                 id="service_min_at_limit"),
+    pytest.param(MIN_SERVICE_CURRENT * 230.0 * 2, MIN_SERVICE_CURRENT, 230.0,
+                 MIN_SERVICE_CURRENT - (MIN_SERVICE_CURRENT * 230.0 * 2) / 230.0,
+                 id="service_min_overload"),
+    # MAX_SERVICE_CURRENT
+    pytest.param(0.0, MAX_SERVICE_CURRENT, 230.0, MAX_SERVICE_CURRENT,
+                 id="service_max_no_load"),
+    pytest.param(MAX_SERVICE_CURRENT * 230.0, MAX_SERVICE_CURRENT, 230.0, 0.0,
+                 id="service_max_at_limit"),
+    pytest.param(MAX_SERVICE_CURRENT * 230.0 + 4000.0, MAX_SERVICE_CURRENT, 230.0,
+                 MAX_SERVICE_CURRENT - (MAX_SERVICE_CURRENT * 230.0 + 4000.0) / 230.0,
+                 id="service_max_overload"),
 
     # --- Combinations of boundary voltage and service ---
-    pytest.param(0.0, 1.0, 100.0, 1.0,
+    pytest.param(0.0, MIN_SERVICE_CURRENT, MIN_VOLTAGE, MIN_SERVICE_CURRENT,
                  id="min_service_min_voltage_no_load"),
-    pytest.param(0.0, 200.0, 480.0, 200.0,
+    pytest.param(0.0, MAX_SERVICE_CURRENT, MAX_VOLTAGE, MAX_SERVICE_CURRENT,
                  id="max_service_max_voltage_no_load"),
-    pytest.param(100.0, 1.0, 100.0, 0.0,
+    pytest.param(MIN_SERVICE_CURRENT * MIN_VOLTAGE, MIN_SERVICE_CURRENT, MIN_VOLTAGE, 0.0,
                  id="min_service_min_voltage_at_limit"),
-    pytest.param(96000.0, 200.0, 480.0, 0.0,
+    pytest.param(MAX_SERVICE_CURRENT * MAX_VOLTAGE, MAX_SERVICE_CURRENT, MAX_VOLTAGE, 0.0,
                  id="max_service_max_voltage_at_limit"),
 
     # --- Zero power (no load) ---
@@ -781,9 +788,9 @@ COMPUTE_AVAILABLE_BOUNDARY_TABLE = [
                  id="zero_power_default"),
 
     # --- Negative power (solar export) at boundary voltages ---
-    pytest.param(-5000.0, 32.0, 100.0, 32.0 + 5000.0 / 100.0,
+    pytest.param(-5000.0, 32.0, MIN_VOLTAGE, 32.0 + 5000.0 / MIN_VOLTAGE,
                  id="solar_export_min_voltage"),
-    pytest.param(-5000.0, 32.0, 480.0, 32.0 + 5000.0 / 480.0,
+    pytest.param(-5000.0, 32.0, MAX_VOLTAGE, 32.0 + 5000.0 / MAX_VOLTAGE,
                  id="solar_export_max_voltage"),
 ]
 

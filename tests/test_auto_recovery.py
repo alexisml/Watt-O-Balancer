@@ -1,6 +1,7 @@
 """Tests for automatic charger recovery after power outage / reconnect."""
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -13,6 +14,7 @@ from conftest import (
     SET_CURRENT_SCRIPT,
     collect_events,
     get_entity_id,
+    setup_integration,
 )
 
 from custom_components.ev_lb.const import (
@@ -138,10 +140,8 @@ class TestAutoRecovery:
         self, hass: HomeAssistant, mock_config_entry_with_actions: MockConfigEntry
     ) -> None:
         """Auto-recovery switch is NOT registered when no charger_status_entity."""
-        from conftest import setup_integration
         await setup_integration(hass, mock_config_entry_with_actions)
 
-        from homeassistant.helpers import entity_registry as er
         ent_reg = er.async_get(hass)
         entity_id = ent_reg.async_get_entity_id(
             "switch", DOMAIN, f"{mock_config_entry_with_actions.entry_id}_auto_recovery"

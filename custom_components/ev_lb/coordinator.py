@@ -427,7 +427,7 @@ class EvLoadBalancerCoordinator:
 
         # Track whether the charger was previously unavailable for auto-recovery
         charger_recovering = (
-            old_state_str in (None, "unavailable", "unknown")
+            old_state_str in ("unavailable", "unknown")
             and new_state_str not in (None, "unavailable", "unknown")
         )
 

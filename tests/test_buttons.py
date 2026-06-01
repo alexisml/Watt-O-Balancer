@@ -59,7 +59,10 @@ class TestButtonEntities:
         assert len(set_current_calls) == 1
         assert set_current_calls[0].data["variables"]["current_a"] == 16.0
         assert set_current_calls[0].data["variables"]["current_w"] == 3680.0
-        assert set_current_calls[0].data["variables"]["charger_id"] == mock_config_entry_with_actions.entry_id
+        assert (
+            set_current_calls[0].data["variables"]["charger_id"]
+            == mock_config_entry_with_actions.entry_id
+        )
 
     async def test_force_start_calls_action(
         self, hass: HomeAssistant, mock_config_entry_with_actions: MockConfigEntry
@@ -81,7 +84,10 @@ class TestButtonEntities:
             c for c in calls if c.data.get("entity_id") == START_CHARGING_SCRIPT
         ]
         assert len(start_calls) == 1
-        assert start_calls[0].data["variables"]["charger_id"] == mock_config_entry_with_actions.entry_id
+        assert (
+            start_calls[0].data["variables"]["charger_id"]
+            == mock_config_entry_with_actions.entry_id
+        )
 
     async def test_force_stop_calls_action(
         self, hass: HomeAssistant, mock_config_entry_with_actions: MockConfigEntry
@@ -103,7 +109,10 @@ class TestButtonEntities:
             c for c in calls if c.data.get("entity_id") == STOP_CHARGING_SCRIPT
         ]
         assert len(stop_calls) == 1
-        assert stop_calls[0].data["variables"]["charger_id"] == mock_config_entry_with_actions.entry_id
+        assert (
+            stop_calls[0].data["variables"]["charger_id"]
+            == mock_config_entry_with_actions.entry_id
+        )
 
     async def test_retrigger_with_zero_current(
         self, hass: HomeAssistant, mock_config_entry_with_actions: MockConfigEntry

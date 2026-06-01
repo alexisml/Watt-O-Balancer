@@ -1,4 +1,4 @@
-"""Verifies that charging never exceeds configured current limits under any load condition.
+"""Verifies that charging never exceeds configured current limits across a comprehensive range of load scenarios.
 
 Uses a table-driven approach with ``pytest.mark.parametrize`` to exercise many
 condition combinations and boundary values across the core balancing functions.

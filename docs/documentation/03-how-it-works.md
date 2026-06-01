@@ -229,10 +229,10 @@ On each trigger:
 
 ```
 house_power_w = read power meter sensor
+# ev_charging requires optional charger status sensor — see below
 ev_estimate_a = min(current_ev_a if ev_charging else 0, max_charger_a)
                 # clamped to max_charger_a: current_set_a can exceed max_charger_a
                 # when the charger maximum is lowered mid-session
-                (requires optional charger status sensor — see below)
 
 # Safety check: if service draw is less than the EV estimate, the EV must be
 # drawing less than commanded (e.g. battery near 100 %). Treat all measured load

@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from conftest import POWER_METER, setup_integration, get_entity_id, meter_w
 
 
-def meter_w_offset(house_a: float, ev_a: float, offset_w: float) -> str:
+def meter_w_with_offset(house_a: float, ev_a: float, offset_w: float) -> str:
     """Generates a distinct meter reading by shifting by *offset_w* watts.
 
     Home Assistant only fires ``state_changed`` when the value actually
@@ -88,7 +88,7 @@ class TestRampUpAfterMaxIncrease:
         # Meter still shows ~17A (EV at 14 + house 3) — hasn't caught up.
         # Use a value 1 W above Phase 1 to ensure a state-changed event fires
         # (HA only fires state_changed when the value actually changes).
-        hass.states.async_set(POWER_METER, meter_w_offset(3.0, 14.0, +1.0))
+        hass.states.async_set(POWER_METER, meter_w_with_offset(3.0, 14.0, +1.0))
         await hass.async_block_till_done()
 
         stepped = float(hass.states.get(current_set_id).state)
@@ -167,7 +167,7 @@ class TestRampUpAfterMaxIncrease:
         mock_time = 1002.0
         # Use 1 W less than the Phase 2 value to trigger a state-changed event
         # while still representing the same throttling scenario (~8 A service draw).
-        hass.states.async_set(POWER_METER, meter_w_offset(3.0, 5.0, -1.0))
+        hass.states.async_set(POWER_METER, meter_w_with_offset(3.0, 5.0, -1.0))
         await hass.async_block_till_done()
 
         throttled = float(hass.states.get(current_set_id).state)
@@ -229,7 +229,7 @@ class TestRampUpAfterMaxIncrease:
             # Meter shows old EV draw (lag).  Add a small per-iteration offset so
             # the value differs from any previous state, ensuring HA fires a
             # state_changed event.
-            lag_meter = meter_w_offset(3.0, ev_draw, float(step_idx) + 1.0)
+            lag_meter = meter_w_with_offset(3.0, ev_draw, float(step_idx) + 1.0)
             hass.states.async_set(POWER_METER, lag_meter)
             await hass.async_block_till_done()
 

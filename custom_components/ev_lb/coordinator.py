@@ -747,6 +747,7 @@ class EvLoadBalancerCoordinator:
             # would cause an unexpected stability hold when charging later resumes.
             self._ramp_up_armed = False
             self._headroom_stable_since = None
+            self._last_step_increase_at = None
             self._update_and_notify(0.0, 0.0, reason)
             return
 

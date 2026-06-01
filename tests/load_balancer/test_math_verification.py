@@ -1,4 +1,5 @@
-"""Verifies the charging system maintains all configured current limits under every load condition, preventing service overload or charger damage.
+"""Verifies the charging system maintains all configured current limits under every load condition,
+preventing service overload or charger damage.
 
 Uses a table-driven approach with ``pytest.mark.parametrize`` to exercise many
 condition combinations and boundary values across the core balancing functions.
@@ -31,10 +32,14 @@ from custom_components.ev_lb.load_balancer import (
     resolve_fallback_current,
 )
 from custom_components.ev_lb.const import (
+    MAX_CHARGER_CURRENT,
     MAX_RAMP_UP_STEP,
     MAX_RAMP_UP_TIME,
     MAX_SERVICE_CURRENT,
     MAX_VOLTAGE,
+    MIN_CHARGER_CURRENT,
+    MIN_EV_CURRENT_MAX,
+    MIN_EV_CURRENT_MIN,
     MIN_RAMP_UP_STEP,
     MIN_RAMP_UP_TIME,
     MIN_SERVICE_CURRENT,
@@ -855,79 +860,90 @@ class TestComputeAvailableBoundary:
 
 COMPUTE_TARGET_BOUNDARY_TABLE = [
     # --- max_service_a at MIN_SERVICE_CURRENT (1 A) ---
-    pytest.param(0.0, 0.0, 1.0, 32.0, 1.0, 1.0, 1.0,
+    pytest.param(0.0, 0.0, MIN_SERVICE_CURRENT, 32.0, MIN_EV_CURRENT_MIN, 1.0, MIN_EV_CURRENT_MIN,
                  id="service_1a_no_load_min_ev_1a"),
-    pytest.param(0.5, 0.0, 1.0, 32.0, 1.0, 1.0, None,
+    pytest.param(0.5, 0.0, MIN_SERVICE_CURRENT, 32.0, MIN_EV_CURRENT_MIN, 1.0, None,
                  id="service_1a_half_amp_load"),
-    pytest.param(0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    pytest.param(0.0, 0.0, MIN_SERVICE_CURRENT, 1.0, MIN_EV_CURRENT_MIN, 1.0, MIN_EV_CURRENT_MIN,
                  id="service_1a_charger_1a"),
 
     # --- max_service_a at MAX_SERVICE_CURRENT (200 A) ---
-    pytest.param(0.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+    pytest.param(0.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, 6.0, 1.0, MAX_CHARGER_CURRENT,
                  id="service_200a_no_load_charger_80a"),
-    pytest.param(120.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+    pytest.param(120.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, 6.0, 1.0, MAX_CHARGER_CURRENT,
                  id="service_200a_120a_load_charger_80a"),
-    pytest.param(195.0, 0.0, 200.0, 80.0, 6.0, 1.0, None,
+    pytest.param(195.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, 6.0, 1.0, None,
                  id="service_200a_195a_load_below_min"),
-    pytest.param(194.0, 0.0, 200.0, 80.0, 6.0, 1.0, 6.0,
+    pytest.param(194.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, 6.0, 1.0, 6.0,
                  id="service_200a_194a_load_exactly_min"),
 
     # --- max_charger_a at MIN_CHARGER_CURRENT (0 A) ---
     # clamp_current(32, 0, 0, 1): min(32,0)=0, floor=0, 0 >= 0 → returns 0
-    pytest.param(0.0, 0.0, 32.0, 0.0, 0.0, 1.0, 0.0,
-                 id="charger_max_0a"),
+    pytest.param(
+        0.0, 0.0, 32.0, MIN_CHARGER_CURRENT, MIN_CHARGER_CURRENT, 1.0, MIN_CHARGER_CURRENT,
+        id="charger_max_0a",
+    ),
 
     # --- max_charger_a at MAX_CHARGER_CURRENT (80 A) ---
-    pytest.param(0.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+    pytest.param(0.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, 6.0, 1.0, MAX_CHARGER_CURRENT,
                  id="charger_max_80a_no_load"),
-    pytest.param(0.0, 0.0, 32.0, 80.0, 6.0, 1.0, 32.0,
+    pytest.param(0.0, 0.0, 32.0, MAX_CHARGER_CURRENT, 6.0, 1.0, 32.0,
                  id="charger_max_80a_service_32a_caps"),
 
     # --- min_charger_a at MIN_EV_CURRENT_MIN (1 A) ---
-    pytest.param(31.0, 0.0, 32.0, 32.0, 1.0, 1.0, 1.0,
+    pytest.param(31.0, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MIN, 1.0, MIN_EV_CURRENT_MIN,
                  id="min_ev_1a_just_enough"),
-    pytest.param(31.5, 0.0, 32.0, 32.0, 1.0, 1.0, None,
+    pytest.param(31.5, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MIN, 1.0, None,
                  id="min_ev_1a_not_enough_after_floor"),
-    pytest.param(20.0, 0.0, 32.0, 32.0, 1.0, 1.0, 12.0,
+    pytest.param(20.0, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MIN, 1.0, 12.0,
                  id="min_ev_1a_moderate_load"),
 
     # --- min_charger_a at MIN_EV_CURRENT_MAX (32 A) ---
-    pytest.param(0.0, 0.0, 32.0, 32.0, 32.0, 1.0, 32.0,
+    pytest.param(0.0, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MAX, 1.0, MIN_EV_CURRENT_MAX,
                  id="min_ev_32a_no_load_at_service_limit"),
-    pytest.param(1.0, 0.0, 32.0, 32.0, 32.0, 1.0, None,
+    pytest.param(1.0, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MAX, 1.0, None,
                  id="min_ev_32a_any_load_stops"),
-    pytest.param(0.0, 0.0, 64.0, 64.0, 32.0, 1.0, 64.0,
+    pytest.param(0.0, 0.0, 64.0, 64.0, MIN_EV_CURRENT_MAX, 1.0, 64.0,
                  id="min_ev_32a_full_headroom"),
-    pytest.param(33.0, 0.0, 64.0, 64.0, 32.0, 1.0, None,
+    pytest.param(33.0, 0.0, 64.0, 64.0, MIN_EV_CURRENT_MAX, 1.0, None,
                  id="min_ev_32a_load_drops_below"),
 
     # --- step_a at MIN_RAMP_UP_STEP (1 A) ---
-    pytest.param(10.5, 0.0, 32.0, 32.0, 6.0, 1.0, 21.0,
+    pytest.param(10.5, 0.0, 32.0, 32.0, 6.0, MIN_RAMP_UP_STEP, 21.0,
                  id="step_1a_fractional"),
 
     # --- step_a at MAX_RAMP_UP_STEP (32 A) ---
-    pytest.param(0.0, 0.0, 32.0, 32.0, 6.0, 32.0, 32.0,
+    pytest.param(0.0, 0.0, 32.0, 32.0, 6.0, MAX_RAMP_UP_STEP, 32.0,
                  id="step_32a_full_available"),
-    pytest.param(10.0, 0.0, 32.0, 32.0, 6.0, 32.0, None,
+    pytest.param(10.0, 0.0, 32.0, 32.0, 6.0, MAX_RAMP_UP_STEP, None,
                  id="step_32a_22a_available_floors_to_0"),
-    pytest.param(0.0, 0.0, 64.0, 64.0, 6.0, 32.0, 64.0,
+    pytest.param(0.0, 0.0, 64.0, 64.0, 6.0, MAX_RAMP_UP_STEP, 64.0,
                  id="step_32a_64a_available"),
-    pytest.param(1.0, 0.0, 64.0, 64.0, 6.0, 32.0, 32.0,
+    pytest.param(1.0, 0.0, 64.0, 64.0, 6.0, MAX_RAMP_UP_STEP, MAX_RAMP_UP_STEP,
                  id="step_32a_63a_available_floors_to_32"),
 
     # --- current_set_a at boundary values ---
-    pytest.param(80.0, 80.0, 200.0, 80.0, 6.0, 1.0, 80.0,
-                 id="current_set_at_max_charger_80a"),
-    pytest.param(0.0, 0.0, 200.0, 80.0, 6.0, 1.0, 80.0,
+    pytest.param(
+        MAX_CHARGER_CURRENT, MAX_CHARGER_CURRENT, MAX_SERVICE_CURRENT,
+        MAX_CHARGER_CURRENT, 6.0, 1.0, MAX_CHARGER_CURRENT,
+        id="current_set_at_max_charger_80a",
+    ),
+    pytest.param(0.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, 6.0, 1.0, MAX_CHARGER_CURRENT,
                  id="current_set_zero_idle"),
 
     # --- Extreme combinations ---
-    pytest.param(0.0, 0.0, 1.0, 80.0, 1.0, 1.0, 1.0,
-                 id="min_service_max_charger"),
-    pytest.param(0.0, 0.0, 200.0, 1.0, 1.0, 1.0, 1.0,
+    pytest.param(
+        0.0, 0.0, MIN_SERVICE_CURRENT, MAX_CHARGER_CURRENT, MIN_EV_CURRENT_MIN,
+        1.0, MIN_SERVICE_CURRENT,
+        id="min_service_max_charger",
+    ),
+    pytest.param(0.0, 0.0, MAX_SERVICE_CURRENT, 1.0, MIN_EV_CURRENT_MIN, 1.0, MIN_EV_CURRENT_MIN,
                  id="max_service_min_charger_1a"),
-    pytest.param(199.0, 0.0, 200.0, 80.0, 1.0, 1.0, 1.0,
-                 id="max_service_199a_load_min_ev_1a"),
+    pytest.param(
+        199.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, MIN_EV_CURRENT_MIN,
+        1.0, MIN_EV_CURRENT_MIN,
+        id="max_service_199a_load_min_ev_1a",
+    ),
 ]
 
 

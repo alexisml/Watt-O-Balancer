@@ -16,7 +16,7 @@ from conftest import POWER_METER, setup_integration, get_entity_id, meter_w
 
 
 def meter_w_with_offset(house_a: float, ev_a: float, offset_w: float) -> str:
-    """Returns a power meter reading in watts representing the specified house and EV loads, with a small offset added to ensure Home Assistant recognizes it as a state change.
+    """Return a power meter reading (watts) for the given house and EV loads, offset to force a state change.
 
     Home Assistant only fires ``state_changed`` when the value actually
     changes, so back-to-back ``hass.states.async_set`` calls with an

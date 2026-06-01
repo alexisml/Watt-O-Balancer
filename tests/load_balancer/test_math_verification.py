@@ -1,10 +1,10 @@
-"""Verifies that the load balancing engine always keeps the EV charger within safe limits.
+"""Verifies that charging never exceeds configured current limits under any load condition.
 
 Uses a table-driven approach with ``pytest.mark.parametrize`` to exercise many
-condition combinations and boundary values.  Every test case asserts the
-**critical safety invariant**: the charger never exceeds the configured service
-or charger current limit under any combination of house load, available headroom,
-and runtime parameters.
+condition combinations and boundary values across the core balancing functions.
+Every test case asserts the **critical safety invariant**: the charger never
+exceeds the configured service or charger current limit, regardless of house
+load, available headroom, or runtime parameters.
 
 The tables cover:
 - ``compute_available_current``: headroom available to the EV for every house-load scenario
@@ -157,10 +157,10 @@ COMPUTE_TARGET_TABLE = [
 
 
 class TestComputeTargetTable:
-    """Parametrized table tests for compute_target_current.
+    """Verifies charging operates correctly across all household load scenarios.
 
     Every row asserts the expected target and the critical safety invariant:
-    target must never exceed max_service_a.
+    the charger never exceeds the configured service current limit.
     """
 
     @pytest.mark.parametrize(
@@ -353,11 +353,7 @@ DISTRIBUTE_TABLE = [
 
 
 class TestDistributeCurrentTable:
-    """Parametrized table tests for distribute_current.
-
-    Asserts expected allocations and safety invariants for many charger
-    configurations.
-    """
+    """Verifies fair current distribution across multiple chargers with different capacity limits."""
 
     @pytest.mark.parametrize(
         "available_a, chargers, step_a, expected",
@@ -478,7 +474,7 @@ CLAMP_SAFE_OUTPUT_TABLE = [
 
 
 class TestClampToSafeOutputTable:
-    """Parametrized table tests for clamp_to_safe_output."""
+    """Verifies output current never exceeds configured safety limits."""
 
     @pytest.mark.parametrize(
         "current_a, max_charger_a, max_service_a, expected",
@@ -560,11 +556,11 @@ E2E_PIPELINE_TABLE = [
 
 
 class TestEndToEndPipeline:
-    """End-to-end tests: compute_target_current → clamp_to_safe_output.
+    """Verifies the complete charging control system maintains service current limits under all conditions.
 
-    These simulate the full output path and assert the critical invariant:
-    the final output current sent to the charger must NEVER exceed the max
-    service current.
+    These simulate the full output path from raw meter reading to final charger
+    command.  The critical invariant: the final commanded current must NEVER
+    exceed the configured service current limit, regardless of the computation path.
     """
 
     @pytest.mark.parametrize(
@@ -803,7 +799,7 @@ COMPUTE_AVAILABLE_BOUNDARY_TABLE = [
 
 
 class TestComputeAvailableBoundary:
-    """Boundary-value tests for compute_available_current using const.py limits."""
+    """Verifies headroom calculation accuracy at minimum and maximum voltage and service current boundaries."""
 
     @pytest.mark.parametrize(
         "service_power_w, max_service_a, voltage_v, expected",
@@ -936,7 +932,7 @@ COMPUTE_TARGET_BOUNDARY_TABLE = [
 
 
 class TestComputeTargetBoundary:
-    """Boundary-value tests for compute_target_current using const.py limits."""
+    """Verifies charging operates correctly at extreme service and charger current limits."""
 
     @pytest.mark.parametrize(
         "service_current_a, current_set_a, max_service_a, "
@@ -1086,7 +1082,7 @@ RAMP_UP_BOUNDARY_TABLE = [
 
 
 class TestApplyRampUpBoundary:
-    """Boundary-value tests for apply_ramp_up_limit using const.py limits."""
+    """Verifies ramp-up timing and step size work correctly at minimum and maximum configuration boundaries."""
 
     @pytest.mark.parametrize(
         "prev_a, target_a, headroom_stable_since, now, "
@@ -1183,7 +1179,7 @@ FALLBACK_BOUNDARY_TABLE = [
 
 
 class TestResolveFallbackBoundary:
-    """Boundary-value tests for resolve_fallback_current."""
+    """Verifies fallback charging mode respects configured limits when the power meter is unavailable."""
 
     @pytest.mark.parametrize(
         "behavior, fallback_a, max_charger_a, expected",
@@ -1269,7 +1265,7 @@ FALLBACK_REAPPLY_BOUNDARY_TABLE = [
 
 
 class TestComputeFallbackReapplyBoundary:
-    """Boundary-value tests for compute_fallback_reapply."""
+    """Verifies fallback current adjusts correctly when charger parameters change during meter unavailability."""
 
     @pytest.mark.parametrize(
         "behavior, fallback_a, max_charger_a, current_set_a, "
@@ -1366,7 +1362,7 @@ DISTRIBUTE_BOUNDARY_TABLE = [
 
 
 class TestDistributeBoundary:
-    """Boundary-value tests for distribute_current using const.py limits."""
+    """Verifies multi-charger allocation works correctly at minimum and maximum charger current boundaries."""
 
     @pytest.mark.parametrize(
         "available_a, chargers, step_a, expected",
@@ -1457,7 +1453,7 @@ CLAMP_SAFE_OUTPUT_BOUNDARY_TABLE = [
 
 
 class TestClampSafeOutputBoundary:
-    """Boundary-value tests for clamp_to_safe_output using const.py limits."""
+    """Verifies safety clamping works correctly at minimum and maximum charger and service current limits."""
 
     @pytest.mark.parametrize(
         "current_a, max_charger_a, max_service_a, expected",

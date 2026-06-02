@@ -20,6 +20,7 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_STATUS_ENTITY,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
@@ -43,6 +44,7 @@ POWER_METER = "sensor.house_power_w"
 SET_CURRENT_SCRIPT = "script.ev_lb_set_current"
 STOP_CHARGING_SCRIPT = "script.ev_lb_stop_charging"
 START_CHARGING_SCRIPT = "script.ev_lb_start_charging"
+CHARGER_STATUS_SENSOR = "sensor.charger_status"
 
 _BASE_CONFIG = {
     CONF_POWER_METER_ENTITY: POWER_METER,
@@ -114,6 +116,22 @@ def mock_config_entry_ignore() -> MockConfigEntry:
         data={
             **_BASE_CONFIG,
             CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
+        },
+        title="EV Load Balancing",
+    )
+
+
+@pytest.fixture
+def mock_config_entry_with_charger_status() -> MockConfigEntry:
+    """Create a mock config entry with actions and charger status sensor configured."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            **_BASE_CONFIG,
+            CONF_ACTION_SET_CURRENT: SET_CURRENT_SCRIPT,
+            CONF_ACTION_STOP_CHARGING: STOP_CHARGING_SCRIPT,
+            CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
+            CONF_CHARGER_STATUS_ENTITY: CHARGER_STATUS_SENSOR,
         },
         title="EV Load Balancing",
     )

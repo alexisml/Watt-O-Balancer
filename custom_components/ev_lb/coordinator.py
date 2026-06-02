@@ -52,6 +52,7 @@ from .const import (
     DEFAULT_UNAVAILABLE_BEHAVIOR,
     DEFAULT_UNAVAILABLE_FALLBACK_CURRENT,
     EVENT_ACTION_FAILED,
+    EVENT_CHARGER_RECOVERED,
     EVENT_CHARGING_RESUMED,
     EVENT_FALLBACK_ACTIVATED,
     EVENT_METER_UNAVAILABLE,
@@ -132,6 +133,13 @@ class EvLoadBalancerCoordinator:
         self.fallback_active: bool = False
         self.configured_fallback: str = self._unavailable_behavior
         self.ev_charging: bool = True
+
+        # Auto-recovery: automatically retrigger set_current when charger status
+        # transitions from unavailable/unknown back to a valid state.
+        # Controlled by a per-charger switch entity; only active when a
+        # charger_status_entity is configured.
+        self.auto_recovery_enabled: bool = True
+        self._charger_was_unavailable: bool = False
 
         # Action diagnostic state (read by diagnostic sensors)
         self.last_action_error: str | None = None
@@ -406,9 +414,47 @@ class EvLoadBalancerCoordinator:
         ``unknown``/``unavailable`` are excluded: those use the safe fallback
         (assume charging) for the ``ev_charging`` flag, but should not be treated
         as an EV-start event that warrants arming the ramp-up stability window.
+
+        Auto-recovery: when the charger status transitions from unavailable/unknown
+        back to a valid state and ``auto_recovery_enabled`` is True, the coordinator
+        automatically retriggers the last commanded current to restore charger state
+        after a power outage.
         """
         new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
         new_state_str = new_state.state if new_state is not None else None
+        old_state_str = old_state.state if old_state is not None else None
+
+        # Track whether the charger was previously unavailable for auto-recovery
+        charger_recovering = (
+            old_state_str in ("unavailable", "unknown")
+            and new_state_str not in (None, "unavailable", "unknown")
+        )
+
+        # Update unavailable tracking
+        if new_state_str in (None, "unavailable", "unknown"):
+            self._charger_was_unavailable = True
+        elif charger_recovering and self._charger_was_unavailable:
+            # Charger came back from unavailable — trigger auto-recovery if enabled
+            self._charger_was_unavailable = False
+            if self.auto_recovery_enabled and self.current_set_a > 0:
+                _LOGGER.info(
+                    "Charger recovered from unavailable state — "
+                    "auto-retriggering set_current (%.1f A)",
+                    self.current_set_a,
+                )
+                self.hass.bus.async_fire(
+                    EVENT_CHARGER_RECOVERED,
+                    {
+                        "entry_id": self.entry.entry_id,
+                        "current_a": self.current_set_a,
+                    },
+                )
+                self.hass.async_create_task(
+                    self.async_retrigger_set_current(),
+                    "ev_lb_auto_recovery_retrigger",
+                )
+
         new_ev_charging = self._is_ev_charging()
         if new_ev_charging != self.ev_charging:
             if (
@@ -540,6 +586,62 @@ class EvLoadBalancerCoordinator:
             target,
         )
         self._update_and_notify(self.available_current_a, target, REASON_MANUAL_OVERRIDE)
+
+    # ------------------------------------------------------------------
+    # Button-triggered manual actions (recovery / aux controls)
+    # ------------------------------------------------------------------
+
+    async def async_retrigger_set_current(self) -> None:
+        """Re-call the set_current action with the current commanded value.
+
+        Useful for recovery after a power outage where the charger may
+        have lost its commanded current but the coordinator state is intact.
+        """
+        charger_id = self.entry.entry_id
+        current_w = round(self.current_set_a * self._voltage, 1)
+        _LOGGER.info(
+            "Retrigger set_current: %.1f A (%.1f W)",
+            self.current_set_a,
+            current_w,
+        )
+        await self._call_action(
+            self._action_set_current,
+            "set_current",
+            charger_id=charger_id,
+            current_a=self.current_set_a,
+            current_w=current_w,
+        )
+        async_dispatcher_send(self.hass, self.signal_update)
+
+    async def async_force_start(self) -> None:
+        """Call the start_charging action directly.
+
+        Useful for recovery scenarios where the charger needs to be
+        explicitly told to start (e.g. after a power outage).
+        """
+        charger_id = self.entry.entry_id
+        _LOGGER.info("Force start_charging triggered")
+        await self._call_action(
+            self._action_start_charging,
+            "start_charging",
+            charger_id=charger_id,
+        )
+        async_dispatcher_send(self.hass, self.signal_update)
+
+    async def async_force_stop(self) -> None:
+        """Call the stop_charging action directly.
+
+        Useful for manually stopping the charger without waiting for
+        the balancer algorithm to reach the stop threshold.
+        """
+        charger_id = self.entry.entry_id
+        _LOGGER.info("Force stop_charging triggered")
+        await self._call_action(
+            self._action_stop_charging,
+            "stop_charging",
+            charger_id=charger_id,
+        )
+        async_dispatcher_send(self.hass, self.signal_update)
 
     # ------------------------------------------------------------------
     # Fallback for unavailable power meter

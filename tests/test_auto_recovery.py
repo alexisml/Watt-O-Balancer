@@ -23,6 +23,10 @@ from custom_components.ev_lb.const import (
 )
 
 
+async def _noop_sleep() -> None:
+    """Awaitable no-op replacement for _sleep_fn in tests."""
+
+
 async def _setup_with_charger_status(
     hass: HomeAssistant, entry: MockConfigEntry
 ) -> None:
@@ -45,7 +49,7 @@ class TestAutoRecovery:
         await _setup_with_charger_status(hass, mock_config_entry_with_charger_status)
 
         coordinator = mock_config_entry_with_charger_status.runtime_data
-        coordinator._sleep_fn = lambda _: None  # no-op for fast test
+        coordinator._sleep_fn = lambda _: _noop_sleep()  # no-op for fast test
         coordinator.current_set_a = 16.0
 
         # Charger goes unavailable (power outage)
@@ -68,11 +72,12 @@ class TestAutoRecovery:
         self, hass: HomeAssistant, mock_config_entry_with_charger_status: MockConfigEntry
     ) -> None:
         """Recovery fires ev_lb_charger_recovered event with entry_id and current."""
+        async_mock_service(hass, "script", "turn_on")
         await _setup_with_charger_status(hass, mock_config_entry_with_charger_status)
         events = collect_events(hass, EVENT_CHARGER_RECOVERED)
 
         coordinator = mock_config_entry_with_charger_status.runtime_data
-        coordinator._sleep_fn = lambda _: None
+        coordinator._sleep_fn = lambda _: _noop_sleep()
         coordinator.current_set_a = 10.0
 
         hass.states.async_set(CHARGER_STATUS_SENSOR, "unavailable")
@@ -111,7 +116,7 @@ class TestAutoRecovery:
         await _setup_with_charger_status(hass, mock_config_entry_with_charger_status)
 
         coordinator = mock_config_entry_with_charger_status.runtime_data
-        coordinator._sleep_fn = lambda _: None
+        coordinator._sleep_fn = lambda _: _noop_sleep()
         coordinator.current_set_a = 16.0
         coordinator.auto_recovery_enabled = False
 
@@ -181,7 +186,7 @@ class TestAutoRecovery:
         await _setup_with_charger_status(hass, mock_config_entry_with_charger_status)
 
         coordinator = mock_config_entry_with_charger_status.runtime_data
-        coordinator._sleep_fn = lambda _: None
+        coordinator._sleep_fn = lambda _: _noop_sleep()
         coordinator.current_set_a = 12.0
 
         hass.states.async_set(CHARGER_STATUS_SENSOR, "unknown")

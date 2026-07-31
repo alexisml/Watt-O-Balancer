@@ -246,7 +246,7 @@ Multi-charger support with per-charger prioritization and weighted current distr
 | PR-3-ph2 | Runtime charger management |
 | PR-4-ph2 | Test stabilization + release |
 
-See the full plan: [`docs/documentation/milestones/02-2026-02-19-multi-charger-plan.md`](milestones/02-2026-02-19-multi-charger-plan.md)
+See the full plan: [`docs/documentation/milestones/02-2026-05-22-multi-charger-plan.md`](milestones/02-2026-05-22-multi-charger-plan.md)
 
 ---
 

@@ -306,7 +306,7 @@ Yes. Two number entities control the ramp-up behavior:
 
 Yes. Each instance monitors one power meter and controls one charger. To balance chargers on separate circuits, add a new integration instance for each circuit — go to **Settings → Devices & Services → Add integration** and select **EV Charger Load Balancing** again. Each instance must use a different power meter sensor; if you select a meter that is already configured the wizard will show an "already configured" error.
 
-Multi-charger support within a single instance (multiple chargers sharing one meter, with per-charger prioritization) is planned for Phase 2. See the [multi-charger plan](milestones/02-2026-02-19-multi-charger-plan.md).
+Multi-charger support within a single instance (multiple chargers sharing one meter, with per-charger prioritization) is planned for Phase 2. See the [multi-charger plan](milestones/02-2026-05-22-multi-charger-plan.md).
 
 ### Does it support three-phase (multi-phase) installations?
 

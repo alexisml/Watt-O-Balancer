@@ -33,4 +33,4 @@ These focused guides provide deep-dive reference material for specific features:
 - [GitHub repository](https://github.com/alexisml/ha-ev-charger-balancer)
 - [Issue tracker](https://github.com/alexisml/ha-ev-charger-balancer/issues)
 - [MVP roadmap](milestones/01-2026-02-19-mvp-plan.md)
-- [Multi-charger plan (Phase 2)](milestones/02-2026-02-19-multi-charger-plan.md)
+- [Multi-charger plan (Phase 2)](milestones/02-2026-05-22-multi-charger-plan.md)

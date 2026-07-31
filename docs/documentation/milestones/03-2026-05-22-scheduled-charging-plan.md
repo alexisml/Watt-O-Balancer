@@ -70,16 +70,20 @@ energy_needed_kwh  = battery_capacity_kwh × delta_soc / efficiency
 
 # Effective deadline and remaining time
 effective_deadline = target_time − safety_margin_min minutes
-time_remaining_h   = max(0, (effective_deadline − now) / 3600)
+time_remaining_h   = (effective_deadline − now) / 3600
 
 # Minimum power and current required to meet the deadline
-if time_remaining_h > 0 and energy_needed_kwh > 0:
+if energy_needed_kwh <= 0:
+    required_current_a = 0   # schedule complete
+elif time_remaining_h <= 0:
+    required_current_a = max_charger_current  # overdue: charge as fast as possible
+else:
     required_power_w    = (energy_needed_kwh / time_remaining_h) × 1000
     required_current_a  = required_power_w / voltage
-    # Clamp to charger limits
-    required_current_a  = clamp(required_current_a, min_ev_current, max_charger_current)
-else:
-    required_current_a  = 0   # schedule complete or inactive
+    # Clamp to charger upper limit; treat below-minimum floors as no floor
+    required_current_a  = min(required_current_a, max_charger_current)
+    if required_current_a < min_ev_current:
+        required_current_a = 0
 ```
 
 ### Status transitions
@@ -89,7 +93,7 @@ else:
 | `inactive` | `schedule_enabled = false`, or no schedule configured |
 | `on_track` | `required_current_a ≤ current_set_a` — current delivery is sufficient to meet the deadline |
 | `at_risk` | `required_current_a > current_set_a` and `time_remaining_h > 0` — current delivery is below the required floor (e.g., site headroom is insufficient) |
-| `urgent` | `effective_deadline − now ≤ safety_margin_min` — inside the safety margin window; the integration requests `max_charger_current` unconditionally |
+| `urgent` | `effective_deadline − now ≤ 0` — inside the safety margin window; the integration requests `max_charger_current` unconditionally |
 | `overdue` | `effective_deadline` has passed and `energy_needed_kwh > 0` — deadline missed |
 | `complete` | `current_soc_pct ≥ target_soc_pct` |
 

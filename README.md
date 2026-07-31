@@ -61,7 +61,7 @@ The integration watches your home's power meter. When total service power change
 - **Hardware-agnostic** — works with any charger controllable via HA scripts (OCPP, Modbus, REST, etc.)
 - **Full observability** — sensors, events, and persistent notifications for monitoring and automations
 
-**Current limitation:** Supports **one charger** per instance. Multi-charger support is planned for [Phase 2](docs/documentation/milestones/02-2026-02-19-multi-charger-plan.md).
+**Current limitation:** Supports **one charger** per instance. Multi-charger support is planned for [Phase 2](docs/documentation/milestones/02-2026-05-22-multi-charger-plan.md).
 
 ---
 

@@ -152,9 +152,17 @@ class TestStopChargingAction:
         hass.states.async_set(POWER_METER, "12000")
         await hass.async_block_till_done()
 
+        # Stop sequence: set_current(0) then stop_charging
+        set_calls = [
+            c for c in calls if c.data["entity_id"] == SET_CURRENT_SCRIPT
+        ]
         stop_calls = [
             c for c in calls if c.data["entity_id"] == STOP_CHARGING_SCRIPT
         ]
+        assert len(set_calls) == 1
+        assert set_calls[0].data["variables"]["current_a"] == 0.0
+        assert set_calls[0].data["variables"]["current_w"] == 0.0
+        assert set_calls[0].data["variables"]["charger_id"] == mock_config_entry_with_actions.entry_id
         assert len(stop_calls) == 1
         # stop_charging receives charger_id but no current_a
         assert stop_calls[0].data["variables"]["charger_id"] == mock_config_entry_with_actions.entry_id
@@ -175,13 +183,18 @@ class TestStopChargingAction:
 
         calls.clear()
 
-        # Meter goes unavailable → stop mode → stop charging
+        # Meter goes unavailable → stop mode → set_current(0) then stop_charging
         hass.states.async_set(POWER_METER, "unavailable")
         await hass.async_block_till_done()
 
+        set_calls = [
+            c for c in calls if c.data["entity_id"] == SET_CURRENT_SCRIPT
+        ]
         stop_calls = [
             c for c in calls if c.data["entity_id"] == STOP_CHARGING_SCRIPT
         ]
+        assert len(set_calls) == 1
+        assert set_calls[0].data["variables"]["current_a"] == 0.0
         assert len(stop_calls) == 1
 
 
@@ -437,10 +450,14 @@ class TestPartialActionConfiguration:
 
         calls.clear()
 
-        # Stop charging — stop_charging action is not configured so it is skipped.
+        # Stop charging — stop_charging action is not configured so it is skipped;
+        # set_current(0) still fires because it is configured.
         hass.states.async_set(POWER_METER, "12000")
         await hass.async_block_till_done()
 
         assert coordinator.active is False
         stop_calls = [c for c in calls if c.data["entity_id"] == STOP_CHARGING_SCRIPT]
         assert len(stop_calls) == 0  # Not configured → skipped
+        set_calls = [c for c in calls if c.data["entity_id"] == SET_CURRENT_SCRIPT]
+        assert len(set_calls) == 1  # Configured → fires with 0 A
+        assert set_calls[0].data["variables"]["current_a"] == 0.0

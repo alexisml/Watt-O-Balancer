@@ -169,6 +169,20 @@
     "switch": {
       "enabled": {
         "name": "Load balancing enabled"
+      },
+      "auto_recovery": {
+        "name": "Auto-recovery on charger reconnect"
+      }
+    },
+    "button": {
+      "retrigger_set_current": {
+        "name": "Retrigger set current"
+      },
+      "force_start": {
+        "name": "Force start charging"
+      },
+      "force_stop": {
+        "name": "Force stop charging"
       }
     }
   }

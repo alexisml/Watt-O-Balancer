@@ -183,12 +183,49 @@ All entities are grouped under a single device called **EV Charger Load Balancer
 | Entity | What it controls |
 |---|---|
 | `switch.*_load_balancing_enabled` | Master on/off switch for the integration. When **off**, the integration ignores all power meter events and takes no action. The charger current stays at whatever was last set. Turn it back on to resume automatic balancing. |
+| `switch.*_auto_recovery_on_charger_reconnect` | Enables/disables automatic recovery when the charger reconnects after a power outage. **Only available when a charger status sensor is configured.** When **on** (default), the integration automatically resends the last commanded current to the charger when its status transitions from `unavailable`/`unknown` back to a valid state. See [Automatic charger recovery](#automatic-charger-recovery) below. |
+
+### Button entities
+
+These buttons allow manual or automation-driven retriggering of the configured charger action scripts. They are most useful for recovery scenarios — for example, after a power outage when the charger has lost its commanded state but the coordinator still holds the last computed target.
+
+| Entity | What it does |
+|---|---|
+| `button.*_retrigger_set_current` | Immediately resends the last computed charging current to the charger via the `set_current` action. Useful when the charger restarted and needs to be told the current target again without waiting for the next power-meter event. |
+| `button.*_force_start_charging` | Calls the `start_charging` action directly, regardless of balancer state. |
+| `button.*_force_stop_charging` | Calls the `stop_charging` action directly, regardless of balancer state. |
+
+All three buttons pass `charger_id` and route through the existing retry + exponential backoff + diagnostic sensor pipeline (same as automatic commands). If no action script is configured for the relevant action, pressing the button is a no-op.
 
 ### Service
 
 | Service | What it does |
 |---|---|
 | `ev_lb.set_limit` | Manually override the charger current. Accepts `current_a` (float). The value is clamped to the charger's min/max range. If it falls below the minimum EV current, charging stops. **The override is one-shot** — the next power-meter event resumes automatic balancing. Useful for temporary limits via automations. |
+
+### Automatic charger recovery
+
+When a **charger status sensor** is configured, the integration can automatically detect when the charger comes back online after a power outage and resend the last commanded current — eliminating the need for manual intervention or waiting for the next power-meter event.
+
+**How it works:**
+
+1. The charger loses power → its status sensor transitions to `unavailable` or `unknown`
+2. Power is restored → the status sensor transitions back to a valid state (e.g., "Charging", "Available")
+3. The integration detects this transition and automatically calls `async_retrigger_set_current()` to resend the last commanded current
+
+**Controls:**
+
+- **Enable/disable per charger:** Use `switch.*_auto_recovery_on_charger_reconnect` to toggle this behavior. It is **on** by default.
+- **Event:** When recovery triggers, the integration fires an `ev_lb_charger_recovered` event with `entry_id` and `current_a` fields. Use this to build custom automations (e.g., send a notification).
+- **Logging:** Recovery events are logged at INFO level with the message "Charger recovered from unavailable state — auto-retriggering set_current".
+
+**Conditions for auto-recovery to trigger:**
+
+- A `charger_status_entity` must be configured
+- `switch.*_auto_recovery_on_charger_reconnect` must be on
+- The last commanded current (`current_set_a`) must be greater than 0 A — if the charger was stopped before the outage, there's nothing to retrigger
+
+> **Note:** If no `charger_status_entity` is configured, the integration has no way to detect charger outages. In that scenario, use the manual **Retrigger set current** button or build an automation that monitors your charger's availability externally and presses the button when needed.
 
 ---
 
@@ -216,8 +253,8 @@ The balancer is **event-driven** — it does not poll on a timer. A recomputatio
 |---|---|---|
 | **Power meter state change** | Sensor reports a new Watt value. The coordinator reads it and runs the full algorithm. | Instant — same HA event-loop tick. |
 | **Max service current changed** | User or automation changes the number entity. The coordinator re-reads the current meter value and recomputes immediately. Reducing the limit below the current charging current causes an instant reduction; raising it makes more headroom available on the next recompute. | Instant. |
-| **Max charger current changed** | User or automation changes the number entity. If set to **0 A**, charging stops immediately and all subsequent power meter events output 0 A (load balancing bypassed). For any non-zero value, if meter is available, coordinator re-reads the current meter value and recomputes. If meter is unavailable, the fallback limit is re-applied with the new cap. | Instant. |
-| **Min EV current changed** | Same as above. If the new minimum is higher than the current target, charging stops immediately even while the meter is unavailable. | Instant. |
+| **Max charger current changed** | User or automation changes the number entity. If set to **0 A**, charging stops immediately, all ramp-up state is cleared, and all subsequent power meter events output 0 A (load balancing bypassed). For any non-zero value, if the meter is available the coordinator re-reads it and recomputes; if unavailable, the fallback limit is re-applied. If the charger was actively running and not already in a ramp-up hold, the stability window is armed so any increase toward the new higher target is gradual rather than immediate. | Instant. |
+| **Min EV current changed** | Same as above. If the new minimum is higher than the current headroom-limited target, charging stops (since operating below minimum is not allowed). If the meter is unavailable, the outcome depends on the configured unavailable behavior (e.g. `ignore` may stop due to re-clamping, while `set_current` re-applies the fallback capped to service/charger limits). If the new minimum exceeds the current commanded set-point during a ramp-up hold, the hold floor is advanced immediately to `min_ev_current`. | Instant. |
 | **Load balancing re-enabled** | The switch is turned back on. Full recomputation using current meter value. | Instant. |
 | **Overload correction loop** | When the system is overloaded, a time-based loop fires corrections at a configurable interval even if the meter has not reported a new value. | Every `overload_loop_interval` seconds. |
 
@@ -229,8 +266,21 @@ On each trigger:
 
 ```
 house_power_w = read power meter sensor
-ev_estimate_a = current_ev_a if EV is actively charging, else 0
-                (requires optional charger status sensor — see below)
+# ev_charging requires optional charger status sensor — see below
+ev_estimate_a = min(current_ev_a if ev_charging else 0, max_charger_a)
+                # clamped to max_charger_a: current_set_a can exceed max_charger_a
+                # when the charger maximum is lowered mid-session
+
+# Safety check: if service draw is less than the EV estimate, the EV must be
+# drawing less than commanded (e.g. battery near 100 %). Treat all measured load
+# as non-EV in that case.  A one-step tolerance is applied for ramp_up_time_s
+# after each step increase to absorb natural meter lag from the step itself.
+in_post_step_window = (last_step_increase_at is not None
+                       and (now - last_step_increase_at) <= ramp_up_time_s)
+tolerance = ramp_up_step_a if in_post_step_window else 0
+if house_power_w / voltage_v < ev_estimate_a - tolerance:
+    ev_estimate_a = 0
+
 non_ev_w      = max(0, house_power_w − ev_estimate_a × voltage_v)
 available_a   = service_current_a − non_ev_w / voltage_v
 target_a      = min(available_a, max_charger_a), floored to 1 A steps
@@ -258,7 +308,7 @@ flowchart TD
     CZ -- "YES (idle cap)" --> CZA["target_a = min_ev_current<br/>(charger idles at safe minimum)"]
     CZ -- "NO" --> D
     CZA --> D{"target_a < min_ev_current?"}
-    D -- YES --> E(["stop_charging — instant"])
+    D -- YES --> E(["set_current(0) then stop_charging — instant"])
     D -- NO --> F{"target_a < current_a?<br/>load increased, must reduce"}
     F -- "YES — instant" --> G(["set_current(target_a)"])
     F -- "NO — increase needed" --> RA{"ramp-up<br/>armed?"}
@@ -280,10 +330,11 @@ flowchart TD
 
 This approach avoids large current jumps that could cause a new overload immediately after recovery, without preventing recovery when there is genuine headroom available.
 
-The **stability timer resets** whenever either of these happens:
+The **stability timer resets** whenever any of these happen:
 - The commanded current drops (direct reduction) — the timer is cleared so recovery starts fresh.
 - A ramp-up step is taken — the timer resets so the next step also requires a full stability window of continuous headroom.
 - **The EV starts charging** (status sensor transitions to `Charging`) while the charger is idling at `min_ev_current`. This prevents the current from jumping immediately to the full available headroom when the EV begins drawing; instead, the current increases gradually, step by step, just like after any other reduction.
+- **A runtime parameter changes** (`max_charger_current`, `min_ev_current`, or other number entities) while the charger is actively running and not already in a stability hold. This ensures that raising the charger limit mid-session does not bypass the gradual ramp-up — any increase toward the new target is still stepped and delayed.
 
 > ⚠️ **Very low stability-window values (below ~10 s) risk instability** if your service load has frequent spikes or is unpredictable. The recommended minimum is 15–30 s for most installations.
 
@@ -448,19 +499,19 @@ stateDiagram-v2
     state "DISABLED" as DISABLED
 
     [*] --> STOPPED
-    STOPPED --> ADJUSTING : headroom ≥ min_ev_current AND no prior reduction (first start — direct)
-    STOPPED --> RAMP_UP_HOLD : after prior reduction — first step taken, more steps remain
-    STOPPED --> ADJUSTING : after prior reduction — first step reaches full target
+    STOPPED --> ADJUSTING : headroom >= min_ev_current AND no prior reduction, first start direct
+    STOPPED --> RAMP_UP_HOLD : after prior reduction, first step taken, more steps remain
+    STOPPED --> ADJUSTING : after prior reduction, first step reaches full target
     ADJUSTING --> ACTIVE : same target next cycle
-    ADJUSTING --> STOPPED : overload (target < min_ev_current)
+    ADJUSTING --> STOPPED : overload, target below min_ev_current
     ADJUSTING --> RAMP_UP_HOLD : increase needed but stability window active
     ACTIVE --> ADJUSTING : target changed
     ACTIVE --> STOPPED : overload
     ACTIVE --> RAMP_UP_HOLD : increase needed but stability window active
     RAMP_UP_HOLD --> ADJUSTING : stability window elapsed
     RAMP_UP_HOLD --> STOPPED : overload
-    DISABLED --> STOPPED : re-enabled (no headroom)
-    DISABLED --> ADJUSTING : re-enabled (with headroom)
+    DISABLED --> STOPPED : re-enabled, no headroom
+    DISABLED --> ADJUSTING : re-enabled, with headroom
     STOPPED --> DISABLED : switch turned off
     ACTIVE --> DISABLED : switch turned off
     ADJUSTING --> DISABLED : switch turned off
@@ -480,12 +531,12 @@ stateDiagram-v2
     state "STOPPED (charger off, 0 A)" as STOPPED
 
     [*] --> STOPPED
-    CHARGING --> STOPPED: target_a < min_ev_current — instant
-    CHARGING --> IDLE: EV status → not Charging [sensor only] — instant
-    IDLE --> STOPPED: headroom < min_ev_current — instant
-    IDLE --> CHARGING: EV status → Charging [sensor only], start at min_ev_current (ramp-up gates increases only)
-    STOPPED --> CHARGING: headroom ≥ min_ev_current AND EV charging, start at min_ev_current (ramp-up gates increases only)
-    STOPPED --> IDLE: headroom ≥ min_ev_current AND EV not charging [sensor only]
+    CHARGING --> STOPPED: target_a below min_ev_current, instant
+    CHARGING --> IDLE: EV status not Charging [sensor only], instant
+    IDLE --> STOPPED: headroom below min_ev_current, instant
+    IDLE --> CHARGING: EV status Charging [sensor only], start at min_ev_current
+    STOPPED --> CHARGING: headroom >= min_ev_current AND EV charging, start at min_ev_current
+    STOPPED --> IDLE: headroom >= min_ev_current AND EV not charging [sensor only]
 
     note right of IDLE
         Status sensor configured only.
@@ -494,15 +545,16 @@ stateDiagram-v2
     end note
 
     note right of STOPPED
-        Resume: start_charging() then set_current(target_a)
+        Resume: start_charging then set_current
+        Stop: set_current(0) then stop_charging
     end note
 ```
 
 | Transition | What happens | Speed |
 |---|---|---|
-| **Charging → Stopped** | Target drops below minimum (overload). `stop_charging` script is called. | Instant — no delay. |
+| **Charging → Stopped** | Target drops below minimum (overload). `set_current(0)` is called first, then `stop_charging` script is called. | Instant — no delay. |
 | **Charging → Idle** | Status sensor leaves `Charging`. Target is capped to `min_ev_current`. | Instant — it's a reduction. Status sensor only. |
-| **Idle → Stopped** | Headroom drops below `min_ev_current` while EV is not charging. `stop_charging` is called. | Instant — no delay. |
+| **Idle → Stopped** | Headroom drops below `min_ev_current` while EV is not charging. `set_current(0)` then `stop_charging` is called. | Instant — no delay. |
 | **Idle → Charging** | Status sensor transitions back to `Charging`. Ramp-up stability window was armed on the EV-start event, so the current rises step-by-step from `min_ev_current` to the full available headroom. | Instant at `min_ev_current`, then increases after each stability window. Status sensor only. |
 | **Stopped → Charging** | Headroom rises above minimum, EV is charging, stability window has elapsed. `start_charging` is called first, then `set_current`. | After stability window. |
 | **Stopped → Idle** | Headroom rises above minimum but EV is not charging. Charger starts at `min_ev_current` (idle clamp applies). | After stability window. Status sensor only. |

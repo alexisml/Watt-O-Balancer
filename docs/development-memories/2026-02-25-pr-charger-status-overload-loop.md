@@ -93,18 +93,18 @@ When the household load pushes the service current above the breaker limit, the 
 
 ```mermaid
 stateDiagram-v2
-    state "NO OVERLOAD\navailable_a ≥ 0" as OK
+    state "NO OVERLOAD\navailable_a >= 0" as OK
     state "TRIGGER PENDING\ntimer scheduled" as PENDING
     state "LOOP RUNNING\nperiodic corrections" as LOOP
 
     [*] --> OK
-    OK --> PENDING : available_a < 0\n(overload detected)
-    PENDING --> OK : available_a ≥ 0\nbefore trigger fires\n(transient spike cleared)
-    PENDING --> LOOP : trigger delay elapsed\nand still overloaded
-    LOOP --> OK : available_a ≥ 0\nafter correction
+    OK --> PENDING : available_a below 0, overload detected
+    PENDING --> OK : available_a >= 0, before trigger fires, transient spike cleared
+    PENDING --> LOOP : trigger delay elapsed and still overloaded
+    LOOP --> OK : available_a >= 0, after correction
     OK --> PENDING : overload detected again
-    LOOP --> OK : coordinator stopped\nor meter unavailable
-    PENDING --> OK : coordinator stopped\nor meter unavailable
+    LOOP --> OK : coordinator stopped or meter unavailable
+    PENDING --> OK : coordinator stopped or meter unavailable
 ```
 
 #### Overload correction sequence
@@ -114,7 +114,7 @@ sequenceDiagram
     participant M as Power Meter
     participant C as Coordinator
     participant Timer as Trigger Timer
-    participant Loop as Loop Timer
+    participant LoopTimer as Loop Timer
 
     M->>C: state_change (high load)
     C->>C: _recompute() → available_a = -4 A
@@ -125,16 +125,16 @@ sequenceDiagram
 
     Timer->>C: _on_overload_triggered()
     C->>C: _force_recompute_from_meter() → apply correction
-    C->>Loop: async_track_time_interval(5s, _overload_loop_callback)
+    C->>LoopTimer: async_track_time_interval(5s, _overload_loop_callback)
 
     loop Every 5 s while overloaded
-        Loop->>C: _overload_loop_callback()
+        LoopTimer->>C: _overload_loop_callback()
         C->>C: _force_recompute_from_meter() → apply correction
     end
 
     M->>C: state_change (load reduced)
     C->>C: _recompute() → available_a = +8 A
-    C->>Loop: cancel loop
+    C->>LoopTimer: cancel loop
     C->>Timer: cancel trigger (if any)
 ```
 

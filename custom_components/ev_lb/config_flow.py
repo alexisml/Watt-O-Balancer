@@ -119,8 +119,9 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
 
                 # Treat an empty/whitespace-only charger id as unset so the
                 # coordinator falls back to the config entry ID.
-                if user_input.get(CONF_CHARGER_ID):
-                    user_input[CONF_CHARGER_ID] = user_input[CONF_CHARGER_ID].strip()
+                charger_id = (user_input.get(CONF_CHARGER_ID) or "").strip()
+                if charger_id:
+                    user_input[CONF_CHARGER_ID] = charger_id
                 else:
                     user_input.pop(CONF_CHARGER_ID, None)
 
@@ -218,8 +219,9 @@ class EvLbOptionsFlow(OptionsFlow):
             if not errors:
                 # Treat an empty/whitespace-only charger id as unset so the
                 # coordinator falls back to the config entry ID.
-                if user_input.get(CONF_CHARGER_ID):
-                    user_input[CONF_CHARGER_ID] = user_input[CONF_CHARGER_ID].strip()
+                charger_id = (user_input.get(CONF_CHARGER_ID) or "").strip()
+                if charger_id:
+                    user_input[CONF_CHARGER_ID] = charger_id
                 else:
                     user_input.pop(CONF_CHARGER_ID, None)
 

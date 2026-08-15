@@ -229,9 +229,10 @@ class EvLoadBalancerCoordinator:
 
         # Optional user-defined charger identifier passed to action scripts.
         # Defaults to the config entry ID so existing installs keep working.
-        self._charger_id: str = entry.options.get(
-            CONF_CHARGER_ID,
-            entry.data.get(CONF_CHARGER_ID, entry.entry_id),
+        self._charger_id: str = (
+            entry.options.get(CONF_CHARGER_ID)
+            or entry.data.get(CONF_CHARGER_ID)
+            or entry.entry_id
         )
 
     # ------------------------------------------------------------------

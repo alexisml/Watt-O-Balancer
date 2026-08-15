@@ -36,19 +36,19 @@ Every script receives variables automatically. You can reference them in your sc
 |---|---|---|---|
 | `current_a` | `float` | Target charging current in Amps, floored to 1 A steps | `16.0` |
 | `current_w` | `float` | Target charging power in Watts (`current_a × voltage`) | `3680.0` |
-| `charger_id` | `string` | Unique identifier for the charger (config entry ID) | `abc123def456` |
+| `charger_id` | `string` | Unique identifier for the charger (user-configurable; defaults to config entry ID) | `abc123def456` |
 
 ### `stop_charging` script variables
 
 | Variable | Type | Description | Example |
 |---|---|---|---|
-| `charger_id` | `string` | Unique identifier for the charger | `abc123def456` |
+| `charger_id` | `string` | Unique identifier for the charger (user-configurable; defaults to config entry ID) | `abc123def456` |
 
 ### `start_charging` script variables
 
 | Variable | Type | Description | Example |
 |---|---|---|---|
-| `charger_id` | `string` | Unique identifier for the charger | `abc123def456` |
+| `charger_id` | `string` | Unique identifier for the charger (user-configurable; defaults to config entry ID) | `abc123def456` |
 
 > **Note:** By default, `charger_id` is the Home Assistant config entry ID. You can override it in the integration configuration (Settings → Devices & Services → Watt-O-Balancer → Configure) by setting the **Charger ID** field. This is useful when your script must pass the OCPP integration's device id (`devid`) or another charger-specific identifier to a service call. If the field is left empty, the config entry ID is used so existing installs keep working.
 

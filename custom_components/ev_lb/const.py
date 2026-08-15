@@ -55,7 +55,7 @@ DEFAULT_OVERLOAD_LOOP_INTERVAL = 5.0  # Seconds — interval between recomputes 
 # the power meter reads lower than the commanded current.  This window prevents
 # the conservative EV-estimate safety check from treating normal ramp-up lag as
 # genuine throttling.  It is always at least as long as the ramp-up stability
-# window so the car has the full hold period (plus this extra headroom) to respond.
+# window so the car has at least the full hold period to respond.
 POST_STEP_TOLERANCE_TIME_S = 60.0  # Seconds
 
 # Action retry defaults — exponential backoff when a charger script call fails

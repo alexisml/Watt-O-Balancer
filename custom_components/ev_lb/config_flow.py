@@ -117,6 +117,13 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
                 await self.async_set_unique_id(entity_id)
                 self._abort_if_unique_id_configured()
 
+                # Treat an empty/whitespace-only charger id as unset so the
+                # coordinator falls back to the config entry ID.
+                if user_input.get(CONF_CHARGER_ID):
+                    user_input[CONF_CHARGER_ID] = user_input[CONF_CHARGER_ID].strip()
+                else:
+                    user_input.pop(CONF_CHARGER_ID, None)
+
                 # Validation passed — create the config entry
                 _LOGGER.debug(
                     "Config flow: creating entry (meter=%s, voltage=%.0f V)",
@@ -209,6 +216,13 @@ class EvLbOptionsFlow(OptionsFlow):
                             break
 
             if not errors:
+                # Treat an empty/whitespace-only charger id as unset so the
+                # coordinator falls back to the config entry ID.
+                if user_input.get(CONF_CHARGER_ID):
+                    user_input[CONF_CHARGER_ID] = user_input[CONF_CHARGER_ID].strip()
+                else:
+                    user_input.pop(CONF_CHARGER_ID, None)
+
                 # Store everything except the power meter in options;
                 # the power meter lives in entry.data and unique_id.
                 options = {

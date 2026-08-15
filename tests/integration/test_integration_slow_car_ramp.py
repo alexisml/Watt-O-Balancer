@@ -13,6 +13,8 @@ The scenario in this test is taken from a user report:
 - Car needs several seconds to increase its draw after each commanded step
 """
 
+import math
+
 from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -47,7 +49,7 @@ class TestSlowCarRampDoesNotOscillate:
     async def test_slow_ev_response_reaches_charger_maximum(
         self, hass: HomeAssistant
     ) -> None:
-        """With 500 W background load and 50 A service, charger reaches 32 A despite slow EV ramp."""
+        """The charger reaches its configured maximum even when the EV responds slower than the ramp-up window."""
         entry = MockConfigEntry(
             domain=DOMAIN,
             data={
@@ -95,7 +97,7 @@ class TestSlowCarRampDoesNotOscillate:
             nonlocal ev_actual_a, last_t
             dt = t - last_t
             last_t = t
-            alpha = 1.0 - 2.71828 ** (-dt / car_time_constant_s)
+            alpha = 1.0 - math.e ** (-dt / car_time_constant_s)
             ev_actual_a += (command_a - ev_actual_a) * alpha
             return ev_actual_a
 

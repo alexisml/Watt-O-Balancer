@@ -339,16 +339,21 @@ async def test_options_flow_saves_charger_id(
 
 
 async def test_options_flow_prefills_charger_id(
-    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+    hass: HomeAssistant,
 ) -> None:
     """Test that the Charger ID field is pre-filled with the current value."""
-    mock_config_entry_no_actions.add_to_hass(hass)
-    mock_config_entry_no_actions.data = {
-        **mock_config_entry_no_actions.data,
-        CONF_CHARGER_ID: "existing_charger_id",
-    }
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
+            CONF_VOLTAGE: 230.0,
+            CONF_CHARGER_ID: "existing_charger_id",
+        },
+        title="EV Load Balancing",
+    )
+    entry.add_to_hass(hass)
 
-    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.FORM
 
     schema: vol.Schema = result["data_schema"]

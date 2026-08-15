@@ -141,7 +141,9 @@ sequence:
 
 > **Tip:** The exact service calls depend on your charger integration. The examples above use the [lbbrhzn/ocpp](https://github.com/lbbrhzn/ocpp) integration. Replace the `ocpp.*` actions with whatever services your charger integration exposes.
 >
-> **OCPP note:** OCPP does not have a dedicated "start charging" command. The `start_charging` script above sets the minimum allowed current (6 A) as a signal to the charger to begin accepting current — the integration then calls `set_current` immediately after with the actual target. Adjust `conn_id` to match your charger's connector number (most single-connector chargers use `1`).
+> **OCPP `conn_id` note:** The OCPP `ocpp.set_charge_rate` service requires a `conn_id` (connector id) that identifies the charger connector to target. In the examples above `conn_id: 1` is used, which is correct for most single-connector home chargers. If you have **multiple chargers or a multi-connector charger**, each connector has its own `conn_id`; you **must** set the correct `conn_id` in each action script so the command reaches the right charger. Refer to the OCPP integration documentation for how to discover the `conn_id` for each device.
+>
+> **OCPP start note:** OCPP does not have a dedicated "start charging" command. The `start_charging` script above sets the minimum allowed current (6 A) as a signal to the charger to begin accepting current — the integration then calls `set_current` immediately after with the actual target.
 
 ### Step 2: Configure in the integration
 

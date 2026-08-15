@@ -50,10 +50,20 @@ CUSTOM_CHARGER_ID = "ocpp_devid_42"
 
 
 @pytest.fixture
-def mock_config_entry_custom_charger_id(mock_config_entry_with_actions: MockConfigEntry) -> MockConfigEntry:
+def mock_config_entry_custom_charger_id() -> MockConfigEntry:
     """Create a mock config entry with a custom charger_id configured."""
-    mock_config_entry_with_actions.data[CONF_CHARGER_ID] = CUSTOM_CHARGER_ID
-    return mock_config_entry_with_actions
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_POWER_METER_ENTITY: POWER_METER,
+            CONF_VOLTAGE: 230.0,
+            CONF_ACTION_SET_CURRENT: SET_CURRENT_SCRIPT,
+            CONF_ACTION_STOP_CHARGING: STOP_CHARGING_SCRIPT,
+            CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
+            CONF_CHARGER_ID: CUSTOM_CHARGER_ID,
+        },
+        title="EV Load Balancing",
+    )
 
 
 class TestSetCurrentAction:

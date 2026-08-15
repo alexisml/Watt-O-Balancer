@@ -90,6 +90,8 @@ These are **optional**. If you skip them, the integration runs in compute-only m
 | **Charger ID** | Optional identifier passed to every action script as the `charger_id` variable. Defaults to the Home Assistant config entry ID if left empty. Use this when your scripts need the OCPP integration's device id (`devid`) or another charger-specific identifier instead of the config entry ID. See [Charger ID](04-action-scripts-guide.md#charger-id) for details. |
 
 > **New to action scripts?** See the [Action Scripts Guide](04-action-scripts-guide.md) for step-by-step instructions on creating scripts for OCPP, REST, Modbus, or switch-based chargers.
+>
+> ⚠️ **Multi-charger / multi-connector OCPP users:** the OCPP `ocpp.set_charge_rate` service needs a `conn_id` (connector id) to know which charger connector to target. If you have more than one charger or a multi-connector charger, make sure each action script uses the correct `conn_id`. See the OCPP integration documentation for how to find it.
 
 4. Click **Submit**. The integration creates a device called **EV Charger Load Balancer** and all its entities immediately.
 

@@ -19,7 +19,7 @@
           "voltage": "Nominal supply voltage in Volts (used to convert W ↔ A).",
           "action_stop_charging": "Script entity called to stop charging when headroom is insufficient. Receives a 'charger_id' variable.",
           "action_start_charging": "Script entity called to start/resume charging after it was stopped. Receives a 'charger_id' variable.",
-          "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished."
+          "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration, where the default sensor is called 'Status Connector'). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished."
         }
       }
     },
@@ -53,7 +53,7 @@
           "action_set_current": "Script entity called to set the charging current. Receives 'current_a' (float, amps), 'current_w' (float, watts), and 'charger_id' (string) variables.",
           "action_stop_charging": "Script entity called to stop charging. Receives a 'charger_id' (string) variable.",
           "action_start_charging": "Script entity called to start/resume charging. Receives a 'charger_id' (string) variable.",
-          "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished."
+          "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration, where the default sensor is called 'Status Connector'). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished."
         }
       }
     },

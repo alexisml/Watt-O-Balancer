@@ -50,6 +50,14 @@ DEFAULT_UNAVAILABLE_FALLBACK_CURRENT = 6.0  # Fallback current for "set_current"
 DEFAULT_OVERLOAD_TRIGGER_DELAY = 2.0  # Seconds — overload must persist this long before loop starts
 DEFAULT_OVERLOAD_LOOP_INTERVAL = 5.0  # Seconds — interval between recomputes while overloaded
 
+# Meter-lag tolerance window after a commanded current increase.  The EV's actual
+# draw can take a few seconds to catch up with a new set-point; during that lag
+# the power meter reads lower than the commanded current.  This window prevents
+# the conservative EV-estimate safety check from treating normal ramp-up lag as
+# genuine throttling.  It is always at least as long as the ramp-up stability
+# window so the car has the full hold period (plus this extra headroom) to respond.
+POST_STEP_TOLERANCE_TIME_S = 60.0  # Seconds
+
 # Action retry defaults — exponential backoff when a charger script call fails
 ACTION_MAX_RETRIES = 3  # Total attempts = 1 initial + 3 retries
 ACTION_RETRY_BASE_DELAY_S = 1.0  # Base delay in seconds (1s, 2s, 4s)

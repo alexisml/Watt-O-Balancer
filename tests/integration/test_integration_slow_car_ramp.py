@@ -22,6 +22,7 @@ from custom_components.ev_lb.const import (
     CONF_POWER_METER_ENTITY,
     CONF_VOLTAGE,
     DOMAIN,
+    STATE_ACTIVE,
     STATE_ADJUSTING,
     STATE_RAMP_UP_HOLD,
 )
@@ -169,4 +170,4 @@ class TestSlowCarRampDoesNotOscillate:
 
             assert float(hass.states.get(current_set_id).state) == 32.0
             state = hass.states.get(state_id).state
-            assert state in (STATE_ADJUSTING, STATE_RAMP_UP_HOLD)
+            assert state in (STATE_ADJUSTING, STATE_RAMP_UP_HOLD, STATE_ACTIVE)

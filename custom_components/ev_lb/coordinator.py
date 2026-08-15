@@ -61,6 +61,7 @@ from .const import (
     NOTIFICATION_FALLBACK_ACTIVATED_FMT,
     NOTIFICATION_METER_UNAVAILABLE_FMT,
     NOTIFICATION_OVERLOAD_STOP_FMT,
+    POST_STEP_TOLERANCE_TIME_S,
     REASON_FALLBACK_UNAVAILABLE,
     REASON_MANUAL_OVERRIDE,
     REASON_PARAMETER_CHANGE,
@@ -876,15 +877,21 @@ class EvLoadBalancerCoordinator:
         # load is treated as non-EV — a conservative, safe lower bound on headroom.
         #
         # A tolerance of one ramp-up step is applied only within a post-step lag
-        # window (duration = ramp_up_time_s) after a step increase.  During this
-        # window the meter naturally lags behind the new commanded value by up to one
-        # step; without this tolerance the safety check fires on every post-step meter
-        # reading, instantly reverting the increase and creating an endless
-        # hold/adjust loop.  Outside the lag window, fall back to the conservative
-        # estimate so a genuine EV shortfall (e.g. battery throttling) is never masked.
+        # window after a step increase.  During this window the meter naturally lags
+        # behind the new commanded value by up to one step; without this tolerance
+        # the safety check fires on every post-step meter reading, instantly reverting
+        # the increase and creating an endless hold/adjust loop.  The window is always
+        # at least as long as the ramp-up stability window so the EV has the full hold
+        # period to respond, and is further extended by POST_STEP_TOLERANCE_TIME_S to
+        # accommodate chargers whose response is slower than the configured ramp-up
+        # window.  Outside the lag window, fall back to the conservative estimate so a
+        # genuine EV shortfall (e.g. battery throttling) is never masked.
+        post_step_lag_window_s = max(
+            self.ramp_up_time_s, POST_STEP_TOLERANCE_TIME_S
+        )
         in_post_step_window = (
             self._last_step_increase_at is not None
-            and (now - self._last_step_increase_at) <= self.ramp_up_time_s
+            and (now - self._last_step_increase_at) <= post_step_lag_window_s
         )
         tolerance = self.ramp_up_step_a if in_post_step_window else 0.0
         if service_current_a < ev_current_estimate - tolerance:

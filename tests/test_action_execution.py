@@ -26,6 +26,7 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_ID,
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_VOLTAGE,
@@ -40,10 +41,19 @@ from conftest import (
     get_entity_id,
 )
 
+CUSTOM_CHARGER_ID = "ocpp_devid_42"
+
 
 # ---------------------------------------------------------------------------
 # set_current action
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_config_entry_custom_charger_id(mock_config_entry_with_actions: MockConfigEntry) -> MockConfigEntry:
+    """Create a mock config entry with a custom charger_id configured."""
+    mock_config_entry_with_actions.data[CONF_CHARGER_ID] = CUSTOM_CHARGER_ID
+    return mock_config_entry_with_actions
 
 
 class TestSetCurrentAction:
@@ -122,6 +132,29 @@ class TestSetCurrentAction:
         assert variables["current_w"] == variables["current_a"] * 230.0
         assert isinstance(variables["charger_id"], str)
         assert variables["charger_id"] == mock_config_entry_with_actions.entry_id
+
+    async def test_set_current_uses_configured_charger_id(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry_custom_charger_id: MockConfigEntry,
+    ) -> None:
+        """Action scripts receive the user-configured charger_id instead of the entry id."""
+        calls = async_mock_service(hass, "script", "turn_on")
+        await setup_integration(hass, mock_config_entry_custom_charger_id)
+
+        hass.states.async_set(POWER_METER, "5000")
+        await hass.async_block_till_done()
+
+        set_current_calls = [
+            c for c in calls if c.data["entity_id"] == SET_CURRENT_SCRIPT
+        ]
+        start_calls = [
+            c for c in calls if c.data["entity_id"] == START_CHARGING_SCRIPT
+        ]
+        assert len(set_current_calls) == 1
+        assert set_current_calls[0].data["variables"]["charger_id"] == CUSTOM_CHARGER_ID
+        assert len(start_calls) == 1
+        assert start_calls[0].data["variables"]["charger_id"] == CUSTOM_CHARGER_ID
 
 
 # ---------------------------------------------------------------------------
@@ -403,6 +436,46 @@ class TestOptionsFlow:
         assert options[CONF_ACTION_SET_CURRENT] == SET_CURRENT_SCRIPT
         assert options[CONF_ACTION_STOP_CHARGING] == STOP_CHARGING_SCRIPT
         assert options[CONF_ACTION_START_CHARGING] == START_CHARGING_SCRIPT
+
+    async def test_options_flow_updates_charger_id_and_scripts_use_it(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry_no_actions: MockConfigEntry,
+    ) -> None:
+        """A charger id set via options is passed to action scripts after reload."""
+        calls = async_mock_service(hass, "script", "turn_on")
+        await setup_integration(hass, mock_config_entry_no_actions)
+
+        result = await hass.config_entries.options.async_init(
+            mock_config_entry_no_actions.entry_id,
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={
+                CONF_POWER_METER_ENTITY: POWER_METER,
+                CONF_ACTION_SET_CURRENT: SET_CURRENT_SCRIPT,
+                CONF_ACTION_STOP_CHARGING: STOP_CHARGING_SCRIPT,
+                CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
+                CONF_CHARGER_ID: CUSTOM_CHARGER_ID,
+            },
+        )
+        assert result["type"] == "create_entry"
+        assert mock_config_entry_no_actions.options[CONF_CHARGER_ID] == CUSTOM_CHARGER_ID
+
+        # Trigger a state change that fires actions
+        hass.states.async_set(POWER_METER, "5000")
+        await hass.async_block_till_done()
+
+        set_current_calls = [
+            c for c in calls if c.data["entity_id"] == SET_CURRENT_SCRIPT
+        ]
+        start_calls = [
+            c for c in calls if c.data["entity_id"] == START_CHARGING_SCRIPT
+        ]
+        assert len(set_current_calls) == 1
+        assert set_current_calls[0].data["variables"]["charger_id"] == CUSTOM_CHARGER_ID
+        assert len(start_calls) == 1
+        assert start_calls[0].data["variables"]["charger_id"] == CUSTOM_CHARGER_ID
 
 
 # ---------------------------------------------------------------------------

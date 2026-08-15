@@ -83,10 +83,11 @@ These are **optional**. If you skip them, the integration runs in compute-only m
 
 | Field | What it does |
 |---|---|
-| **Set current action** | A script entity that the integration calls to set the charging current on your charger. Receives `current_a` (float) and `charger_id` (string) as variables. |
+| **Set current action** | A script entity that the integration calls to set the charging current on your charger. Receives `current_a` (float), `current_w` (float), and `charger_id` (string) as variables. |
 | **Stop charging action** | A script entity called to stop charging when there's not enough headroom. Receives `charger_id` (string). |
 | **Start charging action** | A script entity called to resume charging after it was stopped. Receives `charger_id` (string). |
 | **Charger status sensor** | A sensor entity whose state equals `Charging` when the EV is actively drawing current. When configured, the balancer avoids over-subtracting headroom while the charger is idle or finished. If you use the [lbbrhzn/ocpp](https://github.com/lbbrhzn/ocpp) integration, use `sensor.*_status_connector`. See [Charger status sensor](03-how-it-works.md#charger-status-sensor-optional) for details. |
+| **Charger ID** | Optional identifier passed to every action script as the `charger_id` variable. Defaults to the Home Assistant config entry ID if left empty. Use this when your scripts need the OCPP integration's device id (`devid`) or another charger-specific identifier instead of the config entry ID. See [Charger ID](04-action-scripts-guide.md#charger-id) for details. |
 
 > **New to action scripts?** See the [Action Scripts Guide](04-action-scripts-guide.md) for step-by-step instructions on creating scripts for OCPP, REST, Modbus, or switch-based chargers.
 
@@ -112,6 +113,7 @@ Almost all settings can be changed at any time via the **Configure** dialog — 
 | Stop charging action script | ✅ Yes |
 | Start charging action script | ✅ Yes |
 | Charger status sensor | ✅ Yes |
+| Charger ID | ✅ Yes |
 | **Power meter sensor** | ✅ Yes — select a different sensor in Configure |
 
 > **Adjusting the service limit:** Use the `number.*_max_service_current` entity on the device page to raise or lower the service current limit at any time. The new value is applied immediately using the most recent power-meter reading — no integration reload needed. If the power meter is currently unavailable, the new limit is still saved and will take effect as soon as meter data resumes, with interim behavior following your **When power meter is unavailable** setting. Changes persist across HA restarts (the value is saved in the HA state cache).

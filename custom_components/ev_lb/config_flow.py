@@ -23,6 +23,7 @@ from .const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_ID,
     CONF_CHARGER_STATUS_ENTITY,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
@@ -156,6 +157,7 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
                 vol.Optional(CONF_CHARGER_STATUS_ENTITY): EntitySelector(
                     EntitySelectorConfig(domain="sensor"),
                 ),
+                vol.Optional(CONF_CHARGER_ID): str,
             }
         )
 
@@ -290,6 +292,12 @@ class EvLbOptionsFlow(OptionsFlow):
                 ): EntitySelector(
                     EntitySelectorConfig(domain="sensor"),
                 ),
+                vol.Optional(
+                    CONF_CHARGER_ID,
+                    description={
+                        "suggested_value": current.get(CONF_CHARGER_ID),
+                    },
+                ): str,
             }
         )
 

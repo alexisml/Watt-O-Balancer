@@ -36,21 +36,21 @@ Every script receives variables automatically. You can reference them in your sc
 |---|---|---|---|
 | `current_a` | `float` | Target charging current in Amps, floored to 1 A steps | `16.0` |
 | `current_w` | `float` | Target charging power in Watts (`current_a × voltage`) | `3680.0` |
-| `charger_id` | `string` | Unique identifier for the charger (config entry ID) | `abc123def456` |
+| `charger_id` | `string` | Unique identifier for the charger (user-configurable; defaults to config entry ID) | `abc123def456` |
 
 ### `stop_charging` script variables
 
 | Variable | Type | Description | Example |
 |---|---|---|---|
-| `charger_id` | `string` | Unique identifier for the charger | `abc123def456` |
+| `charger_id` | `string` | Unique identifier for the charger (user-configurable; defaults to config entry ID) | `abc123def456` |
 
 ### `start_charging` script variables
 
 | Variable | Type | Description | Example |
 |---|---|---|---|
-| `charger_id` | `string` | Unique identifier for the charger | `abc123def456` |
+| `charger_id` | `string` | Unique identifier for the charger (user-configurable; defaults to config entry ID) | `abc123def456` |
 
-> **Note:** The `charger_id` is the Home Assistant config entry ID. In the current single-charger MVP it uniquely identifies the one configured charger. In a future multi-charger version, each charger will have its own ID.
+> **Note:** By default, `charger_id` is the Home Assistant config entry ID. You can override it in the integration configuration (Settings → Devices & Services → Watt-O-Balancer → Configure) by setting the **Charger ID** field. This is useful when your script must pass the OCPP integration's device id (`devid`) or another charger-specific identifier to a service call. If the field is left empty, the config entry ID is used so existing installs keep working.
 
 ---
 
@@ -141,7 +141,9 @@ sequence:
 
 > **Tip:** The exact service calls depend on your charger integration. The examples above use the [lbbrhzn/ocpp](https://github.com/lbbrhzn/ocpp) integration. Replace the `ocpp.*` actions with whatever services your charger integration exposes.
 >
-> **OCPP note:** OCPP does not have a dedicated "start charging" command. The `start_charging` script above sets the minimum allowed current (6 A) as a signal to the charger to begin accepting current — the integration then calls `set_current` immediately after with the actual target. Adjust `conn_id` to match your charger's connector number (most single-connector chargers use `1`).
+> **OCPP `conn_id` note:** The OCPP `ocpp.set_charge_rate` service requires a `conn_id` (connector id) that identifies the charger connector to target. In the examples above `conn_id: 1` is used, which is correct for most single-connector home chargers. If you have **multiple chargers or a multi-connector charger**, each connector has its own `conn_id`; you **must** set the correct `conn_id` in each action script so the command reaches the right charger. Refer to the OCPP integration documentation for how to discover the `conn_id` for each device.
+>
+> **OCPP start note:** OCPP does not have a dedicated "start charging" command. The `start_charging` script above sets the minimum allowed current (6 A) as a signal to the charger to begin accepting current — the integration then calls `set_current` immediately after with the actual target.
 
 ### Step 2: Configure in the integration
 
@@ -551,7 +553,11 @@ Ready-to-use YAML templates for all charger types are available in the [`docs/ex
 
 ### How to find the charger_id
 
-The `charger_id` is the config entry ID, visible in the Home Assistant URL when you view the integration:
+By default, `charger_id` is the config entry ID, visible in the Home Assistant URL when you view the integration:
 `/config/integrations/integration/ev_lb#<charger_id>`
 
 You can also find it in **Developer Tools → States** by searching for any `ev_lb` entity and checking its `unique_id` prefix.
+
+#### Overriding the charger_id
+
+If your charger integration needs a different identifier (for example, the OCPP integration's `devid`), go to **Settings → Devices & Services → Watt-O-Balancer → Configure** and set the **Charger ID** field. This value is then passed to every action script as `charger_id` instead of the config entry ID. Leave it empty to keep the default behavior. This setting can be changed at any time without deleting and re-adding the integration.

@@ -23,6 +23,7 @@ from .const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_ID,
     CONF_CHARGER_STATUS_ENTITY,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
@@ -116,6 +117,14 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
                 await self.async_set_unique_id(entity_id)
                 self._abort_if_unique_id_configured()
 
+                # Treat an empty/whitespace-only charger id as unset so the
+                # coordinator falls back to the config entry ID.
+                charger_id = (user_input.get(CONF_CHARGER_ID) or "").strip()
+                if charger_id:
+                    user_input[CONF_CHARGER_ID] = charger_id
+                else:
+                    user_input.pop(CONF_CHARGER_ID, None)
+
                 # Validation passed — create the config entry
                 _LOGGER.debug(
                     "Config flow: creating entry (meter=%s, voltage=%.0f V)",
@@ -156,6 +165,7 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
                 vol.Optional(CONF_CHARGER_STATUS_ENTITY): EntitySelector(
                     EntitySelectorConfig(domain="sensor"),
                 ),
+                vol.Optional(CONF_CHARGER_ID): str,
             }
         )
 
@@ -207,6 +217,14 @@ class EvLbOptionsFlow(OptionsFlow):
                             break
 
             if not errors:
+                # Treat an empty/whitespace-only charger id as unset so the
+                # coordinator falls back to the config entry ID.
+                charger_id = (user_input.get(CONF_CHARGER_ID) or "").strip()
+                if charger_id:
+                    user_input[CONF_CHARGER_ID] = charger_id
+                else:
+                    user_input.pop(CONF_CHARGER_ID, None)
+
                 # Store everything except the power meter in options;
                 # the power meter lives in entry.data and unique_id.
                 options = {
@@ -290,6 +308,12 @@ class EvLbOptionsFlow(OptionsFlow):
                 ): EntitySelector(
                     EntitySelectorConfig(domain="sensor"),
                 ),
+                vol.Optional(
+                    CONF_CHARGER_ID,
+                    description={
+                        "suggested_value": current.get(CONF_CHARGER_ID),
+                    },
+                ): str,
             }
         )
 

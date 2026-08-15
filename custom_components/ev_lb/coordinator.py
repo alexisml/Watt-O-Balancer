@@ -36,6 +36,7 @@ from .const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_ID,
     CONF_CHARGER_STATUS_ENTITY,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
@@ -224,6 +225,14 @@ class EvLoadBalancerCoordinator:
         self._charger_status_entity: str | None = entry.options.get(
             CONF_CHARGER_STATUS_ENTITY,
             entry.data.get(CONF_CHARGER_STATUS_ENTITY),
+        )
+
+        # Optional user-defined charger identifier passed to action scripts.
+        # Defaults to the config entry ID so existing installs keep working.
+        self._charger_id: str = (
+            entry.options.get(CONF_CHARGER_ID)
+            or entry.data.get(CONF_CHARGER_ID)
+            or entry.entry_id
         )
 
     # ------------------------------------------------------------------
@@ -598,7 +607,6 @@ class EvLoadBalancerCoordinator:
         Useful for recovery after a power outage where the charger may
         have lost its commanded current but the coordinator state is intact.
         """
-        charger_id = self.entry.entry_id
         current_w = round(self.current_set_a * self._voltage, 1)
         _LOGGER.info(
             "Retrigger set_current: %.1f A (%.1f W)",
@@ -608,7 +616,7 @@ class EvLoadBalancerCoordinator:
         await self._call_action(
             self._action_set_current,
             "set_current",
-            charger_id=charger_id,
+            charger_id=self._charger_id,
             current_a=self.current_set_a,
             current_w=current_w,
         )
@@ -620,12 +628,11 @@ class EvLoadBalancerCoordinator:
         Useful for recovery scenarios where the charger needs to be
         explicitly told to start (e.g. after a power outage).
         """
-        charger_id = self.entry.entry_id
         _LOGGER.info("Force start_charging triggered")
         await self._call_action(
             self._action_start_charging,
             "start_charging",
-            charger_id=charger_id,
+            charger_id=self._charger_id,
         )
         async_dispatcher_send(self.hass, self.signal_update)
 
@@ -635,12 +642,11 @@ class EvLoadBalancerCoordinator:
         Useful for manually stopping the charger without waiting for
         the balancer algorithm to reach the stop threshold.
         """
-        charger_id = self.entry.entry_id
         _LOGGER.info("Force stop_charging triggered")
         await self._call_action(
             self._action_stop_charging,
             "stop_charging",
-            charger_id=charger_id,
+            charger_id=self._charger_id,
         )
         async_dispatcher_send(self.hass, self.signal_update)
 
@@ -1222,14 +1228,15 @@ class EvLoadBalancerCoordinator:
         Cancelled automatically when a newer state change triggers a new
         action cycle, so stale retries do not interfere with current actions.
 
-        Every action receives a ``charger_id`` variable (the config entry ID)
-        so scripts can address the correct charger.  The ``set_current`` action
-        additionally receives ``current_a`` (amps) and ``current_w`` (watts)
-        so charger scripts can use whichever unit their hardware requires.
+        Every action receives a ``charger_id`` variable so scripts can
+        address the correct charger.  The identifier defaults to the config
+        entry ID but can be overridden by the user.  The ``set_current``
+        action additionally receives ``current_a`` (amps) and ``current_w``
+        (watts) so charger scripts can use whichever unit their hardware
+        requires.
         """
         new_active = self.active
         new_current = self.current_set_a
-        charger_id = self.entry.entry_id
         current_w = round(new_current * self._voltage, 1)
 
         if new_active and not prev_active:
@@ -1237,12 +1244,12 @@ class EvLoadBalancerCoordinator:
             await self._call_action(
                 self._action_start_charging,
                 "start_charging",
-                charger_id=charger_id,
+                charger_id=self._charger_id,
             )
             await self._call_action(
                 self._action_set_current,
                 "set_current",
-                charger_id=charger_id,
+                charger_id=self._charger_id,
                 current_a=new_current,
                 current_w=current_w,
             )
@@ -1251,21 +1258,21 @@ class EvLoadBalancerCoordinator:
             await self._call_action(
                 self._action_set_current,
                 "set_current",
-                charger_id=charger_id,
+                charger_id=self._charger_id,
                 current_a=0.0,
                 current_w=0.0,
             )
             await self._call_action(
                 self._action_stop_charging,
                 "stop_charging",
-                charger_id=charger_id,
+                charger_id=self._charger_id,
             )
         elif new_active and new_current != prev_current:
             # Current changed while active — adjust
             await self._call_action(
                 self._action_set_current,
                 "set_current",
-                charger_id=charger_id,
+                charger_id=self._charger_id,
                 current_a=new_current,
                 current_w=current_w,
             )

@@ -25,6 +25,7 @@ from custom_components.ev_lb.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
+    CONF_CHARGER_ID,
     CONF_CHARGER_STATUS_ENTITY,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
@@ -289,6 +290,78 @@ async def test_user_flow_saves_charger_status_entity(hass: HomeAssistant) -> Non
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_CHARGER_STATUS_ENTITY] == "sensor.ocpp_status"
+
+
+async def test_user_flow_saves_charger_id(hass: HomeAssistant) -> None:
+    """Test that a custom charger identifier can be set during initial setup.
+
+    The identifier is optional and is stored in the config entry data so it
+    can be passed to action scripts as the charger_id variable.
+    """
+    hass.states.async_set("sensor.house_power_w", "3000")
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
+            CONF_VOLTAGE: 230.0,
+            CONF_CHARGER_ID: "ocpp_devid_42",
+        },
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_CHARGER_ID] == "ocpp_devid_42"
+
+
+async def test_options_flow_saves_charger_id(
+    hass: HomeAssistant, mock_config_entry_no_actions: MockConfigEntry
+) -> None:
+    """Test that the custom charger identifier can be changed via the Configure dialog."""
+    mock_config_entry_no_actions.add_to_hass(hass)
+    hass.states.async_set("sensor.house_power_w", "0")
+
+    result = await hass.config_entries.options.async_init(mock_config_entry_no_actions.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
+            CONF_CHARGER_ID: "ocpp_devid_42",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert mock_config_entry_no_actions.options[CONF_CHARGER_ID] == "ocpp_devid_42"
+
+
+async def test_options_flow_prefills_charger_id(
+    hass: HomeAssistant,
+) -> None:
+    """Test that the Charger ID field is pre-filled with the current value."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_POWER_METER_ENTITY: "sensor.house_power_w",
+            CONF_VOLTAGE: 230.0,
+            CONF_CHARGER_ID: "existing_charger_id",
+        },
+        title="EV Load Balancing",
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+
+    schema: vol.Schema = result["data_schema"]
+    charger_id_key = next(
+        k for k in schema.schema if getattr(k, "schema", None) == CONF_CHARGER_ID
+    )
+    assert isinstance(charger_id_key, vol.Optional)
+    assert charger_id_key.description == {"suggested_value": "existing_charger_id"}
 
 
 async def test_options_flow_saves_voltage(

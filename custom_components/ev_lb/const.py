@@ -29,6 +29,10 @@ CONF_ACTION_SET_CURRENT = "action_set_current"
 CONF_ACTION_STOP_CHARGING = "action_stop_charging"
 CONF_ACTION_START_CHARGING = "action_start_charging"
 
+# Optional user-defined charger identifier passed to action scripts.
+# Falls back to the config entry ID when not set.
+CONF_CHARGER_ID = "charger_id"
+
 # Charger status sensor config key and expected state value
 CONF_CHARGER_STATUS_ENTITY = "charger_status_entity"
 CHARGING_STATE_VALUE = "Charging"

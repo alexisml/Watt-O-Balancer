@@ -143,14 +143,26 @@ python -m pytest tests/test_set_limit_service.py -v
 
 The repository has several CI checks that run on every PR. Here's how to run them locally:
 
-### Linting (Ruff)
+### Linting and formatting (Ruff)
 
 ```bash
 pip install ruff
 ruff check .
+ruff format --check .
 ```
 
-Ruff reads its configuration from `pyproject.toml`.
+Ruff reads its configuration from `pyproject.toml`. Run `ruff format .` (without `--check`) to auto-fix formatting issues.
+
+### Integration validation (hassfest)
+
+```bash
+docker run --rm \
+  -v "$(pwd)/custom_components":/github/workspace/custom_components:ro \
+  ghcr.io/home-assistant/hassfest:latest \
+  --integration-path /github/workspace/custom_components/ev_lb
+```
+
+Hassfest validates the integration's `manifest.json`, service definitions, and other Home Assistant-specific metadata. The `script.hassfest` module is not shipped in the PyPI `homeassistant` package, so the Docker image is the supported way to run it locally.
 
 ### Type checking (Pyright)
 

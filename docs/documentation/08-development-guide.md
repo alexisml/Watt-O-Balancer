@@ -143,14 +143,14 @@ python -m pytest tests/test_set_limit_service.py -v
 
 The repository has several CI checks that run on every PR. Here's how to run them locally:
 
-### Linting (Ruff)
+### Integration validation (hassfest)
 
 ```bash
-pip install ruff
-ruff check .
+pip install homeassistant
+python -m script.hassfest --integration-path custom_components/ev_lb
 ```
 
-Ruff reads its configuration from `pyproject.toml`.
+Hassfest validates the integration's `manifest.json`, service definitions, and other Home Assistant-specific metadata.
 
 ### Type checking (Pyright)
 

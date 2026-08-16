@@ -7,6 +7,7 @@ Watt-O-Balancer — Home Assistant EV Charger Load Balancing (HACS-compatible)
 [![HACS Default](https://img.shields.io/badge/HACS-Integration-blue)](https://hacs.xyz/) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE) [![Release](https://img.shields.io/github/v/release/alexisml/Watt-O-Balancer)](https://github.com/alexisml/Watt-O-Balancer/releases/latest)
 
 [![HACS Validation](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hacs-validate.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hacs-validate.yml)
+[![Hassfest](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hassfest.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hassfest.yml)
 [![Unit Tests](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/tests.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/tests.yml)
 [![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Falexisml%2F7107fdc2a20719f22bc6fe9f80eba710%2Fraw%2Fev_lb_test_count.json)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/alexisml/ha-ev-charger-balancer/graph/badge.svg?token=GOO252H72J)](https://codecov.io/gh/alexisml/ha-ev-charger-balancer)

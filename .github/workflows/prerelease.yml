@@ -24,16 +24,6 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Pre-release version: $VERSION"
 
-      - name: Update manifest version
-        run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          VERSION="${{ steps.version.outputs.version }}"
-          python3 scripts/bump_version.py --prerelease "$BRANCH" --apply
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add custom_components/ev_lb/manifest.json
-          git commit -m "Bump version to $VERSION" || true
-
       - name: Check if tag already exists
         id: tag_check
         run: |
@@ -45,6 +35,18 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Update manifest version
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          VERSION="${{ steps.version.outputs.version }}"
+          python3 scripts/bump_version.py --prerelease "$BRANCH" --apply
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add custom_components/ev_lb/manifest.json
+          git commit -m "Bump version to $VERSION"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
       - name: Create and push tag
         if: steps.tag_check.outputs.exists == 'false'
         run: |
@@ -53,11 +55,13 @@ jobs:
           git push origin "v$VERSION"
 
       - name: Create release zip
+        if: steps.tag_check.outputs.exists == 'false'
         run: |
           cd custom_components/ev_lb
           zip -r ../../ev_lb.zip .
 
       - name: Create GitHub Pre-release
+        if: steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: "v${{ steps.version.outputs.version }}"

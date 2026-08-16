@@ -20,10 +20,12 @@ The repository already runs HACS validation (`hacs/action@main`) on every push/P
    - Added a Hassfest badge next to the existing HACS Validation badge.
 
 3. **Development Guide update**
-   - Documented how to run hassfest locally:
+   - Documented how to run hassfest locally using the official Docker approach:
      ```bash
-     pip install homeassistant
-     python -m script.hassfest --integration-path custom_components/ev_lb
+     docker run --rm \
+       -v "$(pwd)/custom_components":/github/workspace/custom_components:ro \
+       ghcr.io/home-assistant/hassfest:latest \
+       --integration-path /github/workspace/custom_components/ev_lb
      ```
 
 ## Why not combine with HACS validation?
@@ -42,4 +44,4 @@ The version bump script and release workflows were updated to maintain only the 
 ## Next steps
 
 - Monitor the next workflow run to confirm the integration passes.
-- Consider pinning `home-assistant/actions/hassfest` to a released version if `master` becomes unstable.
+- The `home-assistant/actions/hassfest` action is pinned to a specific commit SHA; update it intentionally when a new version is released.

@@ -1,0 +1,193 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Balanceo de carga para cargadores de VE",
+        "description": "Configura el sensor de consumo eléctrico y los parámetros del servicio eléctrico. Cada instancia monitorea un medidor de consumo. Agrega múltiples instancias para balancear cargadores en circuitos separados.",
+        "data": {
+          "power_meter_entity": "Sensor de consumo eléctrico",
+          "voltage": "Voltaje de suministro",
+          "unavailable_behavior": "Cuando el medidor no está disponible",
+          "unavailable_fallback_current": "Corriente de respaldo (para modo 'Establecer una corriente específica')",
+          "action_set_current": "Acción para establecer corriente (script)",
+          "action_stop_charging": "Acción para detener carga (script)",
+          "action_start_charging": "Acción para iniciar carga (script)",
+          "charger_status_entity": "Sensor de estado del cargador (opcional)",
+          "charger_id": "ID del cargador (opcional)"
+        },
+        "data_description": {
+          "power_meter_entity": "Entidad de sensor que reporta la potencia total del servicio en vatios.",
+          "voltage": "Voltaje nominal de suministro en voltios (usado para convertir W ↔ A).",
+          "action_stop_charging": "Entidad de script para detener la carga cuando no hay suficiente capacidad disponible. Recibe una variable 'charger_id'.",
+          "action_start_charging": "Entidad de script para iniciar/reanudar la carga después de haber sido detenida. Recibe una variable 'charger_id'.",
+          "charger_status_entity": "Sensor cuyo estado es 'Charging' cuando el VE está cargando activamente (p. ej. de la integración OCPP, donde el sensor predeterminado se llama 'Status Connector'). Cuando se configura, el balanceador lo usa para evitar restar demasiado margen cuando el cargador está inactivo o terminado.",
+          "charger_id": "Identificador opcional enviado a los scripts de acción como 'charger_id'. Si se deja vacío, usa el ID de la entrada de configuración de Home Assistant. Úsalo cuando tu script necesite el id de dispositivo (devid) de la integración OCPP u otro identificador específico del cargador."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "No se encontró la entidad del sensor de consumo eléctrico seleccionado."
+    },
+    "abort": {
+      "already_configured": "Ya existe un balanceador de carga configurado para este medidor de consumo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configuración del balanceador de carga para VE",
+        "description": "Actualiza la configuración de la integración.",
+        "data": {
+          "power_meter_entity": "Sensor de consumo eléctrico",
+          "voltage": "Voltaje de suministro",
+          "unavailable_behavior": "Cuando el medidor no está disponible",
+          "unavailable_fallback_current": "Corriente de respaldo (para modo 'Establecer una corriente específica')",
+          "action_set_current": "Acción para establecer corriente (script)",
+          "action_stop_charging": "Acción para detener carga (script)",
+          "action_start_charging": "Acción para iniciar carga (script)",
+          "charger_status_entity": "Sensor de estado del cargador (opcional)",
+          "charger_id": "ID del cargador (opcional)"
+        },
+        "data_description": {
+          "power_meter_entity": "Entidad de sensor que reporta la potencia total del servicio en vatios.",
+          "voltage": "Voltaje nominal de suministro en voltios (usado para convertir W ↔ A).",
+          "unavailable_behavior": "Qué hacer cuando el medidor de consumo no está disponible: detener la carga (más seguro), ignorar y mantener el último valor, o establecer una corriente específica (limitada a la corriente máxima del cargador).",
+          "unavailable_fallback_current": "Corriente de carga (A) a usar cuando el medidor no está disponible y el modo es 'Establecer una corriente específica'. Este valor se limitará a la corriente máxima del cargador.",
+          "action_set_current": "Entidad de script para establecer la corriente de carga. Recibe variables 'current_a' (flotante, amperios), 'current_w' (flotante, vatios) y 'charger_id' (texto).",
+          "action_stop_charging": "Entidad de script para detener la carga. Recibe una variable 'charger_id' (texto).",
+          "action_start_charging": "Entidad de script para iniciar/reanudar la carga. Recibe una variable 'charger_id' (texto).",
+          "charger_status_entity": "Sensor cuyo estado es 'Charging' cuando el VE está cargando activamente (p. ej. de la integración OCPP, donde el sensor predeterminado se llama 'Status Connector'). Cuando se configura, el balanceador lo usa para evitar restar demasiado margen cuando el cargador está inactivo o terminado.",
+          "charger_id": "Identificador opcional enviado a los scripts de acción como 'charger_id' (texto). Si se deja vacío, usa el ID de la entrada de configuración de Home Assistant. Úsalo cuando tu script necesite el id de dispositivo (devid) de la integración OCPP u otro identificador específico del cargador."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "No se encontró la entidad del sensor de consumo eléctrico seleccionado.",
+      "meter_already_configured": "Ya existe un balanceador de carga configurado para este medidor de consumo."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_set": {
+        "name": "Corriente de carga establecida"
+      },
+      "power_set": {
+        "name": "Potencia de carga establecida"
+      },
+      "available_current": {
+        "name": "Corriente disponible para cargar"
+      },
+      "current_offset_to_max": {
+        "name": "Diferencia de corriente respecto al máximo del cargador"
+      },
+      "last_action_reason": {
+        "name": "Razón de la última acción",
+        "state": {
+          "power_meter_update": "Actualización del medidor",
+          "manual_override": "Anulación manual",
+          "fallback_unavailable": "Respaldo por medidor no disponible",
+          "parameter_change": "Cambio de parámetro"
+        }
+      },
+      "balancer_state": {
+        "name": "Estado del balanceador",
+        "state": {
+          "stopped": "Detenido",
+          "active": "Activo",
+          "adjusting": "Ajustando",
+          "ramp_up_hold": "En espera de subida",
+          "disabled": "Desactivado"
+        }
+      },
+      "configured_fallback": {
+        "name": "Respaldo de medidor configurado",
+        "state": {
+          "stop": "Detener carga",
+          "ignore": "Ignorar y mantener último valor",
+          "set_current": "Establecer corriente específica"
+        }
+      },
+      "ramp_up_next_step": {
+        "name": "Próximo paso de subida de corriente"
+      },
+      "last_action_error": {
+        "name": "Último error de acción"
+      },
+      "last_action_timestamp": {
+        "name": "Última marca de tiempo de acción"
+      },
+      "last_action_status": {
+        "name": "Último estado de acción",
+        "state": {
+          "success": "Éxito",
+          "failure": "Fallo"
+        }
+      },
+      "action_latency": {
+        "name": "Latencia de acción"
+      },
+      "retry_count": {
+        "name": "Contador de reintentos de acción"
+      }
+    },
+    "binary_sensor": {
+      "active": {
+        "name": "Balanceo de carga activo"
+      },
+      "meter_status": {
+        "name": "Estado del medidor"
+      },
+      "fallback_active": {
+        "name": "Respaldo del medidor"
+      },
+      "ev_charging": {
+        "name": "VE cargando"
+      },
+      "charger_constrained": {
+        "name": "Balanceo de carga limitado"
+      }
+    },
+    "number": {
+      "max_service_current": {
+        "name": "Corriente máxima del servicio"
+      },
+      "max_charger_current": {
+        "name": "Corriente máxima del cargador"
+      },
+      "min_ev_current": {
+        "name": "Corriente mínima del VE"
+      },
+      "ramp_up_time": {
+        "name": "Ventana de estabilidad para subida de corriente"
+      },
+      "ramp_up_step": {
+        "name": "Tamaño de paso de subida de corriente"
+      },
+      "overload_trigger_delay": {
+        "name": "Retardo de activación por sobrecarga"
+      },
+      "overload_loop_interval": {
+        "name": "Intervalo de corrección de sobrecarga"
+      }
+    },
+    "switch": {
+      "enabled": {
+        "name": "Balanceo de carga habilitado"
+      },
+      "auto_recovery": {
+        "name": "Recuperación automática al reconectar cargador"
+      }
+    },
+    "button": {
+      "retrigger_set_current": {
+        "name": "Reenviar corriente establecida"
+      },
+      "force_start": {
+        "name": "Forzar inicio de carga"
+      },
+      "force_stop": {
+        "name": "Forzar parada de carga"
+      }
+    }
+  }
+}

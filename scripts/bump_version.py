@@ -34,6 +34,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "custom_components" / "ev_lb" / "manifest.json"
+TOP_MANIFEST_PATH = (
+    Path(__file__).resolve().parent.parent / "watt_o_balancer" / "manifest.json"
+)
 TAG_PATTERN = re.compile(r"^v(\d{4})\.(\d{1,2})\.(\d+)$")
 _BRANCH_SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 _BRANCH_SLUG_TRIM = re.compile(r"^-+|-+$")
@@ -65,10 +68,11 @@ def next_version() -> str:
 
 
 def update_manifest(version: str) -> None:
-    """Write the new version into the integration manifest.json."""
-    data = json.loads(MANIFEST_PATH.read_text())
-    data["version"] = version
-    MANIFEST_PATH.write_text(json.dumps(data, indent=2) + "\n")
+    """Write the new version into both integration manifest.json files."""
+    for path in (MANIFEST_PATH, TOP_MANIFEST_PATH):
+        data = json.loads(path.read_text())
+        data["version"] = version
+        path.write_text(json.dumps(data, indent=2) + "\n")
 
 
 def branch_slug(branch: str) -> str:
@@ -151,7 +155,7 @@ def main() -> None:
 
     if apply:
         update_manifest(version)
-        print(f"Updated {MANIFEST_PATH} to {version}")
+        print(f"Updated {MANIFEST_PATH} and {TOP_MANIFEST_PATH} to {version}")
     else:
         print(version)
 

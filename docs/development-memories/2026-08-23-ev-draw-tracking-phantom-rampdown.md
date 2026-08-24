@@ -74,10 +74,16 @@ ev_estimate = max(floor_a, ev_estimate)                  # floor while charging
   The floor stops the meter bound from collapsing the estimate to 0 while the
   EV is legitimately charging (slow ramp / battery near full / brief pause),
   which is exactly what caused the phantom ramp-down.
+- **Appliance-jump guard** — during the post-step tolerance window the estimate
+  is also capped by the previous estimate plus a time-scaled ramp budget
+  (`command * dt / tolerance_time`).  A slow EV raises the meter gradually and
+  stays within the budget; a household appliance raises it abruptly and the
+  excess is counted as non-EV load, so the charger is still reduced on the same
+  event.
 
-The floor is reset to 0 when the EV is known not to be charging (status sensor
-not `Charging`), when the meter goes unavailable, and when
-`max_charger_current` is set to 0.
+The floor and tracking state are reset to 0 when the EV is known not to be
+charging (status sensor not `Charging`), when the meter goes unavailable, and
+when `max_charger_current` is set to 0.
 
 ### Why not a persistent non-EV baseline or a pure delta tracker?
 
@@ -91,10 +97,19 @@ test suite:
   broke ramp-up: after a commanded step, the EV's own response looks like a
   meter rise and was attributed to house load, blocking the next step.
 
-The floor-latch design is simpler and passes all existing safety tests:
+The floor-latch + delta-guard design passes all existing safety tests:
 reductions stay instant, a genuine house-load spike still cuts the current on
-the next meter event, and an EV shortfall never *raises* the target against a
-falling meter.
+the next meter event (even during the ramp-up wait), and an EV shortfall never
+*raises* the target against a falling meter.
+
+### Configurable tolerance window
+
+The post-step tolerance window is now exposed as `post_step_tolerance_time`
+(default 60 s, range 10–300 s) in both the initial config flow and the options
+flow, with English and Spanish translations.  Users with very slow-ramping cars
+can extend it; users with fast-responding cars can shorten it.  The effective
+window is always `max(ramp_up_time_s, post_step_tolerance_time_s)` so the
+ramp-up stability setting remains the lower bound.
 
 ## Files changed
 
@@ -111,9 +126,14 @@ falling meter.
   - Slow car recovering from a genuine overload ramps back up without
     oscillation and stays at 32 A.
   - A genuine 20 A house-load increase still reduces the charger instantly.
+  - A large household appliance starting while a slow car is still ramping up
+    is detected and reduces the charger on the same meter event.
   - The reported available margin recovers to (nearly) the full headroom when
     the EV stops drawing entirely — it no longer stays pinned at
     ``50 − 32 = 18 A`` after the car finishes.
+- `tests/test_config_flow.py`
+  - Updated the successful-setup assertion to include the new default
+    `post_step_tolerance_time` value.
 - `tests/balancing_engine/test_ramp_up_after_max_change.py`
   - `test_safety_check_still_fires_for_genuine_throttling` kept in place: the
     scenario (meter reading below the commanded current) is exactly the

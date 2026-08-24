@@ -898,14 +898,14 @@ COMPUTE_TARGET_BOUNDARY_TABLE = [
     pytest.param(20.0, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MIN, 1.0, 12.0,
                  id="min_ev_1a_moderate_load"),
 
-    # --- min_charger_a at MIN_EV_CURRENT_MAX (32 A) ---
-    pytest.param(0.0, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MAX, 1.0, MIN_EV_CURRENT_MAX,
+    # --- min_charger_a at 32 A ---
+    pytest.param(0.0, 0.0, 32.0, 32.0, 32.0, 1.0, 32.0,
                  id="min_ev_32a_no_load_at_service_limit"),
-    pytest.param(1.0, 0.0, 32.0, 32.0, MIN_EV_CURRENT_MAX, 1.0, None,
+    pytest.param(1.0, 0.0, 32.0, 32.0, 32.0, 1.0, None,
                  id="min_ev_32a_any_load_stops"),
-    pytest.param(0.0, 0.0, 64.0, 64.0, MIN_EV_CURRENT_MAX, 1.0, 64.0,
+    pytest.param(0.0, 0.0, 64.0, 64.0, 32.0, 1.0, 64.0,
                  id="min_ev_32a_full_headroom"),
-    pytest.param(33.0, 0.0, 64.0, 64.0, MIN_EV_CURRENT_MAX, 1.0, None,
+    pytest.param(33.0, 0.0, 64.0, 64.0, 32.0, 1.0, None,
                  id="min_ev_32a_load_drops_below"),
 
     # --- step_a at MIN_RAMP_UP_STEP (1 A) ---

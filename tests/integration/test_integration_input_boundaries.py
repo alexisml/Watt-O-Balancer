@@ -21,8 +21,8 @@ from custom_components.ev_lb.const import (
     DEFAULT_MIN_EV_CURRENT,
     DOMAIN,
     MAX_CHARGER_CURRENT,
+    MAX_SERVICE_CURRENT,
     MIN_CHARGER_CURRENT,
-    MIN_EV_CURRENT_MAX,
     MIN_EV_CURRENT_MIN,
     SERVICE_SET_LIMIT,
 )
@@ -222,7 +222,7 @@ class TestMinEvCurrentBoundaries:
         # service=0 A, ev_estimate=0 (current_set=0), non_ev=0, available=32 A ≥ min_ev=32 A → charge at 32 A
         await hass.services.async_call(
             "number", "set_value",
-            {"entity_id": min_id, "value": MIN_EV_CURRENT_MAX},
+            {"entity_id": min_id, "value": 32.0},
             blocking=True,
         )
         await hass.async_block_till_done()
@@ -247,7 +247,7 @@ class TestMinEvCurrentBoundaries:
         with pytest.raises(ServiceValidationError):
             await hass.services.async_call(
                 "number", "set_value",
-                {"entity_id": min_id, "value": MIN_EV_CURRENT_MAX + 1},
+                {"entity_id": min_id, "value": MAX_SERVICE_CURRENT + 1},
                 blocking=True,
             )
 

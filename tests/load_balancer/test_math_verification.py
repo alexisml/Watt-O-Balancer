@@ -899,9 +899,9 @@ COMPUTE_TARGET_BOUNDARY_TABLE = [
                  id="min_ev_1a_moderate_load"),
 
     # --- min_charger_a at MIN_EV_CURRENT_MAX (80 A) ---
-    pytest.param(0.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, MIN_EV_CURRENT_MAX, 1.0, MIN_EV_CURRENT_MAX,
+    pytest.param(0.0, 0.0, MAX_CHARGER_CURRENT, MAX_CHARGER_CURRENT, MIN_EV_CURRENT_MAX, 1.0, MIN_EV_CURRENT_MAX,
                  id="min_ev_maxa_no_load_at_service_limit"),
-    pytest.param(81.0, 0.0, MAX_SERVICE_CURRENT, MAX_CHARGER_CURRENT, MIN_EV_CURRENT_MAX, 1.0, None,
+    pytest.param(1.0, 0.0, MAX_CHARGER_CURRENT, MAX_CHARGER_CURRENT, MIN_EV_CURRENT_MAX, 1.0, None,
                  id="min_ev_maxa_any_load_stops"),
     pytest.param(0.0, 0.0, 100.0, 100.0, MIN_EV_CURRENT_MAX, 1.0, 100.0,
                  id="min_ev_maxa_full_headroom"),

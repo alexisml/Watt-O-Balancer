@@ -215,7 +215,8 @@ class TestMinEvCurrentBoundaries:
         coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
         coordinator.ramp_up_step_a = 0.0
-        coordinator.max_service_current = 100.0
+        coordinator.max_service_current = MAX_CHARGER_CURRENT
+        coordinator.max_charger_current = MAX_CHARGER_CURRENT
 
         min_id = get_entity_id(hass, mock_config_entry, "number", "min_ev_current")
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
@@ -235,7 +236,8 @@ class TestMinEvCurrentBoundaries:
         assert float(hass.states.get(current_set_id).state) == MAX_CHARGER_CURRENT
 
         # Increase load to 20 kW → service≈87 A.  With the EV drawing 80 A the
-        # headroom collapses below the 80 A minimum, so charging stops.
+        # non-EV load is ~7 A, so available current drops to ~73 A and below
+        # the 80 A minimum, so charging stops.
         hass.states.async_set(POWER_METER, "20000")
         await hass.async_block_till_done()
 

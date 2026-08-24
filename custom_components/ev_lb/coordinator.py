@@ -38,6 +38,7 @@ from .const import (
     CONF_ACTION_STOP_CHARGING,
     CONF_CHARGER_ID,
     CONF_CHARGER_STATUS_ENTITY,
+    CONF_POST_STEP_TOLERANCE_TIME,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
@@ -48,6 +49,7 @@ from .const import (
     DEFAULT_MIN_EV_CURRENT,
     DEFAULT_OVERLOAD_LOOP_INTERVAL,
     DEFAULT_OVERLOAD_TRIGGER_DELAY,
+    DEFAULT_POST_STEP_TOLERANCE_TIME_S,
     DEFAULT_RAMP_UP_STEP,
     DEFAULT_RAMP_UP_TIME,
     DEFAULT_UNAVAILABLE_BEHAVIOR,
@@ -58,11 +60,12 @@ from .const import (
     EVENT_FALLBACK_ACTIVATED,
     EVENT_METER_UNAVAILABLE,
     EVENT_OVERLOAD_STOP,
+    MAX_POST_STEP_TOLERANCE_TIME,
+    MIN_POST_STEP_TOLERANCE_TIME,
     NOTIFICATION_ACTION_FAILED_FMT,
     NOTIFICATION_FALLBACK_ACTIVATED_FMT,
     NOTIFICATION_METER_UNAVAILABLE_FMT,
     NOTIFICATION_OVERLOAD_STOP_FMT,
-    POST_STEP_TOLERANCE_TIME_S,
     REASON_FALLBACK_UNAVAILABLE,
     REASON_MANUAL_OVERRIDE,
     REASON_PARAMETER_CHANGE,
@@ -124,6 +127,10 @@ class EvLoadBalancerCoordinator:
         self.ramp_up_step_a: float = DEFAULT_RAMP_UP_STEP
         self.overload_trigger_delay_s: float = DEFAULT_OVERLOAD_TRIGGER_DELAY
         self.overload_loop_interval_s: float = DEFAULT_OVERLOAD_LOOP_INTERVAL
+        self.post_step_tolerance_time_s: float = _cfg.get(
+            CONF_POST_STEP_TOLERANCE_TIME,
+            DEFAULT_POST_STEP_TOLERANCE_TIME_S,
+        )
 
         # Computed state (read by sensor/binary-sensor entities)
         self.current_set_a: float = 0.0
@@ -822,9 +829,11 @@ class EvLoadBalancerCoordinator:
         # meter lag after a step increase (see _recompute); outside that
         # window a genuine EV shortfall lets the estimate fall toward the
         # floor instead of pinning headroom at the maximum forever.
-        post_step_lag_window_s = max(
-            self.ramp_up_time_s, POST_STEP_TOLERANCE_TIME_S
+        tolerance_s = max(
+            MIN_POST_STEP_TOLERANCE_TIME,
+            min(MAX_POST_STEP_TOLERANCE_TIME, self.post_step_tolerance_time_s),
         )
+        post_step_lag_window_s = max(self.ramp_up_time_s, tolerance_s)
         in_post_step_window = (
             self._last_step_increase_at is not None
             and (now - self._last_step_increase_at) <= post_step_lag_window_s

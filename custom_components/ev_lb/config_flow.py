@@ -25,16 +25,20 @@ from .const import (
     CONF_ACTION_STOP_CHARGING,
     CONF_CHARGER_ID,
     CONF_CHARGER_STATUS_ENTITY,
+    CONF_POST_STEP_TOLERANCE_TIME,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
+    DEFAULT_POST_STEP_TOLERANCE_TIME_S,
     DEFAULT_UNAVAILABLE_BEHAVIOR,
     DEFAULT_UNAVAILABLE_FALLBACK_CURRENT,
     DEFAULT_VOLTAGE,
     DOMAIN,
     MAX_CHARGER_CURRENT,
+    MAX_POST_STEP_TOLERANCE_TIME,
     MAX_VOLTAGE,
+    MIN_POST_STEP_TOLERANCE_TIME,
     MIN_VOLTAGE,
     UNAVAILABLE_BEHAVIOR_IGNORE,
     UNAVAILABLE_BEHAVIOR_SET_CURRENT,
@@ -77,6 +81,16 @@ _FALLBACK_CURRENT_SELECTOR = NumberSelector(
         max=MAX_CHARGER_CURRENT,
         step=1.0,
         unit_of_measurement="A",
+        mode=NumberSelectorMode.BOX,
+    ),
+)
+
+_POST_STEP_TOLERANCE_SELECTOR = NumberSelector(
+    NumberSelectorConfig(
+        min=MIN_POST_STEP_TOLERANCE_TIME,
+        max=MAX_POST_STEP_TOLERANCE_TIME,
+        step=5.0,
+        unit_of_measurement="s",
         mode=NumberSelectorMode.BOX,
     ),
 )
@@ -166,6 +180,10 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
                     EntitySelectorConfig(domain="sensor"),
                 ),
                 vol.Optional(CONF_CHARGER_ID): str,
+                vol.Optional(
+                    CONF_POST_STEP_TOLERANCE_TIME,
+                    default=DEFAULT_POST_STEP_TOLERANCE_TIME_S,
+                ): _POST_STEP_TOLERANCE_SELECTOR,
             }
         )
 
@@ -314,6 +332,13 @@ class EvLbOptionsFlow(OptionsFlow):
                         "suggested_value": current.get(CONF_CHARGER_ID),
                     },
                 ): str,
+                vol.Optional(
+                    CONF_POST_STEP_TOLERANCE_TIME,
+                    default=current.get(
+                        CONF_POST_STEP_TOLERANCE_TIME,
+                        DEFAULT_POST_STEP_TOLERANCE_TIME_S,
+                    ),
+                ): _POST_STEP_TOLERANCE_SELECTOR,
             }
         )
 

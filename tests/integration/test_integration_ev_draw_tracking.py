@@ -172,7 +172,8 @@ class TestEvDrawTrackingNoPhantomRampDown:
         limit (e.g. 20 A — battery near full or an onboard cap below 32 A).
         With the old logic the safety check would fire once the post-step
         tolerance window expired, cut the current to ~30 A, recover, and repeat.
-        The command must simply stay put.
+        The command must simply stay put, and the available-current sensor must
+        not collapse to a phantom low-margin value while no non-EV load changed.
         """
         entry = _make_entry()
         await setup_integration(hass, entry)
@@ -187,6 +188,7 @@ class TestEvDrawTrackingNoPhantomRampDown:
         coordinator._time_fn = fake_monotonic
 
         current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        available_id = get_entity_id(hass, entry, "sensor", "available_current")
 
         car = _CarSim(tau_s=2.0)  # fast car
 
@@ -216,6 +218,11 @@ class TestEvDrawTrackingNoPhantomRampDown:
                 f"At t={mock_time:.0f}s the charger dropped to {current} A just "
                 "because the car settled at its own 20 A limit — no ramp-down "
                 "should occur when there is no extra non-EV load"
+            )
+            available = float(hass.states.get(available_id).state)
+            assert available > 45.0, (
+                f"At t={mock_time:.0f}s the available-current sensor fell to "
+                f"{available} A even though no household load changed"
             )
 
     async def test_slow_car_after_overload_recovers_without_oscillation(

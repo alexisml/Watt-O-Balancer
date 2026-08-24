@@ -855,7 +855,7 @@ class TestComputeAvailableBoundary:
 #   current_set_a: 0 .. max_charger (0 .. 80)
 #   max_service_a: MIN_SERVICE_CURRENT=1.0 .. MAX_SERVICE_CURRENT=200.0
 #   max_charger_a: MIN_CHARGER_CURRENT=0.0 .. MAX_CHARGER_CURRENT=80.0
-#   min_charger_a: MIN_EV_CURRENT_MIN=1.0 .. MIN_EV_CURRENT_MAX=32.0
+#   min_charger_a: MIN_EV_CURRENT_MIN=1.0 .. MIN_EV_CURRENT_MAX=80.0
 #   step_a: MIN_RAMP_UP_STEP=1.0 .. MAX_RAMP_UP_STEP=32.0
 
 COMPUTE_TARGET_BOUNDARY_TABLE = [
@@ -1260,7 +1260,7 @@ FALLBACK_REAPPLY_BOUNDARY_TABLE = [
     pytest.param("ignore", 0.0, 32.0, 0.5, 1.0, 32.0, 0.0,
                  id="reapply_ignore_min_ev_1a_below_stops"),
 
-    # --- min_charger_a at MIN_EV_CURRENT_MAX (32 A) ---
+    # --- high min_charger_a example (32 A) ---
     pytest.param("ignore", 0.0, 32.0, 32.0, 32.0, 32.0, 32.0,
                  id="reapply_ignore_min_ev_32a_exactly"),
     pytest.param("ignore", 0.0, 64.0, 20.0, 32.0, 200.0, 0.0,
@@ -1347,7 +1347,7 @@ DISTRIBUTE_BOUNDARY_TABLE = [
     pytest.param(100.0, [(1.0, 80.0)], 1.0, [80.0],
                  id="dist_charger_80a_capped"),
 
-    # MIN_EV_CURRENT_MAX (32 A) as min
+    # High minimum-current example (32 A)
     pytest.param(32.0, [(32.0, 80.0)], 1.0, [32.0],
                  id="dist_min_ev_32a_exactly_min"),
     pytest.param(31.0, [(32.0, 80.0)], 1.0, [None],

@@ -88,6 +88,8 @@ MAX_SERVICE_CURRENT = 200.0
 MIN_CHARGER_CURRENT = 0.0
 MAX_CHARGER_CURRENT = 80.0
 MIN_EV_CURRENT_MIN = 1.0
+# Keep the minimum-current entity aligned with the charger's physical ceiling:
+# values above MAX_CHARGER_CURRENT would make charging impossible by definition.
 MIN_EV_CURRENT_MAX = MAX_CHARGER_CURRENT
 MIN_RAMP_UP_TIME = 5.0   # Seconds — absolute minimum (very low values risk oscillation)
 MAX_RAMP_UP_TIME = 300.0  # Seconds — 5 minutes maximum

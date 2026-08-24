@@ -608,6 +608,9 @@ class TestEvDrawTrackingNoPhantomRampDown:
             "Expected an immediate reduction when a 35 A appliance started "
             f"during the short tolerance window, but got {reduced} A"
         )
+        # With a 35 A appliance the true headroom is about 15 A; because the
+        # car is still ramping the EV estimate is conservative, so the target
+        # lands between 28 A and 31 A after flooring to the 1 A step.
         assert 28.0 <= reduced <= 31.0, (
             f"Expected a reduction to a safe headroom, but got {reduced} A"
         )
@@ -660,6 +663,9 @@ class TestEvDrawTrackingNoPhantomRampDown:
             "Expected an immediate reduction when a 25 A appliance started "
             f"after the 120 s tolerance window, but got {reduced} A"
         )
+        # A 25 A appliance leaves ~25 A of true headroom; the conservative EV
+        # estimate while the car is still ramping pulls the target down to the
+        # low-to-mid 20 A range before flooring to the 1 A step.
         assert 22.0 <= reduced <= 31.0, (
             f"Expected a reduction to a safe headroom, but got {reduced} A"
         )

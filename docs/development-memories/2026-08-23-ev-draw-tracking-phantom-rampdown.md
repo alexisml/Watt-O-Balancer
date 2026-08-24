@@ -119,6 +119,48 @@ The floor-latch design passes all existing safety tests: reductions stay
 instant, a genuine house-load spike still cuts the current on the next meter
 event, and an EV shortfall never *raises* the target against a falling meter.
 
+### The floor must stay under the physical caps
+
+`_ev_estimate_floor_a` is a *latched historical* value, so it has to be capped
+by what the charger is currently commanded to draw and can physically deliver:
+
+```python
+estimate = max(self._ev_estimate_floor_a, estimate)
+estimate = min(estimate, self.current_set_a, self.max_charger_current)
+```
+
+Without the second line the floor was the final bound and could outrank the
+command.  `manual_set_limit()` lowers `current_set_a` without going through the
+reduction branch, so the floor kept its older, higher value; the estimate then
+exceeded the command, `non_ev = meter - estimate` understated the household
+load, and the balancer both failed to stop below `min_ev_current` and ramped up
+into a real overload while reporting ample headroom.
+
+Measured before the cap (50 A service, 32 A charger, `min_ev` 6 A, floor
+latched at 27 A, manual limit 8 A):
+
+| house | meter | reported available | true available | behaviour |
+|-------|-------|--------------------|----------------|-----------|
+| 47 A  | 55 A  | 22 A               | 3 A            | kept charging; should have stopped |
+| 40 A  | 60 A  | 17 A               | 10 A           | ramped 8 → 20 A, +10 A overload |
+
+This is the same invariant the pre-fix inline comment protected ("never
+subtract a larger value than the charger can physically deliver, which would
+understate non-EV load and risk overloading the service feed") — extracting the
+estimator into `_estimate_ev_current()` dropped it.  Covered by
+`tests/integration/test_integration_ev_estimate_bounds.py`.
+
+### Not a bug: min_ev_current above max_charger_current
+
+Worth recording so it is not "fixed" later.  A minimum above the charger
+maximum stops charging, and that is **deliberate** — it is how both
+`test_set_to_one_amp_still_stops_below_min_ev` (squeeze the charger maximum
+below the minimum) and `test_parameter_cascade_with_actions` (raise the minimum
+above the charger maximum) ask the balancer to stop.  Capping the minimum at
+the charger maximum, or making the number entity's ceiling track it, breaks
+both.  `MIN_EV_CURRENT_MAX = MAX_CHARGER_CURRENT` is the right absolute ceiling
+because 80 A is the largest charger the integration supports.
+
 ### Configurable tolerance window
 
 The post-step tolerance window is now exposed as `post_step_tolerance_time`

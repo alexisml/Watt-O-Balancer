@@ -861,6 +861,13 @@ class EvLoadBalancerCoordinator:
         # EV reports that it is charging.
         estimate = max(self._ev_estimate_floor_a, estimate)
 
+        # Re-apply the physical cap: the floor is a latched historical value and
+        # must never raise the estimate above what the charger is currently
+        # commanded to draw or can deliver.  Without this, a command lowered
+        # outside the reduction path (manual override) leaves a stale floor that
+        # understates non-EV load and ramps into a real overload.
+        estimate = min(estimate, self.current_set_a, self.max_charger_current)
+
         return max(0.0, estimate)
 
     # ------------------------------------------------------------------

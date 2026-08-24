@@ -166,7 +166,7 @@ class TestMaxChargerCurrentBoundaries:
 
 
 class TestMinEvCurrentBoundaries:
-    """Boundary tests for the min_ev_current number entity (1–32 A).
+    """Boundary tests for the min_ev_current number entity (1–service max A).
 
     Validates behavior at exact limits, and verifies that a high minimum
     threshold correctly stops charging when headroom is insufficient.
@@ -205,7 +205,7 @@ class TestMinEvCurrentBoundaries:
     async def test_set_exactly_at_maximum_limit(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry,
     ) -> None:
-        """Boundary case where min_ev_current equals max_charger_current (32 A).
+        """Boundary case where min_ev_current equals max_charger_current (32 A default).
 
         Charges at 32 A with no house load; stops when additional load pushes
         available current below the minimum.
@@ -239,7 +239,7 @@ class TestMinEvCurrentBoundaries:
     async def test_one_above_maximum_is_rejected(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry,
     ) -> None:
-        """Setting min EV current above 32 A is rejected by HA validation."""
+        """Setting min EV current above the service max is rejected by HA validation."""
         await setup_integration(hass, mock_config_entry)
 
         min_id = get_entity_id(hass, mock_config_entry, "number", "min_ev_current")

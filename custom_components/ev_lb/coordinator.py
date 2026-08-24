@@ -869,13 +869,18 @@ class EvLoadBalancerCoordinator:
             command_a = min(self.current_set_a, self.max_charger_current)
             # The EV is expected to reach the commanded current within the
             # tolerance window.  Bound the plausible EV ramp between events by
-            # that rate, but never more than the command itself.
-            max_ev_delta = min(command_a, command_a * dt_s / tolerance_s)
+            # that rate, but never more than the command itself.  When multiple
+            # events share the same timestamp (dt_s == 0) we cannot infer a
+            # ramp rate, so skip the delta guard and use the normal meter bound.
+            if dt_s > 0:
+                max_ev_delta = min(command_a, command_a * dt_s / tolerance_s)
 
-            service_delta = service_current_a - self._last_service_current_a
-            if service_delta > max_ev_delta:
-                ev_ramp_bound = self._last_ev_estimate_a + max_ev_delta
-                estimate = min(estimate, ev_ramp_bound)
+                service_delta = service_current_a - self._last_service_current_a
+                if service_delta > max_ev_delta:
+                    ev_ramp_bound = self._last_ev_estimate_a + max_ev_delta
+                    estimate = min(estimate, ev_ramp_bound)
+                else:
+                    estimate = min(estimate, service_current_a + tolerance)
             else:
                 estimate = min(estimate, service_current_a + tolerance)
         else:

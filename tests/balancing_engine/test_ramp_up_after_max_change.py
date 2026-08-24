@@ -111,7 +111,7 @@ class TestRampUpAfterMaxIncrease:
             "the safety check should not fire within one ramp step of tolerance"
         )
 
-    async def test_safety_check_still_fires_for_genuine_throttling(
+    async def test_ev_self_throttle_does_not_reduce_current(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
         """An EV self-throttle must not be mistaken for a house-load change.
@@ -321,4 +321,3 @@ class TestRampUpAfterMinCurrentIncrease:
             "the below-minimum guard should clamp to min_ev_current, then the "
             "stability window holds there until the next ramp step"
         )
-

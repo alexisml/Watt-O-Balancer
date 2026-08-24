@@ -309,7 +309,7 @@ last_ev_estimate_a     = ev_estimate_a
 last_estimate_time     = now
 
 non_ev_w      = max(0, house_power_w − ev_estimate_a × voltage_v)
-available_a   = service_current_a − non_ev_w / voltage_v
+available_a   = max_service_a − non_ev_w / voltage_v
 target_a      = min(available_a, max_charger_a), floored to 1 A steps
 
 # When a status sensor is configured and the EV is not charging, cap the

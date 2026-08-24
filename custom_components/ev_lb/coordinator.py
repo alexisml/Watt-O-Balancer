@@ -172,14 +172,10 @@ class EvLoadBalancerCoordinator:
         self._time_fn = time.monotonic
 
         # Lower bound (A) for the EV-draw estimate, latched to the target of
-        # the most recent commanded reduction.  Because reductions are always
-        # applied instantly, the EV can never legitimately draw less than the
-        # last reduction target while still charging — so when the meter later
-        # reads below the commanded current (slow car still ramping, battery
-        # near full, brief pause), the estimate never falls below this floor
-        # and the shortfall is not mistaken for extra non-EV load.  This is
-        # what prevents the phantom ramp-down/oscillation.  Reset to 0 when
-        # the EV is known not to be charging or the meter goes unavailable.
+        # the most recent commanded reduction.  This defensive heuristic
+        # prevents an EV shortfall (slow ramp, self-throttle, or brief pause)
+        # from being misclassified as additional non-EV load.  Reset to 0
+        # when the EV is known not to be charging or the meter is unavailable.
         self._ev_estimate_floor_a: float = 0.0
 
         # Last-meter and last-estimate values used to detect sudden service
@@ -880,9 +876,11 @@ class EvLoadBalancerCoordinator:
                     ev_ramp_bound = self._last_ev_estimate_a + max_ev_delta
                     estimate = min(estimate, ev_ramp_bound)
 
+        # Apply the meter bound once, after the post-step delta guard.
         estimate = min(estimate, service_current_a + tolerance)
 
-        # Floor: never below the last reduction target while charging.
+        # Floor: a defensive heuristic against misclassifying EV shortfall
+        # as non-EV load while the EV reports that it is charging.
         estimate = max(self._ev_estimate_floor_a, estimate)
 
         self._last_service_current_a = service_current_a

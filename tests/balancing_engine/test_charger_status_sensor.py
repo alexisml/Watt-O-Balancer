@@ -295,8 +295,9 @@ class TestThrottledEvFix:
 
         # Phase 3: EV throttles to 10 A (battery near full), house still 5 A,
         # total meter = (5+10)*230 = 3450 W → service=15 A < commanded 27 A.
-        # The EV estimate is bounded by the meter (15 A), so the balancer does
-        # not treat the EV's remaining draw as new household load.
+        # The EV estimate is bounded by the meter plus one ramp step (15 + 4 A)
+        # during the post-step tolerance window, so the balancer does not treat
+        # the EV's remaining draw as new household load.
         hass.states.async_set(POWER_METER, "3450")
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 32.0

@@ -1,6 +1,6 @@
 Title: Fix phantom ramp-down by tracking the EV's actual draw
 Date: 2026-08-23
-Author: copilot
+Author: alexisml
 Status: in-review
 Summary: The balancer no longer ramps down for no reason when the EV draws less than commanded (slow ramp, battery near full, brief pause); the EV-draw estimate is now bounded by the meter and floored at the last reduction target.
 
@@ -69,11 +69,9 @@ ev_estimate = max(floor_a, ev_estimate)                  # floor while charging
   the EV genuinely draws less than commanded the estimate follows the meter
   down instead of pinning `available` at the maximum.
 - **Floor** — `_ev_estimate_floor_a` is latched to the target of the most
-  recent commanded reduction.  Because reductions are applied instantly, a
-  charging EV can never legitimately draw less than the last reduction target.
-  The floor stops the meter bound from collapsing the estimate to 0 while the
-  EV is legitimately charging (slow ramp / battery near full / brief pause),
-  which is exactly what caused the phantom ramp-down.
+  recent commanded reduction.  This defensive heuristic stops the meter bound
+  from collapsing the estimate to 0 while the EV reports that it is charging
+  (slow ramp / self-throttle / brief pause), avoiding a phantom ramp-down.
 - **Appliance-jump guard** — during the post-step tolerance window the estimate
   is also capped by the previous estimate plus a time-scaled ramp budget
   (`command * dt / tolerance_time`).  A slow EV raises the meter gradually and
@@ -135,11 +133,11 @@ so the ramp-up stability setting remains the lower bound.
   - Updated the successful-setup assertion to include the new default
     `post_step_tolerance_time` value.
 - `tests/balancing_engine/test_ramp_up_after_max_change.py`
-  - `test_safety_check_still_fires_for_genuine_throttling` kept in place: the
-    scenario (meter reading below the commanded current) is exactly the
+  - `test_ev_self_throttle_does_not_reduce_current` keeps the original
+    scenario: the meter reading below the commanded current is exactly the
     phantom-ramp-down condition, so only the expected values were updated
     (target holds at 16 A under a tight 16 A service limit instead of being
-    cut to 8 A).  The test name, setup, and meter readings are unchanged.
+    cut to 8 A).  The setup and meter readings are unchanged.
 - `tests/balancing_engine/test_charger_status_sensor.py`
   - `test_coordinator_holds_current_when_ev_throttles` keeps the original
     phases and meter readings, and verifies that the command holds at 32 A

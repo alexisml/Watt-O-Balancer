@@ -166,7 +166,7 @@ class TestMaxChargerCurrentBoundaries:
 
 
 class TestMinEvCurrentBoundaries:
-    """Boundary tests for the min_ev_current number entity (1–service max A).
+    """Boundary tests for the min_ev_current number entity (1–charger max A).
 
     Validates behavior at exact limits, and verifies that a high minimum
     threshold correctly stops charging when headroom is insufficient.

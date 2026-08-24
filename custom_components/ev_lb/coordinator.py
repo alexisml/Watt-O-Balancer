@@ -182,6 +182,16 @@ class EvLoadBalancerCoordinator:
         # the EV is known not to be charging or the meter goes unavailable.
         self._ev_estimate_floor_a: float = 0.0
 
+        # Last-meter and last-estimate values used to detect sudden service
+        # jumps caused by household loads during the post-step tolerance
+        # window.  A slow EV ramp raises the meter gradually; an appliance
+        # raises it abruptly.  Capping the EV-estimate increase to what the EV
+        # could plausibly have ramped in the elapsed time prevents a genuine
+        # appliance from being hidden behind the EV-lag tolerance.
+        self._last_service_current_a: float = 0.0
+        self._last_ev_estimate_a: float = 0.0
+        self._last_estimate_time: float | None = None
+
         # Async sleep function — injectable for testing
         self._sleep_fn = asyncio.sleep
 
@@ -397,10 +407,13 @@ class EvLoadBalancerCoordinator:
 
         if is_unavailable:
             self._cancel_overload_timers()
-            # Reset the EV-draw floor: the next healthy reading cannot be
-            # compared against a pre-gap value (house load may have changed
+            # Reset the EV-draw tracking: the next healthy reading cannot be
+            # compared against pre-gap values (house load may have changed
             # arbitrarily while the meter was offline).
             self._ev_estimate_floor_a = 0.0
+            self._last_service_current_a = 0.0
+            self._last_ev_estimate_a = 0.0
+            self._last_estimate_time = None
             self._apply_fallback_current()
             return
 
@@ -820,6 +833,9 @@ class EvLoadBalancerCoordinator:
         """
         if not self.ev_charging:
             self._ev_estimate_floor_a = 0.0
+            self._last_service_current_a = 0.0
+            self._last_ev_estimate_a = 0.0
+            self._last_estimate_time = None
             return 0.0
 
         estimate = min(self.current_set_a, self.max_charger_current)
@@ -839,10 +855,38 @@ class EvLoadBalancerCoordinator:
             and (now - self._last_step_increase_at) <= post_step_lag_window_s
         )
         tolerance = self.ramp_up_step_a if in_post_step_window else 0.0
-        estimate = min(estimate, service_current_a + tolerance)
+
+        # A household appliance turning on causes a sudden service-current
+        # jump.  The EV-lag tolerance must not hide that jump by letting the
+        # EV estimate rise with the meter.  Inside the post-step window the EV
+        # is allowed to ramp toward the command; we bound that ramp by the
+        # configured tolerance time so a slow car is accommodated but a sudden
+        # appliance jump is still counted as non-EV load.  Outside the window
+        # the EV is expected to have caught up, so the estimate simply follows
+        # the meter bound.
+        if in_post_step_window and self._last_estimate_time is not None:
+            dt_s = now - self._last_estimate_time
+            command_a = min(self.current_set_a, self.max_charger_current)
+            # The EV is expected to reach the commanded current within the
+            # tolerance window.  Bound the plausible EV ramp between events by
+            # that rate, but never more than the command itself.
+            max_ev_delta = min(command_a, command_a * dt_s / tolerance_s)
+
+            service_delta = service_current_a - self._last_service_current_a
+            if service_delta > max_ev_delta:
+                ev_ramp_bound = self._last_ev_estimate_a + max_ev_delta
+                estimate = min(estimate, ev_ramp_bound)
+            else:
+                estimate = min(estimate, service_current_a + tolerance)
+        else:
+            estimate = min(estimate, service_current_a + tolerance)
 
         # Floor: never below the last reduction target while charging.
         estimate = max(self._ev_estimate_floor_a, estimate)
+
+        self._last_service_current_a = service_current_a
+        self._last_ev_estimate_a = estimate
+        self._last_estimate_time = now
         return max(0.0, estimate)
 
     # ------------------------------------------------------------------
@@ -941,6 +985,9 @@ class EvLoadBalancerCoordinator:
             self._headroom_stable_since = None
             self._last_step_increase_at = None
             self._ev_estimate_floor_a = 0.0
+            self._last_service_current_a = 0.0
+            self._last_ev_estimate_a = 0.0
+            self._last_estimate_time = None
             self._update_and_notify(0.0, 0.0, reason)
             return
 
@@ -1042,9 +1089,14 @@ class EvLoadBalancerCoordinator:
         self.ramp_up_next_step_a = round(min(effective_step, target_a - final_a), 2) if ramp_up_held else 0.0
 
         # Record when the commanded current increases so the post-step
-        # meter-lag tolerance window is properly bounded.
+        # meter-lag tolerance window is properly bounded.  Reset the EV
+        # estimate tracking at the same time so the next event is compared
+        # against the new command rather than the old ramp trajectory.
         if final_a > self.current_set_a:
             self._last_step_increase_at = now
+            self._last_ev_estimate_a = final_a
+            self._last_service_current_a = service_current_a
+            self._last_estimate_time = now
 
         _LOGGER.debug(
             "Recompute (%s): service=%.0f W, available=%.1f A, target=%.1f A, final=%.1f A",

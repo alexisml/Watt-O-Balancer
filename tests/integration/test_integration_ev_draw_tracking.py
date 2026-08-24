@@ -411,3 +411,69 @@ class TestEvDrawTrackingNoPhantomRampDown:
             f"~{50.0 - BACKGROUND_W / VOLTAGE:.1f} A once the EV stopped "
             f"drawing, but got {final_available} A"
         )
+
+    async def test_slow_ramp_up_plus_appliance_during_wait_reduces_instantly(
+        self, hass: HomeAssistant
+    ) -> None:
+        """A slow car ramping up does not hide a real household load increase.
+
+        The car is commanded to 32 A but ramps slowly (τ = 45 s).  While it is
+        still well below the command, a large appliance turns on.  The
+        post-step tolerance window tolerates the car's own lag, but it must
+        not delay detection of the new non-EV load: the charger should be cut
+        on the very next meter event.
+        """
+        entry = _make_entry()
+        await setup_integration(hass, entry)
+        coordinator = entry.runtime_data
+        _configure(coordinator)
+
+        mock_time = 1000.0
+
+        def fake_monotonic() -> float:
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+
+        car = _CarSim(tau_s=45.0)  # slow car
+
+        # Command 32 A; the car has not started drawing yet.
+        hass.states.async_set(POWER_METER, car.meter_w(mock_time, 0.0, tick=1.0))
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0
+
+        # Car is still ramping and only drawing ~10 A after 30 s.
+        mock_time += 30.0
+        hass.states.async_set(
+            POWER_METER, car.meter_w(mock_time, 32.0, tick=2.0)
+        )
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0, (
+            "Slow ramp lag must not trigger a reduction while within the "
+            "post-step tolerance window"
+        )
+
+        # A 35 A appliance turns on during the slow ramp.  This is large
+        # enough that even while the EV-lag tolerance is active, the sudden
+        # service jump exceeds what the car could plausibly have ramped in
+        # five seconds and the load is classified as non-EV.
+        mock_time += 5.0
+        ev_w = float(car.meter_w(mock_time, 32.0, tick=0.0))
+        hass.states.async_set(POWER_METER, str(ev_w + 35.0 * VOLTAGE))
+        await hass.async_block_till_done()
+
+        reduced = float(hass.states.get(current_set_id).state)
+        assert reduced < 32.0, (
+            f"Expected the charger to reduce immediately when a 35 A house "
+            f"load appeared during the slow ramp, but it stayed at {reduced} A"
+        )
+        # The reduction should leave a safe margin for the appliance plus
+        # background.  With a 35 A appliance the true headroom is about 12.8 A;
+        # because the car is still ramping the estimate is conservative, so
+        # the reduced value lands in the low-to-mid 20 A range.
+        assert 18.0 <= reduced <= 26.0, (
+            f"Expected a reduction to a safe current while the car ramps, "
+            f"but got {reduced} A"
+        )

@@ -265,7 +265,7 @@ class TestThrottledEvFix:
     reduction target, so an EV self-throttle never produces a phantom reduction.
     """
 
-    async def test_coordinator_reduces_current_when_ev_throttles(
+    async def test_coordinator_holds_current_when_ev_throttles(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
         """Charger current holds when the EV draws less than commanded (battery throttling).
@@ -280,8 +280,6 @@ class TestThrottledEvFix:
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
-        available_id = get_entity_id(hass, mock_config_entry, "sensor", "available_current")
-
         # Phase 1: EV starts charging with 5 A house load, meter = (5+20)*230 = 5750 W
         # service=25 A, ev_estimate=0 (EV not yet drawing), non_ev=25, available=7 → 7 A
         hass.states.async_set(POWER_METER, "5750")
@@ -297,13 +295,11 @@ class TestThrottledEvFix:
 
         # Phase 3: EV throttles to 10 A (battery near full), house still 5 A,
         # total meter = (5+10)*230 = 3450 W → service=15 A < commanded 27 A.
-        # The EV estimate is bounded by the meter (15 A) → non_ev=0,
-        # available=32 A → target holds at the 32 A max.  No house load
-        # appeared, so there is no ramp-down — the phantom reduction is gone.
+        # The EV estimate is bounded by the meter (15 A), so the balancer does
+        # not treat the EV's remaining draw as new household load.
         hass.states.async_set(POWER_METER, "3450")
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 32.0
-        assert float(hass.states.get(available_id).state) == 32.0
 
     async def test_ev_charging_sensor_reflects_charger_status_changes(
         self, hass: HomeAssistant

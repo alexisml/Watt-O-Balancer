@@ -886,6 +886,8 @@ class EvLoadBalancerCoordinator:
         else:
             estimate = min(estimate, service_current_a + tolerance)
 
+        estimate = min(estimate, service_current_a + tolerance)
+
         # Floor: never below the last reduction target while charging.
         estimate = max(self._ev_estimate_floor_a, estimate)
 
@@ -1094,14 +1096,11 @@ class EvLoadBalancerCoordinator:
         self.ramp_up_next_step_a = round(min(effective_step, target_a - final_a), 2) if ramp_up_held else 0.0
 
         # Record when the commanded current increases so the post-step
-        # meter-lag tolerance window is properly bounded.  Reset the EV
-        # estimate tracking at the same time so the next event is compared
-        # against the new command rather than the old ramp trajectory.
+        # meter-lag tolerance window is properly bounded.  Keep the EV
+        # estimate tracking from this recompute so the next event is compared
+        # against the meter-bounded estimate rather than the new command.
         if final_a > self.current_set_a:
             self._last_step_increase_at = now
-            self._last_ev_estimate_a = final_a
-            self._last_service_current_a = service_current_a
-            self._last_estimate_time = now
 
         _LOGGER.debug(
             "Recompute (%s): service=%.0f W, available=%.1f A, target=%.1f A, final=%.1f A",

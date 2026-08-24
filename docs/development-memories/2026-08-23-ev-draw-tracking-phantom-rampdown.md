@@ -111,15 +111,20 @@ falling meter.
   - Slow car recovering from a genuine overload ramps back up without
     oscillation and stays at 32 A.
   - A genuine 20 A house-load increase still reduces the charger instantly.
+  - The reported available margin recovers to (nearly) the full headroom when
+    the EV stops drawing entirely — it no longer stays pinned at
+    ``50 − 32 = 18 A`` after the car finishes.
 - `tests/balancing_engine/test_ramp_up_after_max_change.py`
-  - `test_safety_check_still_fires_for_genuine_throttling` →
-    `test_ev_throttle_does_not_raise_target_against_falling_meter` (the old
-    scenario was physically impossible: it commanded 20 A while the meter only
-    showed 11 A total).
+  - `test_safety_check_still_fires_for_genuine_throttling` kept in place: the
+    scenario (meter reading below the commanded current) is exactly the
+    phantom-ramp-down condition, so only the expected values were updated
+    (target holds at 16 A under a tight 16 A service limit instead of being
+    cut to 8 A).  The test name, setup, and meter readings are unchanged.
 - `tests/balancing_engine/test_charger_status_sensor.py`
-  - `test_coordinator_reduces_current_when_ev_throttles` →
-    `test_ev_throttle_does_not_cause_phantom_ramp_down` (user-oriented: an EV
-    throttle is the car's own choice and must not ramp the charger down).
+  - `test_coordinator_reduces_current_when_ev_throttles` kept in place: same
+    treatment — original phases and meter readings unchanged, only the final
+    expected values updated (command holds at 32 A instead of dropping to
+    17 A) and the `available_current` assertion kept (now 32 A).
 - `docs/documentation/03-how-it-works.md`
   - Updated the computation pipeline pseudocode and the behaviour notes.
 - `docs/development-memories/2026-08-23-ev-draw-tracking-phantom-rampdown.md`
@@ -146,10 +151,14 @@ falling meter.
 - Comparing the meter against the *commanded* current is fragile: any car whose
   physical response lags the command (slow ramps, self-imposed caps, brief
   pauses) looks like "missing" load and gets misclassified as household load.
-- Existing tests that encode physically impossible meter readings (commanding
-  more current than the meter shows in total) can lock in unsafe behaviour;
-  they should be rewritten to be physically consistent when the algorithm is
-  fixed.
+- Existing tests that encode meter readings below the commanded current lock
+  in the phantom-ramp-down behaviour; they can be kept in place by updating
+  only their expected values and comments, preserving their setups and
+  physical scenarios.
+- The available-current margin now reflects the EV's *actual* draw: it shows
+  the true headroom while charging (instead of dipping to a phantom 20–30 A)
+  and recovers once the EV stops drawing, instead of staying pinned at
+  ``max_service − last command``.
 - Integration tests that simulate realistic car dynamics (first-order lag with
   fast/medium/slow time constants) are essential — this class of oscillation
   only appears over multi-minute simulated sessions.

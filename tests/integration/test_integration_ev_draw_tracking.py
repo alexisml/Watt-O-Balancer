@@ -344,3 +344,70 @@ class TestEvDrawTrackingNoPhantomRampDown:
             f"appears, but got {reduced} A"
         )
         assert reduced < 32.0, "A genuine house-load increase must reduce the current"
+
+    async def test_available_current_recovers_when_ev_stops_drawing(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Available margin returns to the full headroom when the EV finishes.
+
+        When the EV stops drawing entirely (battery full) while the command
+        stays at 32 A, the meter bound lets the EV estimate fall, so the
+        reported available current recovers to the true headroom — the old
+        command-echo estimate kept ``available`` pinned at ``50 − 32 = 18 A``
+        forever after the car stopped.
+        """
+        entry = _make_entry()
+        await setup_integration(hass, entry)
+        coordinator = entry.runtime_data
+        _configure(coordinator)
+
+        mock_time = 1000.0
+
+        def fake_monotonic() -> float:
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        available_id = get_entity_id(hass, entry, "sensor", "available_current")
+
+        car = _CarSim(tau_s=2.0)  # fast car, fully converged
+
+        hass.states.async_set(POWER_METER, car.meter_w(mock_time, 0.0, tick=1.0))
+        await hass.async_block_till_done()
+
+        # Car converges to the commanded 32 A over the next minute.
+        for i in range(1, 4):
+            mock_time += 30.0
+            hass.states.async_set(
+                POWER_METER, car.meter_w(mock_time, 32.0, tick=float(i))
+            )
+            await hass.async_block_till_done()
+
+        # While the EV draws the commanded 32 A the estimate matches the
+        # command, so non_ev is only the background load and the reported
+        # margin shows the true pre-EV headroom (~47.8 A) — not a phantom
+        # 20–30 A.
+        charging_available = float(hass.states.get(available_id).state)
+        assert abs(charging_available - (50.0 - BACKGROUND_W / VOLTAGE)) < 1.0
+
+        # The battery reaches 100 % and the EV stops drawing entirely: the
+        # meter decays to the background load alone while the command stays
+        # 32 A (well past the 60 s post-step tolerance window).
+        for i in range(4, 12):
+            mock_time += 30.0
+            hass.states.async_set(
+                POWER_METER, car.meter_w(mock_time, 0.0, tick=float(i))
+            )
+            await hass.async_block_till_done()
+
+        # The estimate followed the meter down, so the reported margin shows
+        # (nearly) the full headroom again — never the phantom ~18 A the old
+        # command-echo estimate would have kept reporting.  (The meter bound
+        # absorbs the small background load into the estimate, so the value
+        # lands between 47.8 A and 50 A.)
+        final_available = float(hass.states.get(available_id).state)
+        assert final_available >= 50.0 - BACKGROUND_W / VOLTAGE - 0.5, (
+            f"Expected the available margin to recover to at least "
+            f"~{50.0 - BACKGROUND_W / VOLTAGE:.1f} A once the EV stopped "
+            f"drawing, but got {final_available} A"
+        )

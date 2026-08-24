@@ -141,10 +141,10 @@ so the ramp-up stability setting remains the lower bound.
     (target holds at 16 A under a tight 16 A service limit instead of being
     cut to 8 A).  The test name, setup, and meter readings are unchanged.
 - `tests/balancing_engine/test_charger_status_sensor.py`
-  - `test_coordinator_reduces_current_when_ev_throttles` kept in place: same
-    treatment — original phases and meter readings unchanged, only the final
-    expected values updated (command holds at 32 A instead of dropping to
-    17 A) and the `available_current` assertion kept (now 32 A).
+  - `test_coordinator_holds_current_when_ev_throttles` keeps the original
+    phases and meter readings, and verifies that the command holds at 32 A
+    instead of dropping to 17 A.  The misleading `available_current`
+    assertion was removed.
 - `docs/documentation/03-how-it-works.md`
   - Updated the computation pipeline pseudocode and the behaviour notes.
 - `docs/development-memories/2026-08-23-ev-draw-tracking-phantom-rampdown.md`

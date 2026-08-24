@@ -879,12 +879,6 @@ class EvLoadBalancerCoordinator:
                 if service_delta > max_ev_delta:
                     ev_ramp_bound = self._last_ev_estimate_a + max_ev_delta
                     estimate = min(estimate, ev_ramp_bound)
-                else:
-                    estimate = min(estimate, service_current_a + tolerance)
-            else:
-                estimate = min(estimate, service_current_a + tolerance)
-        else:
-            estimate = min(estimate, service_current_a + tolerance)
 
         estimate = min(estimate, service_current_a + tolerance)
 

@@ -63,15 +63,14 @@ DEFAULT_OVERLOAD_LOOP_INTERVAL = 5.0  # Seconds — interval between recomputes 
 # period to respond.
 CONF_POST_STEP_TOLERANCE_TIME = "post_step_tolerance_time"
 DEFAULT_POST_STEP_TOLERANCE_TIME_S = 60.0  # Seconds
-MIN_POST_STEP_TOLERANCE_TIME = 1.0   # Seconds — practical floor: shorter values
-                                     # make the ramp budget so large that the
-                                     # appliance guard becomes ineffective, while
-                                     # the effective window is still bounded by
+MIN_POST_STEP_TOLERANCE_TIME = 1.0   # Seconds — practical floor; the effective
+                                     # window is still bounded below by
                                      # ramp_up_time_s (minimum 5 s).
 MAX_POST_STEP_TOLERANCE_TIME = 120.0  # Seconds — 2 minutes maximum; longer
-                                      # windows increase appliance-detection
-                                      # latency without improving slow-ramp
-                                      # handling (the floor already covers it).
+                                      # windows keep the one-step meter
+                                      # tolerance active without improving
+                                      # slow-ramp handling (the EV-draw floor
+                                      # already covers it).
 
 # Action retry defaults — exponential backoff when a charger script call fails
 ACTION_MAX_RETRIES = 3  # Total attempts = 1 initial + 3 retries

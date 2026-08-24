@@ -566,15 +566,18 @@ class TestEvDrawTrackingNoPhantomRampDown:
             await hass.async_block_till_done()
             assert float(hass.states.get(current_set_id).state) == 32.0
 
-    async def test_large_appliance_with_short_tolerance_reduces_instantly(
+    async def test_appliance_during_early_ramp_cuts_when_limit_is_crossed(
         self, hass: HomeAssistant
     ) -> None:
-        """A large appliance during a short tolerance window still cuts current.
+        """An appliance starting very early in the ramp is cut at the limit.
 
-        The tolerance is set to only 5 s.  While a slow car is still ramping
-        inside the window, a 35 A household load turns on.  The EV-lag
-        tolerance only adds one ramp-up step of headroom, so most of the jump
-        is counted as non-EV load and the charger is reduced on the same event.
+        A 35 A household load turns on while the slow car is still drawing only
+        ~2.7 A, so the combined draw (~39.9 A) is still inside the 50 A service
+        limit.  There is genuine headroom left, and from the meter alone a car
+        that jumps to its commanded current is indistinguishable from an
+        appliance of the same size — so the balancer deliberately does *not*
+        cut preemptively.  As the car keeps ramping, the reduction must land on
+        the first meter event where the combined draw crosses the service limit.
         """
         entry = _make_entry()
         await setup_integration(hass, entry)
@@ -605,21 +608,48 @@ class TestEvDrawTrackingNoPhantomRampDown:
         assert float(hass.states.get(current_set_id).state) == 32.0
 
         # Two seconds later a 35 A appliance turns on while the car is at ~2.7 A.
+        # Combined draw is still well under the 50 A service limit.
         mock_time += 2.0
         ev_w = float(car.meter_w(mock_time, 32.0, tick=0.0))
+        service_a = (ev_w + 35.0 * VOLTAGE) / VOLTAGE
+        assert service_a < 50.0
         hass.states.async_set(POWER_METER, str(ev_w + 35.0 * VOLTAGE))
         await hass.async_block_till_done()
-
-        reduced = float(hass.states.get(current_set_id).state)
-        assert reduced < 32.0, (
-            "Expected an immediate reduction when a 35 A appliance started "
-            f"during the short tolerance window, but got {reduced} A"
+        assert float(hass.states.get(current_set_id).state) == 32.0, (
+            "No reduction is due while the metered draw is still inside the "
+            "service limit — cutting here would also cut every fast car"
         )
-        # After accounting for the appliance and background load, true EV
-        # headroom is about 13 A.  The post-step tolerance allows one ramp-up
-        # step of extra EV estimate, so the reduced target lands in the
-        # mid-to-upper 20 A range.
-        assert 24.0 <= reduced <= 31.0, (
+
+        # Keep the appliance on while the car continues to ramp.  The charger
+        # must be reduced on the first event whose metered draw exceeds the
+        # 50 A service limit, and must hold at 32 A on every event before it.
+        reduced = None
+        for _ in range(12):
+            mock_time += 5.0
+            ev_w = float(car.meter_w(mock_time, 32.0, tick=0.0))
+            service_a = (ev_w + 35.0 * VOLTAGE) / VOLTAGE
+            hass.states.async_set(POWER_METER, str(ev_w + 35.0 * VOLTAGE))
+            await hass.async_block_till_done()
+            current = float(hass.states.get(current_set_id).state)
+            if service_a <= 50.0:
+                assert current == 32.0, (
+                    f"Reduced to {current} A at only {service_a:.1f} A of "
+                    "metered draw, below the 50 A service limit"
+                )
+            else:
+                reduced = current
+                break
+
+        assert reduced is not None, (
+            "The combined EV + appliance draw never crossed the service limit"
+        )
+        assert reduced < 32.0, (
+            f"Expected a reduction once the metered draw crossed the 50 A "
+            f"service limit, but the charger stayed at {reduced} A"
+        )
+        # available = 50 - (meter - 32), so a meter just past 50 A yields a
+        # target just under 32 A; the reduction floors to the 1 A step.
+        assert 25.0 <= reduced <= 31.0, (
             f"Expected a reduction to a safe headroom, but got {reduced} A"
         )
 

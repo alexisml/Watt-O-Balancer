@@ -33,7 +33,7 @@ That's it. It's a reactive, real-time load balancer for a single EV charger.
 - **Current adjustments are in 1 A steps.** The integration floors all current values to whole Amps. Sub-amp precision is not supported.
 - **Increases are stepped and delayed.** After any current reduction, recovery is gradual: each step requires the computed headroom to be **continuously sufficient for a stability window** (default: **15 s**, adjustable via `number.*_ramp_up_time`) and only adds at most **`ramp_up_step_a`** Amps per step (default: **4 A**, adjustable via `number.*_ramp_up_step`). This is intentional — it prevents rapid oscillation when service load fluctuates near the service limit.
 - **Meter-lag tolerance after each step.** The EV's actual draw can take a few seconds to catch up with a newly commanded current, so the power meter will read low during that lag. The integration tolerates up to one ramp step of such lag for a configurable **post-step tolerance time** (default: **60 s**) after every commanded increase (or for the full `ramp_up_time` window, whichever is longer). This prevents a slow-responding charger from being misidentified as throttling and getting stuck below its maximum.
-- **The EV's draw is tracked, not assumed.** The estimated EV current is bounded by the meter (`min(commanded, meter reading)`) and floored at the last reduction target. A delta guard also prevents a household appliance that turns on during the ramp-up wait from being hidden behind the EV-lag tolerance. So when the car draws less than commanded — a slow car still ramping, a battery near full, or a brief pause — the balancer does **not** mistake the car's own consumption for household load and ramp down for no reason. Genuine house-load increases still reduce the current instantly.
+- **The EV's draw is tracked, not assumed.** The estimated EV current is bounded by the meter (`min(commanded, meter reading)`) and floored at the last reduction target. So when the car draws less than commanded — a slow car still ramping, a battery near full, or a brief pause — the balancer does **not** mistake the car's own consumption for household load and ramp down for no reason. Genuine house-load increases still reduce the current instantly.
 
 ### Combining with solar surplus or time-of-use tariffs
 
@@ -284,29 +284,15 @@ in_post_step_window = (last_step_increase_at is not None
 tolerance = ramp_up_step_a if in_post_step_window else 0
 ev_estimate_a = min(ev_estimate_a, house_power_w / voltage_v + tolerance)
 
-# Appliance-jump guard: during the post-step window, the EV estimate is also
-# capped by the previous estimate plus a ramp budget based on the configured
-# tolerance time (command * dt / tolerance_time).  A slow car ramps gradually
-# and stays within the budget; a household appliance raises the meter abruptly
-# and the excess is counted as non-EV load, so the charger is still reduced.
-if in_post_step_window and last_estimate_time is not None:
-    dt_s = now - last_estimate_time
-    max_ev_delta = min(command_a, command_a * dt_s / post_step_tolerance_time_s)
-    if (house_power_w / voltage_v - last_service_current_a) > max_ev_delta:
-        ev_estimate_a = min(ev_estimate_a, last_ev_estimate_a + max_ev_delta)
-
-# Floor: while the EV is charging, the estimate never falls below the target
-# of the last reduction (reductions are applied instantly, so a charging EV
-# cannot legitimately draw less).  This stops a slow/throttling EV's own
-# consumption from being mistaken for non-EV load and causing a phantom
-# ramp-down followed by an immediate recovery.
+# Floor: while the EV is charging, the estimate never falls below the target of
+# the last reduction.  This is a deliberate heuristic — an EV may self-throttle
+# or pause below its command while still reporting "Charging" — and it stops a
+# slow/throttling EV's own consumption from being mistaken for non-EV load and
+# causing a phantom ramp-down followed by an immediate recovery.  Because
+# reductions are applied instantly, the floor can never exceed a current the
+# charger was actually allowed to deliver.
 if ev_charging:
     ev_estimate_a = max(ev_estimate_floor_a, ev_estimate_a)
-
-# Remember these values for the next event's jump-detection guard.
-last_service_current_a = house_power_w / voltage_v
-last_ev_estimate_a     = ev_estimate_a
-last_estimate_time     = now
 
 non_ev_w      = max(0, house_power_w − ev_estimate_a × voltage_v)
 available_a   = max_service_a − non_ev_w / voltage_v

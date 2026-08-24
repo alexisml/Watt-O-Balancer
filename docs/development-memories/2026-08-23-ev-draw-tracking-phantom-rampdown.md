@@ -72,21 +72,14 @@ ev_estimate = max(floor_a, ev_estimate)                  # floor while charging
   recent commanded reduction.  This defensive heuristic stops the meter bound
   from collapsing the estimate to 0 while the EV reports that it is charging
   (slow ramp / self-throttle / brief pause), avoiding a phantom ramp-down.
-- **Appliance-jump guard** — during the post-step tolerance window the estimate
-  is also capped by the previous estimate plus a time-scaled ramp budget
-  (`command * dt / tolerance_time`).  A slow EV raises the meter gradually and
-  stays within the budget; a household appliance raises it abruptly and the
-  excess is counted as non-EV load, so the charger is still reduced on the same
-  event.
+The floor is reset to 0 when the EV is known not to be charging (status sensor
+not `Charging`), when the meter goes unavailable, and when
+`max_charger_current` is set to 0.
 
-The floor and tracking state are reset to 0 when the EV is known not to be
-charging (status sensor not `Charging`), when the meter goes unavailable, and
-when `max_charger_current` is set to 0.
+### Why no persistent baseline, delta tracker, or appliance-jump guard?
 
-### Why not a persistent non-EV baseline or a pure delta tracker?
-
-Two earlier approaches were prototyped and rejected after running the existing
-test suite:
+Four approaches were prototyped and rejected after running the existing test
+suite:
 
 - A **frozen non-EV baseline** (captured when the EV is idle) went stale: a
   genuine house-load increase was attributed to the EV, so the balancer failed
@@ -94,11 +87,37 @@ test suite:
 - A **pure delta tracker** (attribute meter rises to non-EV, drops to the EV)
   broke ramp-up: after a commanded step, the EV's own response looks like a
   meter rise and was attributed to house load, blocking the next step.
+- The **old zeroing safety check** (estimate = 0 whenever the meter reads more
+  than one ramp step below the command) is the phantom ramp-down itself.
+- An **appliance-jump / ramp-budget guard** — cap the estimate at
+  `last_estimate + command * dt / tolerance_time` inside the post-step window —
+  was implemented and then reverted.  It broke **26 existing tests**.  Two
+  independent reasons, both fundamental:
+  - `dt` is the interval between *meter events*, not the ramp time.  Meters
+    that push updates a few hundred milliseconds apart make the budget ~0, so
+    the estimate freezes at a stale low value while the meter climbs with the
+    EV's real draw — the estimate never catches up and every subsequent event
+    looks like a huge house load.  That is a *worse* phantom ramp-down than the
+    one being fixed.
+  - Even with a wall-clock-anchored budget, a fast car that jumps straight to
+    the commanded current is **indistinguishable from the meter alone** from a
+    household appliance of the same size.  Any rate-based jump test either
+    misclassifies fast cars (phantom ramp-down) or is too loose to catch the
+    appliance.  Resolving it needs a charger-side power sensor, which the
+    integration does not require.
 
-The floor-latch + delta-guard design passes all existing safety tests:
-reductions stay instant, a genuine house-load spike still cuts the current on
-the next meter event (even during the ramp-up wait), and an EV shortfall never
-*raises* the target against a falling meter.
+**What protects the service instead:** with the estimate pinned at the command,
+`non_ev = meter − command`, so `available < command` exactly when
+`meter > max_service_current`.  Reductions are instant, so the charger is cut
+on the first meter event that shows the service limit exceeded — the same
+guarantee that applies to a load appearing while the EV is already at maximum.
+An appliance that starts while the EV is mid-ramp is therefore not cut
+preemptively, but it is cut the moment the combined draw actually crosses the
+limit.
+
+The floor-latch design passes all existing safety tests: reductions stay
+instant, a genuine house-load spike still cuts the current on the next meter
+event, and an EV shortfall never *raises* the target against a falling meter.
 
 ### Configurable tolerance window
 
@@ -125,7 +144,8 @@ so the ramp-up stability setting remains the lower bound.
     oscillation and stays at 32 A.
   - A genuine 20 A house-load increase still reduces the charger instantly.
   - A large household appliance starting while a slow car is still ramping up
-    is detected and reduces the charger on the same meter event.
+    reduces the charger on the meter event where the combined draw crosses the
+    service limit.
   - The reported available margin recovers to (nearly) the full headroom when
     the EV stops drawing entirely — it no longer stays pinned at
     ``50 − 32 = 18 A`` after the car finishes.

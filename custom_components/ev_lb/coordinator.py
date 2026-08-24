@@ -178,16 +178,6 @@ class EvLoadBalancerCoordinator:
         # when the EV is known not to be charging or the meter is unavailable.
         self._ev_estimate_floor_a: float = 0.0
 
-        # Last-meter and last-estimate values used to detect sudden service
-        # jumps caused by household loads during the post-step tolerance
-        # window.  A slow EV ramp raises the meter gradually; an appliance
-        # raises it abruptly.  Capping the EV-estimate increase to what the EV
-        # could plausibly have ramped in the elapsed time prevents a genuine
-        # appliance from being hidden behind the EV-lag tolerance.
-        self._last_service_current_a: float = 0.0
-        self._last_ev_estimate_a: float = 0.0
-        self._last_estimate_time: float | None = None
-
         # Async sleep function — injectable for testing
         self._sleep_fn = asyncio.sleep
 
@@ -403,13 +393,10 @@ class EvLoadBalancerCoordinator:
 
         if is_unavailable:
             self._cancel_overload_timers()
-            # Reset the EV-draw tracking: the next healthy reading cannot be
+            # Reset the EV-draw floor: the next healthy reading cannot be
             # compared against pre-gap values (house load may have changed
             # arbitrarily while the meter was offline).
             self._ev_estimate_floor_a = 0.0
-            self._last_service_current_a = 0.0
-            self._last_ev_estimate_a = 0.0
-            self._last_estimate_time = None
             self._apply_fallback_current()
             return
 
@@ -807,14 +794,27 @@ class EvLoadBalancerCoordinator:
           meter bound lets the estimate fall so headroom is not over-allocated
           indefinitely.
         - **Lower bound** — ``max(floor, …)`` where *floor* is the target of
-          the most recent commanded reduction.  Reductions are always applied
-          instantly, so a charging EV can never legitimately draw less than
-          the last reduction target.  The floor stops the meter bound from
-          collapsing the estimate to 0 whenever the EV temporarily draws less
-          than commanded (slow car still ramping, battery near full, brief
-          pause) — the exact condition that used to cause a phantom ramp-down
-          followed by an immediate recovery (oscillation between ~20–30 A and
-          the charger maximum).
+          the most recent commanded reduction.  This is a defensive heuristic,
+          not a physical guarantee: an EV may self-throttle or pause below its
+          command while still reporting ``Charging``, and the floor
+          deliberately keeps that shortfall from being reclassified as non-EV
+          load.  It stops the meter bound from collapsing the estimate to 0
+          whenever the EV temporarily draws less than commanded (slow car
+          still ramping, battery near full, brief pause) — the exact condition
+          that used to cause a phantom ramp-down followed by an immediate
+          recovery (oscillation between ~20–30 A and the charger maximum).
+          Because commanded reductions are applied instantly, the floor can
+          never exceed a current the charger was actually allowed to deliver.
+
+        No tighter guard is applied while the EV ramps up.  A fast car that
+        jumps straight to the commanded current is indistinguishable, from the
+        meter alone, from a household appliance of the same size, so any
+        rate-based "appliance jump" test misclassifies fast cars and
+        reintroduces the phantom ramp-down.  Instead the estimate stays at the
+        command, which means ``non_ev = meter − command`` and the charger is
+        reduced exactly when the metered service draw exceeds the service
+        limit — the same instant-reduction guarantee that applies to any other
+        load appearing while the EV is at its maximum.
 
         When the EV is known not to be charging the estimate is 0 and the
         floor is reset.
@@ -829,9 +829,6 @@ class EvLoadBalancerCoordinator:
         """
         if not self.ev_charging:
             self._ev_estimate_floor_a = 0.0
-            self._last_service_current_a = 0.0
-            self._last_ev_estimate_a = 0.0
-            self._last_estimate_time = None
             return 0.0
 
         estimate = min(self.current_set_a, self.max_charger_current)
@@ -864,9 +861,6 @@ class EvLoadBalancerCoordinator:
         # EV reports that it is charging.
         estimate = max(self._ev_estimate_floor_a, estimate)
 
-        self._last_service_current_a = service_current_a
-        self._last_ev_estimate_a = estimate
-        self._last_estimate_time = now
         return max(0.0, estimate)
 
     # ------------------------------------------------------------------
@@ -965,9 +959,6 @@ class EvLoadBalancerCoordinator:
             self._headroom_stable_since = None
             self._last_step_increase_at = None
             self._ev_estimate_floor_a = 0.0
-            self._last_service_current_a = 0.0
-            self._last_ev_estimate_a = 0.0
-            self._last_estimate_time = None
             self._update_and_notify(0.0, 0.0, reason)
             return
 
@@ -1056,9 +1047,9 @@ class EvLoadBalancerCoordinator:
 
         # Arm the ramp-up mechanism the first time the current is reduced so all
         # subsequent increases require a full stability window.  Also latch the
-        # EV-draw floor to the reduction target: the EV cannot legitimately draw
-        # less than what we now allow, so later meter dips below the command are
-        # not mistaken for extra non-EV load.
+        # EV-draw floor to the reduction target — a defensive heuristic so that
+        # later meter dips below the command (a self-throttling or paused EV that
+        # still reports charging) are not mistaken for extra non-EV load.
         if final_a < self.current_set_a:
             self._ramp_up_armed = True
             self._headroom_stable_since = None
@@ -1069,9 +1060,7 @@ class EvLoadBalancerCoordinator:
         self.ramp_up_next_step_a = round(min(effective_step, target_a - final_a), 2) if ramp_up_held else 0.0
 
         # Record when the commanded current increases so the post-step
-        # meter-lag tolerance window is properly bounded.  Keep the EV
-        # estimate tracking from this recompute so the next event is compared
-        # against the meter-bounded estimate rather than the new command.
+        # meter-lag tolerance window is properly bounded.
         if final_a > self.current_set_a:
             self._last_step_increase_at = now
 

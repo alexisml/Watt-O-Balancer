@@ -60,6 +60,7 @@ def _configure(
     step_a: float = 4.0,
     tolerance_s: float = 60.0,
 ) -> None:
+    """Apply standard coordinator settings for EV-draw tracking scenarios."""
     coordinator.max_charger_current = 32.0
     coordinator.min_ev_current = 6.0
     coordinator.ramp_up_time_s = ramp_up_time_s

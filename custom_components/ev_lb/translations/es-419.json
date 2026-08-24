@@ -13,7 +13,8 @@
           "action_stop_charging": "Acción para detener carga (script)",
           "action_start_charging": "Acción para iniciar carga (script)",
           "charger_status_entity": "Sensor de estado del cargador (opcional)",
-          "charger_id": "ID del cargador (opcional)"
+          "charger_id": "ID del cargador (opcional)",
+          "post_step_tolerance_time": "Tiempo de tolerancia post-paso"
         },
         "data_description": {
           "power_meter_entity": "Entidad de sensor que reporta la potencia total del servicio en vatios.",
@@ -21,7 +22,8 @@
           "action_stop_charging": "Entidad de script para detener la carga cuando no hay suficiente capacidad disponible. Recibe una variable 'charger_id'.",
           "action_start_charging": "Entidad de script para iniciar/reanudar la carga después de haber sido detenida. Recibe una variable 'charger_id'.",
           "charger_status_entity": "Sensor cuyo estado es 'Charging' cuando el VE está cargando activamente (p. ej. de la integración OCPP, donde el sensor predeterminado se llama 'Status Connector'). Cuando se configura, el balanceador lo usa para evitar restar demasiado margen cuando el cargador está inactivo o terminado.",
-          "charger_id": "Identificador opcional enviado a los scripts de acción como 'charger_id'. Si se deja vacío, usa el ID de la entrada de configuración de Home Assistant. Úsalo cuando tu script necesite el id de dispositivo (devid) de la integración OCPP u otro identificador específico del cargador."
+          "charger_id": "Identificador opcional enviado a los scripts de acción como 'charger_id'. Si se deja vacío, usa el ID de la entrada de configuración de Home Assistant. Úsalo cuando tu script necesite el id de dispositivo (devid) de la integración OCPP u otro identificador específico del cargador.",
+          "post_step_tolerance_time": "Período de gracia tras un aumento de corriente durante el cual se tolera el retraso del medidor del VE. Aumenta este valor si tu coche acelera lentamente; redúcelo solo si estás seguro de que el VE reacciona de inmediato."
         }
       }
     },
@@ -46,7 +48,8 @@
           "action_stop_charging": "Acción para detener carga (script)",
           "action_start_charging": "Acción para iniciar carga (script)",
           "charger_status_entity": "Sensor de estado del cargador (opcional)",
-          "charger_id": "ID del cargador (opcional)"
+          "charger_id": "ID del cargador (opcional)",
+          "post_step_tolerance_time": "Tiempo de tolerancia post-paso"
         },
         "data_description": {
           "power_meter_entity": "Entidad de sensor que reporta la potencia total del servicio en vatios.",
@@ -57,7 +60,8 @@
           "action_stop_charging": "Entidad de script para detener la carga. Recibe una variable 'charger_id' (texto).",
           "action_start_charging": "Entidad de script para iniciar/reanudar la carga. Recibe una variable 'charger_id' (texto).",
           "charger_status_entity": "Sensor cuyo estado es 'Charging' cuando el VE está cargando activamente (p. ej. de la integración OCPP, donde el sensor predeterminado se llama 'Status Connector'). Cuando se configura, el balanceador lo usa para evitar restar demasiado margen cuando el cargador está inactivo o terminado.",
-          "charger_id": "Identificador opcional enviado a los scripts de acción como 'charger_id' (texto). Si se deja vacío, usa el ID de la entrada de configuración de Home Assistant. Úsalo cuando tu script necesite el id de dispositivo (devid) de la integración OCPP u otro identificador específico del cargador."
+          "charger_id": "Identificador opcional enviado a los scripts de acción como 'charger_id' (texto). Si se deja vacío, usa el ID de la entrada de configuración de Home Assistant. Úsalo cuando tu script necesite el id de dispositivo (devid) de la integración OCPP u otro identificador específico del cargador.",
+          "post_step_tolerance_time": "Período de gracia tras un aumento de corriente durante el cual se tolera el retraso del medidor del VE. Aumenta este valor si tu coche acelera lentamente; redúcelo solo si estás seguro de que el VE reacciona de inmediato."
         }
       }
     },

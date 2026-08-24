@@ -111,14 +111,16 @@ class TestRampUpAfterMaxIncrease:
             "the safety check should not fire within one ramp step of tolerance"
         )
 
-    async def test_safety_check_still_fires_for_genuine_throttling(
+    async def test_ev_self_throttle_does_not_reduce_current(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """The conservative fallback still activates for genuine EV throttling.
+        """An EV self-throttle must not be mistaken for a house-load change.
 
         When the EV draws significantly less than commanded (more than one
-        ramp step below), the safety check should still fire to prevent
-        over-estimating headroom.
+        ramp step below), the meter falls while no house load changed.  The
+        meter-bounded EV estimate now tracks the EV's real draw instead of
+        being zeroed, so the target simply holds at the charger maximum —
+        the old zeroing could make the target climb against a falling meter.
         """
         await setup_integration(hass, mock_config_entry)
         coordinator = mock_config_entry.runtime_data
@@ -152,17 +154,18 @@ class TestRampUpAfterMaxIncrease:
         # EV throttles heavily: only draws 5 A instead of 20 A
         # Meter: 5 + 3 = 8 A → 1840 W
         # Difference: 20 - 8 = 12 A (much more than step=4)
-        # Safety check should fire: ev_estimate=0, non_ev=8, available=23, target=20
+        # The meter-bounded estimate becomes 8 A: non_ev = 8-8 = 0,
+        # available = 31 → target stays at max_charger (20 A).
         mock_time = 1001.0
         hass.states.async_set(POWER_METER, meter_w(3.0, 5.0))
         await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 20.0
 
-        # The target stays at 20 because available(23) > max_charger(20)
-        # but the important thing is the safety DID fire (ev_estimate was zeroed)
-        # which we can verify by checking that the coordinator used the conservative path.
-        # With ev_estimate=0: non_ev=8, available=31-8=23, target=min(23,20)=20
-        # Without safety (ev_estimate=20): non_ev=max(0,8-20)=0, available=31, target=20
-        # Both give 20 in this case, but let's verify with tighter margins:
+        # Tighten the service limit: the available headroom is now capped by
+        # the lower service limit, not by any phantom non-EV load.  With the
+        # estimate bounded by the meter (≈8 A), non_ev stays 0, available = 16
+        # → target = 16 A.  The old zeroing would have counted all ~8 A of
+        # measured load as non-EV and cut the charger to 8 A.
         coordinator.max_service_current = 16.0  # tight service limit
         mock_time = 1002.0
         # Use 1 W less than the Phase 2 value to trigger a state-changed event
@@ -171,11 +174,12 @@ class TestRampUpAfterMaxIncrease:
         await hass.async_block_till_done()
 
         throttled = float(hass.states.get(current_set_id).state)
-        # With safety: ev_estimate=0, non_ev≈8, available=16-8≈8, target=8
-        # Without safety: non_ev=0, available=16, target=16
-        assert throttled == 8.0, (
-            f"Expected reduction to 8 A under throttling but got {throttled} A — "
-            "safety check should fire for genuine throttling (shortfall > step)"
+        # With the meter-bounded estimate: non_ev≈0, available=16, target=16
+        # With the old zeroing: non_ev≈8, available=16-8≈8, target=8
+        assert throttled == 16.0, (
+            f"Expected the target to hold at 16 A under EV throttling but got "
+            f"{throttled} A — the EV's own shortfall must not be treated as "
+            "non-EV load"
         )
 
     async def test_full_ramp_converges_without_oscillation(
@@ -317,4 +321,3 @@ class TestRampUpAfterMinCurrentIncrease:
             "the below-minimum guard should clamp to min_ev_current, then the "
             "stability window holds there until the next ramp step"
         )
-

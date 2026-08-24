@@ -13,7 +13,8 @@
           "action_stop_charging": "Stop charging action (script)",
           "action_start_charging": "Start charging action (script)",
           "charger_status_entity": "Charger status sensor (optional)",
-          "charger_id": "Charger ID (optional)"
+          "charger_id": "Charger ID (optional)",
+          "post_step_tolerance_time": "Post-step tolerance time"
         },
         "data_description": {
           "power_meter_entity": "Sensor entity that reports total service power in Watts.",
@@ -21,7 +22,8 @@
           "action_stop_charging": "Script entity called to stop charging when headroom is insufficient. Receives a 'charger_id' variable.",
           "action_start_charging": "Script entity called to start/resume charging after it was stopped. Receives a 'charger_id' variable.",
           "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration, where the default sensor is called 'Status Connector'). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished.",
-          "charger_id": "Optional identifier passed to action scripts as 'charger_id'. Defaults to the Home Assistant config entry ID if left empty. Use this when your script needs the OCPP integration's device id (devid) or another charger-specific identifier instead of the config entry ID."
+          "charger_id": "Optional identifier passed to action scripts as 'charger_id'. Defaults to the Home Assistant config entry ID if left empty. Use this when your script needs the OCPP integration's device id (devid) or another charger-specific identifier instead of the config entry ID.",
+          "post_step_tolerance_time": "Grace period after a current increase during which the EV's meter lag is tolerated. Increase this if your car ramps up slowly; decrease only if you are sure the EV responds immediately."
         }
       }
     },
@@ -46,7 +48,8 @@
           "action_stop_charging": "Stop charging action (script)",
           "action_start_charging": "Start charging action (script)",
           "charger_status_entity": "Charger status sensor (optional)",
-          "charger_id": "Charger ID (optional)"
+          "charger_id": "Charger ID (optional)",
+          "post_step_tolerance_time": "Post-step tolerance time"
         },
         "data_description": {
           "power_meter_entity": "Sensor entity that reports total service power in Watts.",
@@ -57,7 +60,8 @@
           "action_stop_charging": "Script entity called to stop charging. Receives a 'charger_id' (string) variable.",
           "action_start_charging": "Script entity called to start/resume charging. Receives a 'charger_id' (string) variable.",
           "charger_status_entity": "Sensor whose state equals 'Charging' when the EV is actively charging (e.g. from the OCPP integration, where the default sensor is called 'Status Connector'). When set, the balancer uses this to avoid over-subtracting headroom while the charger is idle or finished.",
-          "charger_id": "Optional identifier passed to action scripts as 'charger_id' (string). Defaults to the Home Assistant config entry ID if left empty. Use this when your script needs the OCPP integration's device id (devid) or another charger-specific identifier instead of the config entry ID."
+          "charger_id": "Optional identifier passed to action scripts as 'charger_id' (string). Defaults to the Home Assistant config entry ID if left empty. Use this when your script needs the OCPP integration's device id (devid) or another charger-specific identifier instead of the config entry ID.",
+          "post_step_tolerance_time": "Grace period after a current increase during which the EV's meter lag is tolerated. Increase this if your car ramps up slowly; decrease only if you are sure the EV responds immediately."
         }
       }
     },

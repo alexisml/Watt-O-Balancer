@@ -32,7 +32,8 @@ That's it. It's a reactive, real-time load balancer for a single EV charger.
 - **This does not manage time-of-use tariffs or solar surplus directly.** The integration exclusively handles load balancing — it reacts to total metered power to prevent exceeding your service limit. However, it works well **alongside** external automations that handle these concerns. See [Combining with solar surplus or time-of-use tariffs](#combining-with-solar-surplus-or-time-of-use-tariffs) below.
 - **Current adjustments are in 1 A steps.** The integration floors all current values to whole Amps. Sub-amp precision is not supported.
 - **Increases are stepped and delayed.** After any current reduction, recovery is gradual: each step requires the computed headroom to be **continuously sufficient for a stability window** (default: **15 s**, adjustable via `number.*_ramp_up_time`) and only adds at most **`ramp_up_step_a`** Amps per step (default: **4 A**, adjustable via `number.*_ramp_up_step`). This is intentional — it prevents rapid oscillation when service load fluctuates near the service limit.
-- **Meter-lag tolerance after each step.** The EV's actual draw can take a few seconds to catch up with a newly commanded current, so the power meter will read low during that lag. The integration tolerates up to one ramp step of such lag for at least **60 s** after every commanded increase (or for the full `ramp_up_time` window, whichever is longer). This prevents a slow-responding charger from being misidentified as throttling and getting stuck below its maximum.
+- **Meter-lag tolerance after each step.** The EV's actual draw can take a few seconds to catch up with a newly commanded current, so the power meter will read low during that lag. The integration tolerates up to one ramp step of such lag for a configurable **post-step tolerance time** (default: **60 s**) after every commanded increase (or for the full `ramp_up_time` window, whichever is longer). This prevents a slow-responding charger from being misidentified as throttling and getting stuck below its maximum.
+- **The EV's draw is tracked, not assumed.** The estimated EV current is bounded by the meter (`min(commanded, meter reading)`) and floored at the last reduction target. So when the car draws less than commanded — a slow car still ramping, a battery near full, or a brief pause — the balancer does **not** mistake the car's own consumption for household load and ramp down for no reason. Genuine house-load increases still reduce the current instantly.
 
 ### Combining with solar surplus or time-of-use tariffs
 
@@ -173,7 +174,7 @@ All entities are grouped under a single device called **EV Charger Load Balancer
 |---|---|---|
 | `number.*_max_service_current` | 1–200 A | Your service current limit (breaker rating). The integration will never allow total consumption to exceed this. Changing it takes effect immediately by triggering a recomputation from the last known meter value (or fallback if the meter is unavailable) — no reload needed. You can raise it temporarily to accommodate a higher-power session or lower it to reserve more headroom for other loads. |
 | `number.*_max_charger_current` | 0–80 A | The maximum current your charger can handle. The integration will never set a current higher than this. **Setting this to 0 A stops charging immediately** without running the load-balancing algorithm, and keeps it stopped until changed back to a non-zero value. Change it at runtime to temporarily limit or disable charging. |
-| `number.*_min_ev_current` | 1–32 A | The minimum current at which your charger can operate (IEC 61851 standard: 6 A for AC). If the computed target falls below this, charging stops entirely rather than running at an unsafe low current. |
+| `number.*_min_ev_current` | 1–80 A | The minimum current at which your charger can operate (IEC 61851 standard: 6 A for AC). If the computed target falls below this, charging stops entirely rather than running at an unsafe low current. |
 | `number.*_ramp_up_time` | 5–300 s | How many seconds the computed headroom must remain continuously sufficient before the current is allowed to rise by one step. If headroom dips below the current commanded level the timer restarts from zero. Lower values react faster but risk oscillation on spiky loads. |
 | `number.*_ramp_up_step` | 1–32 A | Maximum current increase (in Amps) per stability window. After each stability window elapses, the current rises by at most this amount toward the computed target. Smaller values give more gradual recovery; larger values reach full current in fewer steps. |
 | `number.*_overload_trigger_delay` | 1–60 s | How long a continuous overload must persist before the correction loop starts. The default (2 s) absorbs most transient spikes (kettles, washing machine spin) without triggering unnecessary adjustments. |
@@ -272,18 +273,29 @@ ev_estimate_a = min(current_ev_a if ev_charging else 0, max_charger_a)
                 # clamped to max_charger_a: current_set_a can exceed max_charger_a
                 # when the charger maximum is lowered mid-session
 
-# Safety check: if service draw is less than the EV estimate, the EV must be
-# drawing less than commanded (e.g. battery near 100 %). Treat all measured load
-# as non-EV in that case.  A one-step tolerance is applied for ramp_up_time_s
+# Meter bound: the EV cannot draw more than the whole service, so when the EV
+# draws less than commanded (battery near 100 %, slow ramp, brief pause) the
+# estimate follows the meter down instead of pretending the missing draw is
+# free headroom.  A one-step tolerance is applied for a post-step lag window
 # after each step increase to absorb natural meter lag from the step itself.
 in_post_step_window = (last_step_increase_at is not None
-                       and (now - last_step_increase_at) <= ramp_up_time_s)
+                       and (now - last_step_increase_at)
+                           <= max(ramp_up_time_s, post_step_tolerance_time_s))
 tolerance = ramp_up_step_a if in_post_step_window else 0
-if house_power_w / voltage_v < ev_estimate_a - tolerance:
-    ev_estimate_a = 0
+ev_estimate_a = min(ev_estimate_a, house_power_w / voltage_v + tolerance)
+
+# Floor: while the EV is charging, the estimate never falls below the target of
+# the last reduction.  This is a deliberate heuristic — an EV may self-throttle
+# or pause below its command while still reporting "Charging" — and it stops a
+# slow/throttling EV's own consumption from being mistaken for non-EV load and
+# causing a phantom ramp-down followed by an immediate recovery.  Because
+# reductions are applied instantly, the floor can never exceed a current the
+# charger was actually allowed to deliver.
+if ev_charging:
+    ev_estimate_a = max(ev_estimate_floor_a, ev_estimate_a)
 
 non_ev_w      = max(0, house_power_w − ev_estimate_a × voltage_v)
-available_a   = service_current_a − non_ev_w / voltage_v
+available_a   = max_service_a − non_ev_w / voltage_v
 target_a      = min(available_a, max_charger_a), floored to 1 A steps
 
 # When a status sensor is configured and the EV is not charging, cap the

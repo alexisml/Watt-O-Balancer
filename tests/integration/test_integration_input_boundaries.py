@@ -166,7 +166,7 @@ class TestMaxChargerCurrentBoundaries:
 
 
 class TestMinEvCurrentBoundaries:
-    """Boundary tests for the min_ev_current number entity (1–32 A).
+    """Boundary tests for the min_ev_current number entity (1–charger max A).
 
     Validates behavior at exact limits, and verifies that a high minimum
     threshold correctly stops charging when headroom is insufficient.
@@ -205,32 +205,40 @@ class TestMinEvCurrentBoundaries:
     async def test_set_exactly_at_maximum_limit(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry,
     ) -> None:
-        """Boundary case where min_ev_current equals max_charger_current (32 A).
+        """Boundary case where min_ev_current equals the charger maximum (80 A).
 
-        Charges at 32 A with no house load; stops when additional load pushes
-        available current below the minimum.
+        The number entity accepts the physical charger cap.  With no house load
+        the charger is allowed to charge at the service limit, capped by the
+        charger maximum.
         """
         await setup_integration(hass, mock_config_entry)
         coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
+        coordinator.ramp_up_step_a = 0.0
+        coordinator.max_service_current = MAX_CHARGER_CURRENT
+        coordinator.max_charger_current = MAX_CHARGER_CURRENT
 
         min_id = get_entity_id(hass, mock_config_entry, "number", "min_ev_current")
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
         active_id = get_entity_id(hass, mock_config_entry, "binary_sensor", "active")
 
-        # Set min to 32 A: meter is already at 0 W from setup, triggering async_recompute_from_current_state.
-        # service=0 A, ev_estimate=0 (current_set=0), non_ev=0, available=32 A ≥ min_ev=32 A → charge at 32 A
+        # Set min to the highest valid value the number entity allows (80 A).
+        # The initial meter value is 0 W; after setting min_ev_current the entity
+        # triggers a recompute, but the coordinator arms the ramp-up window because
+        # a runtime parameter changed.  Disable the ramp-up step so the recompute
+        # jumps directly to the target.
         await hass.services.async_call(
             "number", "set_value",
             {"entity_id": min_id, "value": MIN_EV_CURRENT_MAX},
             blocking=True,
         )
         await hass.async_block_till_done()
-        assert float(hass.states.get(current_set_id).state) == 32.0
+        assert float(hass.states.get(current_set_id).state) == MAX_CHARGER_CURRENT
 
-        # Increase load to 8000 W → service=34.78 A > current_set=32 A → non_ev=2.78 A,
-        # available=29.22 A → floor=29 A < min_ev=32 A → stop
-        hass.states.async_set(POWER_METER, "8000")
+        # Increase load to 20 kW → service≈87 A.  With the EV drawing 80 A the
+        # non-EV load is ~7 A, so available current drops to ~73 A and below
+        # the 80 A minimum, so charging stops.
+        hass.states.async_set(POWER_METER, "20000")
         await hass.async_block_till_done()
 
         assert float(hass.states.get(current_set_id).state) == 0.0
@@ -239,7 +247,7 @@ class TestMinEvCurrentBoundaries:
     async def test_one_above_maximum_is_rejected(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry,
     ) -> None:
-        """Setting min EV current above 32 A is rejected by HA validation."""
+        """Setting min EV current above the charger max is rejected by HA validation."""
         await setup_integration(hass, mock_config_entry)
 
         min_id = get_entity_id(hass, mock_config_entry, "number", "min_ev_current")

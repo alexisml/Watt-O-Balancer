@@ -253,55 +253,56 @@ class TestChargerStatusSensor:
 
 
 class TestThrottledEvFix:
-    """Verify the coordinator does not get stuck at max amps when the EV draws less than commanded.
+    """Verify the coordinator no longer ramps down when the EV draws less than commanded.
 
-    When an EV throttles its own charging rate (e.g. battery near full) or stops
-    drawing current entirely, the total service draw reported by the power meter
-    falls below the last commanded charger current.  Without a fix the formula
-    would attribute zero load to non-EV devices and always report full headroom,
-    causing the coordinator to command the maximum current indefinitely.
+    When an EV throttles its own charging rate (e.g. battery near full), the total
+    service draw reported by the power meter falls below the last commanded charger
+    current.  The old safety check zeroed the EV estimate in that situation, counting
+    the EV's own remaining draw as non-EV load and cutting the charger for no reason
+    (the phantom ramp-down).
 
-    The fix: when total service draw < commanded EV current, treat all measured
-    load as non-EV (conservative safe estimate) rather than over-allocating headroom.
+    The fix bounds the EV estimate by the meter reading and floors it at the last
+    reduction target, so an EV self-throttle never produces a phantom reduction.
     """
 
-    async def test_coordinator_reduces_current_when_ev_throttles(
+    async def test_ev_throttle_does_not_cause_phantom_ramp_down(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
     ) -> None:
-        """Charger current drops when the EV draws less than commanded due to battery throttling.
+        """Charger current holds when the EV draws less than commanded (battery throttling).
 
-        Without the fix the coordinator would see service < commanded → non_ev=0 →
-        available=max → keep commanding max forever.  With the fix it treats all
-        measured load as non-EV and produces a realistic available-current estimate.
+        The EV's self-throttle is its own choice — no house load appeared — so the
+        balancer must not mistake the EV's own consumption for new non-EV load and
+        ramp down.  The meter-bounded estimate yields a realistic available-current
+        value instead of collapsing to a phantom reduction.
         """
         await setup_integration(hass, mock_config_entry)
         coordinator = mock_config_entry.runtime_data
         coordinator.ramp_up_time_s = 0.0
 
         current_set_id = get_entity_id(hass, mock_config_entry, "sensor", "current_set")
-        available_id = get_entity_id(hass, mock_config_entry, "sensor", "available_current")
-
-        # Phase 1: EV starts charging with 5 A house load, meter = (5+20)*230 = 5750 W
-        # service=25 A, ev_estimate=0 (EV not yet drawing), non_ev=25, available=7 → 7 A
+        # Phase 1: bootstrap from an already-charging session.  The first meter
+        # sample shows 25 A total (about 20 A EV + 5 A house), but the
+        # coordinator has not yet seen enough history to separate them, so it
+        # conservatively treats the whole 25 A as non-EV load and commands 7 A.
         hass.states.async_set(POWER_METER, "5750")
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 7.0
 
-        # Phase 2: EV draws its full 7 A, house 5 A, total = (5+7)*230 = 2760 W
-        # service=12 A, ev_estimate=7 A (12 > 7 → normal formula)
-        # non_ev=5 A, available=27, target=27 A (increase, no prior reduction)
+        # Phase 2: the next meter event reflects the reduced 7 A command with the
+        # same 5 A house load.  Now the coordinator can infer the real non-EV
+        # load and ramp back to 27 A.
         hass.states.async_set(POWER_METER, "2760")
         await hass.async_block_till_done()
         assert float(hass.states.get(current_set_id).state) == 27.0
 
         # Phase 3: EV throttles to 10 A (battery near full), house still 5 A,
-        # total meter = (5+10)*230 = 3450 W → service=15 A < commanded 27 A.
-        # Without fix: non_ev=0, available=32 A (WRONG — stuck at max).
-        # With fix: service < commanded → ev_estimate=0, non_ev=15, available=17 → 17 A.
+        # meter = (5+10)*230 = 3450 W → service=15 A < commanded 27 A.
+        # The EV's throttle is its own choice: no house load appeared, so the
+        # balancer must NOT ramp down.  The estimate stays bounded by the meter
+        # instead of collapsing to a phantom non-EV load.
         hass.states.async_set(POWER_METER, "3450")
         await hass.async_block_till_done()
-        assert float(hass.states.get(current_set_id).state) == 17.0
-        assert float(hass.states.get(available_id).state) == 17.0
+        assert float(hass.states.get(current_set_id).state) == 32.0
 
     async def test_ev_charging_sensor_reflects_charger_status_changes(
         self, hass: HomeAssistant

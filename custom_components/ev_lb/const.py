@@ -54,13 +54,23 @@ DEFAULT_UNAVAILABLE_FALLBACK_CURRENT = 6.0  # Fallback current for "set_current"
 DEFAULT_OVERLOAD_TRIGGER_DELAY = 2.0  # Seconds — overload must persist this long before loop starts
 DEFAULT_OVERLOAD_LOOP_INTERVAL = 5.0  # Seconds — interval between recomputes while overloaded
 
-# Meter-lag tolerance window after a commanded current increase.  The EV's actual
-# draw can take a few seconds to catch up with a new set-point; during that lag
-# the power meter reads lower than the commanded current.  This window prevents
-# the conservative EV-estimate safety check from treating normal ramp-up lag as
-# genuine throttling.  It is always at least as long as the ramp-up stability
-# window so the car has at least the full hold period to respond.
-POST_STEP_TOLERANCE_TIME_S = 60.0  # Seconds
+# Config key for the meter-lag tolerance window after a commanded current
+# increase.  The EV's actual draw can take a few seconds to catch up with a new
+# set-point; during that lag the power meter reads lower than the commanded
+# current.  This window prevents the conservative EV-estimate safety check from
+# treating normal ramp-up lag as genuine throttling.  It is always at least as
+# long as the ramp-up stability window so the car has at least the full hold
+# period to respond.
+CONF_POST_STEP_TOLERANCE_TIME = "post_step_tolerance_time"
+DEFAULT_POST_STEP_TOLERANCE_TIME_S = 60.0  # Seconds
+MIN_POST_STEP_TOLERANCE_TIME = 1.0   # Seconds — practical floor; the effective
+                                     # window is still bounded below by
+                                     # ramp_up_time_s (minimum 5 s).
+MAX_POST_STEP_TOLERANCE_TIME = 120.0  # Seconds — 2 minutes maximum; longer
+                                      # windows keep the one-step meter
+                                      # tolerance active without improving
+                                      # slow-ramp handling (the EV-draw floor
+                                      # already covers it).
 
 # Action retry defaults — exponential backoff when a charger script call fails
 ACTION_MAX_RETRIES = 3  # Total attempts = 1 initial + 3 retries
@@ -77,7 +87,9 @@ MAX_SERVICE_CURRENT = 200.0
 MIN_CHARGER_CURRENT = 0.0
 MAX_CHARGER_CURRENT = 80.0
 MIN_EV_CURRENT_MIN = 1.0
-MIN_EV_CURRENT_MAX = 32.0
+# Keep the minimum-current entity aligned with the charger's physical ceiling:
+# values above MAX_CHARGER_CURRENT would make charging impossible by definition.
+MIN_EV_CURRENT_MAX = MAX_CHARGER_CURRENT
 MIN_RAMP_UP_TIME = 5.0   # Seconds — absolute minimum (very low values risk oscillation)
 MAX_RAMP_UP_TIME = 300.0  # Seconds — 5 minutes maximum
 MIN_RAMP_UP_STEP = 1.0   # Amps — minimum step size

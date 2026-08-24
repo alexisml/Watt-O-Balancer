@@ -53,11 +53,18 @@ def _make_entry() -> MockConfigEntry:
     )
 
 
-def _configure(coordinator, *, ramp_up_time_s: float = 15.0, step_a: float = 4.0) -> None:
+def _configure(
+    coordinator,
+    *,
+    ramp_up_time_s: float = 15.0,
+    step_a: float = 4.0,
+    tolerance_s: float = 60.0,
+) -> None:
     coordinator.max_charger_current = 32.0
     coordinator.min_ev_current = 6.0
     coordinator.ramp_up_time_s = ramp_up_time_s
     coordinator.ramp_up_step_a = step_a
+    coordinator.post_step_tolerance_time_s = tolerance_s
 
 
 class _CarSim:
@@ -476,4 +483,183 @@ class TestEvDrawTrackingNoPhantomRampDown:
         assert 18.0 <= reduced <= 26.0, (
             f"Expected a reduction to a safe current while the car ramps, "
             f"but got {reduced} A"
+        )
+
+    async def test_slow_car_ramp_exceeds_short_tolerance_holds_command(
+        self, hass: HomeAssistant
+    ) -> None:
+        """A slow car ramping longer than a short tolerance does not reduce.
+
+        The configured post-step tolerance is only 5 s while the car needs
+        ~45 s to reach the commanded 32 A.  Even after the effective window
+        (``max(ramp_up_time, tolerance)``) expires, the EV estimate tracks the
+        meter so the car's own draw is never mistaken for household load.
+        """
+        entry = _make_entry()
+        await setup_integration(hass, entry)
+        coordinator = entry.runtime_data
+        _configure(coordinator, ramp_up_time_s=5.0, tolerance_s=5.0)
+
+        mock_time = 1000.0
+
+        def fake_monotonic() -> float:
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        car = _CarSim(tau_s=45.0)
+
+        hass.states.async_set(POWER_METER, car.meter_w(mock_time, 0.0, tick=1.0))
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0
+
+        for i in range(1, 8):
+            mock_time += 5.0
+            hass.states.async_set(
+                POWER_METER, car.meter_w(mock_time, 32.0, tick=float(i))
+            )
+            await hass.async_block_till_done()
+            current = float(hass.states.get(current_set_id).state)
+            assert current == 32.0, (
+                f"At t={mock_time:.0f}s the charger dropped to {current} A "
+                "even though the slow ramp exceeded the 5 s tolerance — "
+                "the EV's own draw must not be treated as non-EV load"
+            )
+
+    async def test_fast_car_ramp_within_long_tolerance_holds_command(
+        self, hass: HomeAssistant
+    ) -> None:
+        """A fast car ramping well inside a long tolerance stays at maximum."""
+        entry = _make_entry()
+        await setup_integration(hass, entry)
+        coordinator = entry.runtime_data
+        _configure(coordinator, ramp_up_time_s=5.0, tolerance_s=120.0)
+
+        mock_time = 1000.0
+
+        def fake_monotonic() -> float:
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        car = _CarSim(tau_s=2.0)
+
+        hass.states.async_set(POWER_METER, car.meter_w(mock_time, 0.0, tick=1.0))
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0
+
+        for i in range(1, 6):
+            mock_time += 5.0
+            hass.states.async_set(
+                POWER_METER, car.meter_w(mock_time, 32.0, tick=float(i))
+            )
+            await hass.async_block_till_done()
+            assert float(hass.states.get(current_set_id).state) == 32.0
+
+    async def test_large_appliance_with_short_tolerance_reduces_instantly(
+        self, hass: HomeAssistant
+    ) -> None:
+        """A large appliance during a short tolerance window still cuts current.
+
+        The tolerance is set to only 5 s.  While a slow car is still ramping
+        inside the window, a 35 A household load turns on.  The sudden service
+        jump far exceeds what the EV could plausibly have ramped in two
+        seconds, so the excess is classified as non-EV load and the charger is
+        reduced on the same event.
+        """
+        entry = _make_entry()
+        await setup_integration(hass, entry)
+        coordinator = entry.runtime_data
+        _configure(coordinator, ramp_up_time_s=5.0, tolerance_s=5.0)
+
+        mock_time = 1000.0
+
+        def fake_monotonic() -> float:
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        car = _CarSim(tau_s=45.0)
+
+        # Command 32 A; car has not started drawing yet.
+        hass.states.async_set(POWER_METER, car.meter_w(mock_time, 0.0, tick=1.0))
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0
+
+        # Advance 2 s; the car is still at ~1.4 A.
+        mock_time += 2.0
+        hass.states.async_set(
+            POWER_METER, car.meter_w(mock_time, 32.0, tick=2.0)
+        )
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0
+
+        # Two seconds later a 35 A appliance turns on while the car is at ~2.7 A.
+        mock_time += 2.0
+        ev_w = float(car.meter_w(mock_time, 32.0, tick=0.0))
+        hass.states.async_set(POWER_METER, str(ev_w + 35.0 * VOLTAGE))
+        await hass.async_block_till_done()
+
+        reduced = float(hass.states.get(current_set_id).state)
+        assert reduced < 32.0, (
+            "Expected an immediate reduction when a 35 A appliance started "
+            f"during the short tolerance window, but got {reduced} A"
+        )
+        assert 28.0 <= reduced <= 31.0, (
+            f"Expected a reduction to a safe headroom, but got {reduced} A"
+        )
+
+    async def test_appliance_after_long_tolerance_window_reduces_instantly(
+        self, hass: HomeAssistant
+    ) -> None:
+        """A household load that appears after a long tolerance window is cut.
+
+        With a 120 s tolerance the EV-lag window is also 120 s, during which
+        the EV estimate follows the command.  Once the window expires the
+        estimate follows the meter, so a 25 A appliance starting immediately
+        after the window ends is detected and reduced on the same event.
+        """
+        entry = _make_entry()
+        await setup_integration(hass, entry)
+        coordinator = entry.runtime_data
+        _configure(coordinator, ramp_up_time_s=5.0, tolerance_s=120.0)
+
+        mock_time = 1000.0
+
+        def fake_monotonic() -> float:
+            return mock_time
+
+        coordinator._time_fn = fake_monotonic
+
+        current_set_id = get_entity_id(hass, entry, "sensor", "current_set")
+        car = _CarSim(tau_s=2.0)  # fast car so it converges well before 120 s
+
+        hass.states.async_set(POWER_METER, car.meter_w(mock_time, 0.0, tick=1.0))
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0
+
+        # Advance just past the 120 s effective window so the post-step guard
+        # is no longer active and the estimate follows the meter.
+        mock_time += 121.0
+        hass.states.async_set(
+            POWER_METER, car.meter_w(mock_time, 32.0, tick=2.0)
+        )
+        await hass.async_block_till_done()
+        assert float(hass.states.get(current_set_id).state) == 32.0
+
+        mock_time += 2.0
+        ev_w = float(car.meter_w(mock_time, 32.0, tick=0.0))
+        hass.states.async_set(POWER_METER, str(ev_w + 25.0 * VOLTAGE))
+        await hass.async_block_till_done()
+
+        reduced = float(hass.states.get(current_set_id).state)
+        assert reduced < 32.0, (
+            "Expected an immediate reduction when a 25 A appliance started "
+            f"after the 120 s tolerance window, but got {reduced} A"
+        )
+        assert 22.0 <= reduced <= 31.0, (
+            f"Expected a reduction to a safe headroom, but got {reduced} A"
         )

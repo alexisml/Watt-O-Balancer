@@ -63,8 +63,8 @@ DEFAULT_OVERLOAD_LOOP_INTERVAL = 5.0  # Seconds — interval between recomputes 
 # period to respond.
 CONF_POST_STEP_TOLERANCE_TIME = "post_step_tolerance_time"
 DEFAULT_POST_STEP_TOLERANCE_TIME_S = 60.0  # Seconds
-MIN_POST_STEP_TOLERANCE_TIME = 10.0  # Seconds — shorter values risk phantom ramp-downs
-MAX_POST_STEP_TOLERANCE_TIME = 300.0  # Seconds — 5 minutes maximum
+MIN_POST_STEP_TOLERANCE_TIME = 1.0   # Seconds — minimum configurable tolerance
+MAX_POST_STEP_TOLERANCE_TIME = 120.0  # Seconds — 2 minutes maximum
 
 # Action retry defaults — exponential backoff when a charger script call fails
 ACTION_MAX_RETRIES = 3  # Total attempts = 1 initial + 3 retries

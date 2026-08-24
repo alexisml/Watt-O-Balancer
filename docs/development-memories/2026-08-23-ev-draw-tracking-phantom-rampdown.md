@@ -105,11 +105,11 @@ the next meter event (even during the ramp-up wait), and an EV shortfall never
 ### Configurable tolerance window
 
 The post-step tolerance window is now exposed as `post_step_tolerance_time`
-(default 60 s, range 10–300 s) in both the initial config flow and the options
-flow, with English and Spanish translations.  Users with very slow-ramping cars
-can extend it; users with fast-responding cars can shorten it.  The effective
-window is always `max(ramp_up_time_s, post_step_tolerance_time_s)` so the
-ramp-up stability setting remains the lower bound.
+(default 60 s, range 1–120 s, 1 s step) in both the initial config flow and the
+options flow, with English and Spanish translations.  Users with very
+slow-ramping cars can extend it; users with fast-responding cars can shorten it.
+The effective window is always `max(ramp_up_time_s, post_step_tolerance_time_s)`
+so the ramp-up stability setting remains the lower bound.
 
 ## Files changed
 

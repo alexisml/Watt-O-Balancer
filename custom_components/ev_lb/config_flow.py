@@ -89,7 +89,7 @@ _POST_STEP_TOLERANCE_SELECTOR = NumberSelector(
     NumberSelectorConfig(
         min=MIN_POST_STEP_TOLERANCE_TIME,
         max=MAX_POST_STEP_TOLERANCE_TIME,
-        step=5.0,
+        step=1.0,
         unit_of_measurement="s",
         mode=NumberSelectorMode.BOX,
     ),

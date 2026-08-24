@@ -484,11 +484,11 @@ class TestEvDrawTrackingNoPhantomRampDown:
             f"Expected the charger to reduce immediately when a 35 A house "
             f"load appeared during the slow ramp, but it stayed at {reduced} A"
         )
-        # The reduction should leave a safe margin for the appliance plus
+        # The reduction leaves a safe margin for the appliance plus
         # background.  With a 35 A appliance the true headroom is about 12.8 A;
         # because the car is still ramping the estimate is conservative, so
-        # the reduced value lands in the low-to-mid 20 A range.
-        assert 18.0 <= reduced <= 26.0, (
+        # the reduced value lands in the mid-to-upper 20 A range.
+        assert 24.0 <= reduced <= 31.0, (
             f"Expected a reduction to a safe current while the car ramps, "
             f"but got {reduced} A"
         )
@@ -572,10 +572,9 @@ class TestEvDrawTrackingNoPhantomRampDown:
         """A large appliance during a short tolerance window still cuts current.
 
         The tolerance is set to only 5 s.  While a slow car is still ramping
-        inside the window, a 35 A household load turns on.  The sudden service
-        jump far exceeds what the EV could plausibly have ramped in two
-        seconds, so the excess is classified as non-EV load and the charger is
-        reduced on the same event.
+        inside the window, a 35 A household load turns on.  The EV-lag
+        tolerance only adds one ramp-up step of headroom, so most of the jump
+        is counted as non-EV load and the charger is reduced on the same event.
         """
         entry = _make_entry()
         await setup_integration(hass, entry)
@@ -617,10 +616,10 @@ class TestEvDrawTrackingNoPhantomRampDown:
             f"during the short tolerance window, but got {reduced} A"
         )
         # After accounting for the appliance and background load, true EV
-        # headroom is about 13 A.  The ramp-budget guard attributes part of
-        # the jump to the still-ramping EV, so the target remains 28–31 A
-        # after flooring to the 1 A step.
-        assert 28.0 <= reduced <= 31.0, (
+        # headroom is about 13 A.  The post-step tolerance allows one ramp-up
+        # step of extra EV estimate, so the reduced target lands in the
+        # mid-to-upper 20 A range.
+        assert 24.0 <= reduced <= 31.0, (
             f"Expected a reduction to a safe headroom, but got {reduced} A"
         )
 

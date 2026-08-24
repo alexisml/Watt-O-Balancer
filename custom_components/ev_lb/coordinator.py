@@ -852,35 +852,16 @@ class EvLoadBalancerCoordinator:
         )
         tolerance = self.ramp_up_step_a if in_post_step_window else 0.0
 
-        # A household appliance turning on causes a sudden service-current
-        # jump.  The EV-lag tolerance must not hide that jump by letting the
-        # EV estimate rise with the meter.  Inside the post-step window the EV
-        # is allowed to ramp toward the command; we bound that ramp by the
-        # configured tolerance time so a slow car is accommodated but a sudden
-        # appliance jump is still counted as non-EV load.  Outside the window
-        # the EV is expected to have caught up, so the estimate simply follows
-        # the meter bound.
-        if in_post_step_window and self._last_estimate_time is not None:
-            dt_s = now - self._last_estimate_time
-            command_a = min(self.current_set_a, self.max_charger_current)
-            # The EV is expected to reach the commanded current within the
-            # tolerance window.  Bound the plausible EV ramp between events by
-            # that rate, but never more than the command itself.  When multiple
-            # events share the same timestamp (dt_s == 0) we cannot infer a
-            # ramp rate, so skip the delta guard and use the normal meter bound.
-            if dt_s > 0:
-                max_ev_delta = min(command_a, command_a * dt_s / tolerance_s)
-
-                service_delta = service_current_a - self._last_service_current_a
-                if service_delta > max_ev_delta:
-                    ev_ramp_bound = self._last_ev_estimate_a + max_ev_delta
-                    estimate = min(estimate, ev_ramp_bound)
-
-        # Apply the meter bound once, after the post-step delta guard.
+        # Apply the meter bound.  Inside the post-step window this allows one
+        # ramp-up step of headroom so a slow EV ramping up does not look like
+        # new non-EV load; outside the window the estimate follows the meter,
+        # so a genuine EV shortfall (battery full, finished charging) releases
+        # headroom instead of pinning it at the maximum forever.
         estimate = min(estimate, service_current_a + tolerance)
 
         # Floor: a defensive heuristic against misclassifying EV shortfall
-        # as non-EV load while the EV reports that it is charging.
+        # (slow ramp, self-throttle, or brief pause) as non-EV load while the
+        # EV reports that it is charging.
         estimate = max(self._ev_estimate_floor_a, estimate)
 
         self._last_service_current_a = service_current_a

@@ -46,7 +46,8 @@ class TestDeviceRegistration:
 
         dev_reg = dr.async_get(hass)
         device = dev_reg.async_get_device_by_identifier(
-            (DOMAIN, mock_config_entry.entry_id)
+            (DOMAIN, mock_config_entry.entry_id),
+            config_entry_id=mock_config_entry.entry_id,
         )
         assert device is not None
         assert device.name == "EV Charger Load Balancer"
@@ -66,7 +67,8 @@ class TestDeviceRegistration:
 
         dev_reg = dr.async_get(hass)
         device = dev_reg.async_get_device_by_identifier(
-            (DOMAIN, mock_config_entry.entry_id)
+            (DOMAIN, mock_config_entry.entry_id),
+            config_entry_id=mock_config_entry.entry_id,
         )
         for entity_entry in entries:
             assert entity_entry.device_id == device.id

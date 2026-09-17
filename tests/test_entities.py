@@ -45,8 +45,9 @@ class TestDeviceRegistration:
         await setup_integration(hass, mock_config_entry)
 
         dev_reg = dr.async_get(hass)
-        device = dev_reg.async_get_device(
-            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        device = dev_reg.async_get_device_by_identifier(
+            (DOMAIN, mock_config_entry.entry_id),
+            config_entry_id=mock_config_entry.entry_id,
         )
         assert device is not None
         assert device.name == "EV Charger Load Balancer"
@@ -65,8 +66,9 @@ class TestDeviceRegistration:
         assert len(entries) == 29  # 13 sensors + 5 binary_sensors + 7 numbers + 1 switch + 3 buttons
 
         dev_reg = dr.async_get(hass)
-        device = dev_reg.async_get_device(
-            identifiers={(DOMAIN, mock_config_entry.entry_id)}
+        device = dev_reg.async_get_device_by_identifier(
+            (DOMAIN, mock_config_entry.entry_id),
+            config_entry_id=mock_config_entry.entry_id,
         )
         for entity_entry in entries:
             assert entity_entry.device_id == device.id

@@ -22,7 +22,7 @@ Before you begin, make sure you have:
 ### Via HACS (recommended)
 
 1. Open **HACS → Integrations → ⋮ (three dots) → Custom repositories**.
-2. Add `https://github.com/alexisml/ha-ev-charger-balancer` as an **Integration**.
+2. Add `https://github.com/alexisml/Watt-O-Balancer` as an **Integration**.
 3. Search for **Watt-O-Balancer** and click **Download**.
 4. **Restart Home Assistant** — the integration won't appear until you restart.
 

@@ -31,20 +31,30 @@ Also note the old **config entry ID** if anything you wrote depends on it (see
 
 ## Upgrade
 
-1. In **Settings → Devices & Services**, delete the old *EV Charger Load
+From step 2 until step 7 nothing is load balancing your charger. Deleting the
+entry does not send a stop command, so a charger left running would carry on
+at its last current with no overload protection. Stop it first and keep it
+stopped until the end.
+
+1. Stop charging — press the old device's *Force stop charging* button, or stop
+   it from the charger itself — and check that the charger reports it is idle.
+   Unplugging the car is the surest way to keep it that way until step 7.
+2. In **Settings → Devices & Services**, delete the old *EV Charger Load
    Balancing* entry. This removes its entities.
-2. Update the integration (HACS, or replace `custom_components/ev_lb/` with
+3. Update the integration (HACS, or replace `custom_components/ev_lb/` with
    `custom_components/watt_o_balancer/` for a manual install). Make sure the
    old `ev_lb` folder is gone — leaving both in place will register two
    integrations.
-3. Restart Home Assistant.
-4. Add **Watt-O-Balancer** from **Settings → Devices & Services → Add
-   integration** and re-enter the configuration. To keep chargers idle until
-   the limits are back, leave the action scripts empty for now.
-5. On the new *Watt-O-Balancer* device, set every number and switch back to the
+4. Restart Home Assistant.
+5. Add **Watt-O-Balancer** from **Settings → Devices & Services → Add
+   integration** and re-enter the configuration, but leave the action scripts
+   empty for now. That stops the new entry sending commands at default limits;
+   it does not stop a charger that is already running, which is why step 1
+   matters.
+6. On the new *Watt-O-Balancer* device, set every number and switch back to the
    values you recorded.
-6. If you left the action scripts empty, add them now in the integration's
-   options.
+7. Add the action scripts in the integration's options, then plug in or resume
+   charging.
 
 ## What you have to update yourself
 

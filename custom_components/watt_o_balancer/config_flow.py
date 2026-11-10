@@ -146,7 +146,7 @@ class EvLbConfigFlow(ConfigFlow, domain=DOMAIN):  # pyright: ignore[reportGenera
                     user_input.get(CONF_VOLTAGE, DEFAULT_VOLTAGE),
                 )
                 return self.async_create_entry(
-                    title=f"EV Load Balancing ({entity_id})",
+                    title=f"Watt-O-Balancer ({entity_id})",
                     data=user_input,
                 )
 
@@ -255,7 +255,7 @@ class EvLbOptionsFlow(OptionsFlow):
                     # before the options are written by async_create_entry.
                     self.hass.config_entries.async_update_entry(
                         self.config_entry,
-                        title=f"EV Load Balancing ({new_meter})",
+                        title=f"Watt-O-Balancer ({new_meter})",
                         data={**self.config_entry.data, CONF_POWER_METER_ENTITY: new_meter},
                         unique_id=new_meter,
                         options=options,

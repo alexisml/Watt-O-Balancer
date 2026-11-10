@@ -23,7 +23,7 @@ from pytest_homeassistant_custom_component.common import (
     mock_restore_cache_with_extra_data,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     DEFAULT_MAX_CHARGER_CURRENT,
     DEFAULT_MAX_SERVICE_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
@@ -37,15 +37,15 @@ from custom_components.ev_lb.const import (
 from conftest import POWER_METER, setup_integration, get_entity_id
 
 # Entity IDs are deterministic: derived from the device name
-# ("EV Charger Load Balancer") and the entity translation key.
-_SWITCH_ENABLED = "switch.ev_charger_load_balancer_load_balancing_enabled"
-_SENSOR_CURRENT_SET = "sensor.ev_charger_load_balancer_charging_current_set"
-_SENSOR_LAST_ACTION_REASON = "sensor.ev_charger_load_balancer_last_action_reason"
-_SENSOR_LAST_ACTION_STATUS = "sensor.ev_charger_load_balancer_last_action_status"
-_NUMBER_MAX_SERVICE = "number.ev_charger_load_balancer_max_service_current"
-_NUMBER_MAX_CHARGER = "number.ev_charger_load_balancer_max_charger_current"
-_NUMBER_MIN_EV = "number.ev_charger_load_balancer_min_ev_current"
-_BINARY_ACTIVE = "binary_sensor.ev_charger_load_balancer_load_balancing_active"
+# ("Watt-O-Balancer") and the entity translation key.
+_SWITCH_ENABLED = "switch.watt_o_balancer_load_balancing_enabled"
+_SENSOR_CURRENT_SET = "sensor.watt_o_balancer_charging_current_set"
+_SENSOR_LAST_ACTION_REASON = "sensor.watt_o_balancer_last_action_reason"
+_SENSOR_LAST_ACTION_STATUS = "sensor.watt_o_balancer_last_action_status"
+_NUMBER_MAX_SERVICE = "number.watt_o_balancer_max_service_current"
+_NUMBER_MAX_CHARGER = "number.watt_o_balancer_max_charger_current"
+_NUMBER_MIN_EV = "number.watt_o_balancer_min_ev_current"
+_BINARY_ACTIVE = "binary_sensor.watt_o_balancer_load_balancing_active"
 
 
 # ---------------------------------------------------------------------------

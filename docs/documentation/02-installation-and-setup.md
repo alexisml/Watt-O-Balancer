@@ -29,7 +29,7 @@ Before you begin, make sure you have:
 ### Manual installation
 
 1. Download or clone this repository.
-2. Copy the `custom_components/ev_lb/` folder into your Home Assistant `config/custom_components/` directory.
+2. Copy the `custom_components/watt_o_balancer/` folder into your Home Assistant `config/custom_components/` directory.
 3. **Restart Home Assistant.**
 
 After installation, the integration is available in **Settings → Devices & Services → Add Integration**.
@@ -93,7 +93,7 @@ These are **optional**. If you skip them, the integration runs in compute-only m
 >
 > ⚠️ **Multi-charger / multi-connector OCPP users:** the OCPP `ocpp.set_charge_rate` service needs a `conn_id` (connector id) to know which charger connector to target. If you have more than one charger or a multi-connector charger, make sure each action script uses the correct `conn_id`. See the OCPP integration documentation for how to find it.
 
-4. Click **Submit**. The integration creates a device called **EV Charger Load Balancer** and all its entities immediately.
+4. Click **Submit**. The integration creates a device called **Watt-O-Balancer** and all its entities immediately.
 
 ### Changing settings after setup
 
@@ -136,7 +136,7 @@ The integration reloads automatically and starts tracking the new sensor. The co
 
 After configuration, check that everything is working:
 
-1. **Go to Settings → Devices → EV Charger Load Balancer.** You should see all entities listed under this device.
+1. **Go to Settings → Devices → Watt-O-Balancer.** You should see all entities listed under this device.
 
 2. **Check the key sensors:**
    - `sensor.*_available_current` — should show a value in Amps (this is the available current to charge, computed from non-EV load only).
@@ -146,7 +146,7 @@ After configuration, check that everything is working:
 
 3. **Test the reaction:** If you have action scripts configured, try changing your service load (turn on a high-power appliance like a kettle or oven) and watch the `sensor.*_charging_current_set` value change in real time.
 
-> **Tip:** You can also check **Developer Tools → States** and filter by `ev_lb` to see all entity states at a glance.
+> **Tip:** You can also check **Developer Tools → States** and filter by `watt_o_balancer` to see all entity states at a glance.
 
 ---
 

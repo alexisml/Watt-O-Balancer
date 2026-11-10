@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.common import (
     mock_restore_cache_with_extra_data,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
@@ -34,7 +34,7 @@ from conftest import (
 )
 
 # Entity ID for restore cache (deterministic from device name + translation key)
-_SENSOR_CURRENT_SET = "sensor.ev_charger_load_balancer_charging_current_set"
+_SENSOR_CURRENT_SET = "sensor.watt_o_balancer_charging_current_set"
 
 
 # ---------------------------------------------------------------------------

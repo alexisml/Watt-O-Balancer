@@ -34,7 +34,7 @@ class TestCoordinatorDebugLogs:
         """Users can view full computation pipeline values in debug logs on every power meter update."""
         await setup_integration(hass, mock_config_entry)
 
-        with caplog.at_level(logging.DEBUG, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.DEBUG, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "3000")
             await hass.async_block_till_done()
 
@@ -55,7 +55,7 @@ class TestCoordinatorDebugLogs:
         await hass.async_block_till_done()
 
         # Now try to increase — still within 30 s cooldown
-        with caplog.at_level(logging.DEBUG, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.DEBUG, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "3000")
             await hass.async_block_till_done()
 
@@ -69,7 +69,7 @@ class TestCoordinatorDebugLogs:
         coordinator = mock_config_entry.runtime_data
         coordinator.enabled = False
 
-        with caplog.at_level(logging.DEBUG, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.DEBUG, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "3000")
             await hass.async_block_till_done()
 
@@ -82,7 +82,7 @@ class TestCoordinatorDebugLogs:
         await setup_integration(hass, mock_config_entry)
         coordinator = mock_config_entry.runtime_data
 
-        with caplog.at_level(logging.DEBUG, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.DEBUG, logger="custom_components.watt_o_balancer.coordinator"):
             coordinator.manual_set_limit(20.0)
 
         assert any("Manual override" in m and "requested=20.0" in m for m in caplog.messages)
@@ -102,7 +102,7 @@ class TestInfoLogs:
         """When charging transitions from stopped to active, an info log is emitted."""
         await setup_integration(hass, mock_config_entry)
 
-        with caplog.at_level(logging.INFO, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.INFO, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "3000")
             await hass.async_block_till_done()
 
@@ -118,7 +118,7 @@ class TestInfoLogs:
         hass.states.async_set(POWER_METER, "3000")
         await hass.async_block_till_done()
 
-        with caplog.at_level(logging.INFO, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.INFO, logger="custom_components.watt_o_balancer.coordinator"):
             # Overload to stop charging (11000 W → raw_target < min_ev → 0 A)
             hass.states.async_set(POWER_METER, "11000")
             await hass.async_block_till_done()
@@ -136,7 +136,7 @@ class TestInfoLogs:
         await hass.async_block_till_done()
 
         caplog.clear()
-        with caplog.at_level(logging.INFO, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.INFO, logger="custom_components.watt_o_balancer.coordinator"):
             # Same power — no transition
             hass.states.async_set(POWER_METER, "3000")
             await hass.async_block_till_done()
@@ -144,7 +144,7 @@ class TestInfoLogs:
         info_messages = [
             r for r in caplog.records
             if r.levelno == logging.INFO
-            and r.name == "custom_components.ev_lb.coordinator"
+            and r.name == "custom_components.watt_o_balancer.coordinator"
         ]
         assert len(info_messages) == 0
 
@@ -163,7 +163,7 @@ class TestWarningLogs:
         """A non-numeric power meter value triggers a warning."""
         await setup_integration(hass, mock_config_entry)
 
-        with caplog.at_level(logging.WARNING, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.WARNING, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "not_a_number")
             await hass.async_block_till_done()
 
@@ -175,7 +175,7 @@ class TestWarningLogs:
         """Meter unavailable in stop mode triggers a warning (safety-relevant)."""
         await setup_integration(hass, mock_config_entry)
 
-        with caplog.at_level(logging.WARNING, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.WARNING, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "unavailable")
             await hass.async_block_till_done()
 
@@ -187,7 +187,7 @@ class TestWarningLogs:
         """Meter unavailable in set_current mode triggers a warning (degraded operation)."""
         await setup_integration(hass, mock_config_entry_fallback)
 
-        with caplog.at_level(logging.WARNING, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.WARNING, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "unavailable")
             await hass.async_block_till_done()
 
@@ -199,14 +199,14 @@ class TestWarningLogs:
         """Meter unavailable in ignore mode does NOT log a warning — it logs at debug instead."""
         await setup_integration(hass, mock_config_entry_ignore)
 
-        with caplog.at_level(logging.WARNING, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.WARNING, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "unavailable")
             await hass.async_block_till_done()
 
         warning_messages = [
             r for r in caplog.records
             if r.levelno == logging.WARNING
-            and r.name == "custom_components.ev_lb.coordinator"
+            and r.name == "custom_components.watt_o_balancer.coordinator"
         ]
         assert len(warning_messages) == 0
 
@@ -216,7 +216,7 @@ class TestWarningLogs:
         """Meter unavailable in ignore mode logs at debug to avoid flooding the HA log."""
         await setup_integration(hass, mock_config_entry_ignore)
 
-        with caplog.at_level(logging.DEBUG, logger="custom_components.ev_lb.coordinator"):
+        with caplog.at_level(logging.DEBUG, logger="custom_components.watt_o_balancer.coordinator"):
             hass.states.async_set(POWER_METER, "unavailable")
             await hass.async_block_till_done()
 

@@ -12,7 +12,7 @@ from pytest_homeassistant_custom_component.common import (
     async_mock_service,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
@@ -59,7 +59,7 @@ def _make_entry(
     return MockConfigEntry(
         domain=DOMAIN,
         data=data,
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -330,7 +330,7 @@ class TestOutputNeverExceedsServiceLimit:
                 CONF_UNAVAILABLE_BEHAVIOR: "set_current",
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 32.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data

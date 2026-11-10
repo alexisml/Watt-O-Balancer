@@ -9,15 +9,16 @@
 #
 # How to use:
 #   1. In HA go to Settings → Automations & Scenes → Scripts → + Add Script.
-#   2. Switch to YAML mode and paste this content.
+#   2. Switch to YAML mode and paste this content. Save it; Home Assistant
+#      derives the entity ID script.watt_o_balancer_stop_charging from the alias.
 #   3. Adjust conn_id if your charger has multiple connectors (most use 1).
 #   4. Test from Developer Tools → Actions:
 #        Service: script.turn_on
-#        Target:  script.ev_lb_stop_charging
+#        Target:  script.watt_o_balancer_stop_charging
 #        Data:    { variables: { charger_id: test } }
 #   5. Confirm your charger stops before wiring this to the integration.
 
-alias: EV LB - Stop Charging (OCPP)
+alias: Watt-O-Balancer - Stop Charging
 description: Stop EV charging via OCPP (set limit to 0 A)
 mode: single
 fields:

@@ -40,13 +40,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 @callback
 def _register_services(hass: HomeAssistant) -> None:
-    """Register the ev_lb.set_limit service (once per domain)."""
+    """Register the watt_o_balancer.set_limit service (once per domain)."""
     if hass.services.has_service(DOMAIN, SERVICE_SET_LIMIT):
         return
 
     @callback
     def handle_set_limit(call: ServiceCall) -> None:
-        """Handle ev_lb.set_limit service call.
+        """Handle watt_o_balancer.set_limit service call.
 
         When ``entry_id`` is provided the override is applied only to the
         coordinator for that config entry, keeping instances independent.

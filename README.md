@@ -1,6 +1,9 @@
 # Watt-O-Balancer
 
-![Watt-O-Balancer logo](assets/watt_o_balancer_logo.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="custom_components/watt_o_balancer/brand/dark_logo.png">
+  <img alt="Watt-O-Balancer" src="custom_components/watt_o_balancer/brand/logo.png" width="520">
+</picture>
 
 Watt-O-Balancer — Home Assistant EV Charger Load Balancing (HACS-compatible)
 
@@ -9,7 +12,7 @@ Watt-O-Balancer — Home Assistant EV Charger Load Balancing (HACS-compatible)
 [![HACS Validation](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hacs-validate.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hacs-validate.yml)
 [![Hassfest](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hassfest.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/hassfest.yml)
 [![Unit Tests](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/tests.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/tests.yml)
-[![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Falexisml%2F7107fdc2a20719f22bc6fe9f80eba710%2Fraw%2Fev_lb_test_count.json)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/tests.yml)
+[![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Falexisml%2F7107fdc2a20719f22bc6fe9f80eba710%2Fraw%2Fwatt_o_balancer_test_count.json)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/alexisml/ha-ev-charger-balancer/graph/badge.svg?token=GOO252H72J)](https://codecov.io/gh/alexisml/ha-ev-charger-balancer)
 [![Ruff](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/ruff.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/ruff.yml)
 [![Type Check](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/type-check.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/type-check.yml)
@@ -17,7 +20,7 @@ Watt-O-Balancer — Home Assistant EV Charger Load Balancing (HACS-compatible)
 [![CodeQL](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/codeql.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/codeql.yml)
 [![Gitleaks](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/alexisml/ha-ev-charger-balancer/actions/workflows/gitleaks.yml)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/alexisml/ha-ev-charger-balancer/blob/main/.github/dependabot.yml)
-[![Lines of Code](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Falexisml%2F7107fdc2a20719f22bc6fe9f80eba710%2Fraw%2Fev_lb_loc.json)](https://github.com/alexisml/ha-ev-charger-balancer)
+[![Lines of Code](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Falexisml%2F7107fdc2a20719f22bc6fe9f80eba710%2Fraw%2Fwatt_o_balancer_loc.json)](https://github.com/alexisml/ha-ev-charger-balancer)
 
 Smart, local, open-source load balancing for EV chargers integrated with Home Assistant. Watt-O-Balancer dynamically allocates available service power across one or more EV chargers so multiple vehicles can charge fairly without tripping main breakers or exceeding a configured service limit.
 
@@ -83,8 +86,14 @@ The integration watches your home's power meter. When total service power change
 | [Starter Script Templates](docs/examples/) | Ready-to-use YAML templates for all charger types |
 | [Event Notifications Guide](docs/documentation/05-event-notifications-guide.md) | Event types, payloads, automation examples for mobile alerts |
 | [Logging Guide](docs/documentation/06-logging-guide.md) | Debug logs, log levels, diagnostic sensors |
+| [Brand Images](docs/documentation/09-brand-images.md) | Icon/logo sources, rebuild script, Home Assistant brands submission |
 
 ---
+
+> [!IMPORTANT]
+> **Upgrading from a version before the rename?** The domain changed from
+> `ev_lb` to `watt_o_balancer`, which Home Assistant cannot migrate on its
+> own. See [MIGRATION.md](MIGRATION.md) before you update.
 
 ## Quick install (HACS)
 
@@ -97,7 +106,7 @@ The integration watches your home's power meter. When total service power change
 
 ## Manual install (developer / local)
 
-1. Copy the `ev_lb` integration folder into `custom_components/ev_lb/` (the current integration domain; a future release may rename this to `watt_o_balancer`).
+1. Copy the `watt_o_balancer` integration folder into `custom_components/watt_o_balancer/`.
 2. Restart Home Assistant.
 3. Configure via the integration UI.
 

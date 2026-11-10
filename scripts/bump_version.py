@@ -33,7 +33,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-MANIFEST_PATH = Path(__file__).resolve().parent.parent / "custom_components" / "ev_lb" / "manifest.json"
+MANIFEST_PATH = Path(__file__).resolve().parent.parent / "custom_components" / "watt_o_balancer" / "manifest.json"
 TAG_PATTERN = re.compile(r"^v(\d{4})\.(\d{1,2})\.(\d+)$")
 _BRANCH_SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 _BRANCH_SLUG_TRIM = re.compile(r"^-+|-+$")

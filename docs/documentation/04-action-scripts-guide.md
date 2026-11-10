@@ -60,12 +60,18 @@ Every script receives variables automatically. You can reference them in your sc
 
 Go to **Settings → Automations & Scenes → Scripts → + Add Script**.
 
+Home Assistant derives a new script's entity ID from its `alias`, so the
+aliases below (`Watt-O-Balancer - Set Current`, and so on) produce the entity
+IDs used throughout this guide (`script.watt_o_balancer_set_current`, and so
+on). If you change an alias, check the resulting entity ID in the script's
+settings and use that instead.
+
 #### Example: `set_current` script for OCPP
 
-Create a script named `ev_lb_set_current`:
+Create a script named `watt_o_balancer_set_current`:
 
 ```yaml
-alias: EV LB - Set Current
+alias: Watt-O-Balancer - Set Current
 description: Set the EV charger current limit via OCPP
 mode: single
 fields:
@@ -101,10 +107,10 @@ sequence:
 
 #### Example: `stop_charging` script for OCPP
 
-Create a script named `ev_lb_stop_charging`:
+Create a script named `watt_o_balancer_stop_charging`:
 
 ```yaml
-alias: EV LB - Stop Charging
+alias: Watt-O-Balancer - Stop Charging
 description: Stop EV charging via OCPP
 mode: single
 fields:
@@ -121,10 +127,10 @@ sequence:
 
 #### Example: `start_charging` script for OCPP
 
-Create a script named `ev_lb_start_charging`:
+Create a script named `watt_o_balancer_start_charging`:
 
 ```yaml
-alias: EV LB - Start Charging
+alias: Watt-O-Balancer - Start Charging
 description: Resume EV charging via OCPP
 mode: single
 fields:
@@ -207,7 +213,7 @@ When charging stops, `set_current(0)` is called **before** `stop_charging`. This
 ## Error handling
 
 - **Script not configured:** The action is silently skipped. No error is logged.
-- **Script call fails:** A warning is logged, an `ev_lb_action_failed` event is fired, and a persistent notification is created on the HA dashboard so you can see the problem at a glance. The integration continues operating — other actions are not affected. For example, if `start_charging` fails, `set_current` will still be attempted.
+- **Script call fails:** A warning is logged, an `watt_o_balancer_action_failed` event is fired, and a persistent notification is created on the HA dashboard so you can see the problem at a glance. The integration continues operating — other actions are not affected. For example, if `start_charging` fails, `set_current` will still be attempted.
 - **Script entity does not exist:** Treated as a call failure — a warning is logged, the event is fired, a persistent notification is created, and the integration continues.
 
 ---
@@ -218,12 +224,12 @@ Use this checklist to verify your action scripts before and after connecting the
 
 ### Before connecting scripts
 
-- [ ] **Script entities exist.** Confirm each script appears in **Developer Tools → Services** (search for `script.ev_lb_`).
+- [ ] **Script entities exist.** Confirm each script appears in **Developer Tools → Services** (search for `script.watt_o_balancer_`).
 - [ ] **Test set_current manually.** In Developer Tools → Actions, call:
   ```yaml
   service: script.turn_on
   target:
-    entity_id: script.ev_lb_set_current
+    entity_id: script.watt_o_balancer_set_current
   data:
     variables:
       current_a: 10
@@ -241,7 +247,7 @@ Use this checklist to verify your action scripts before and after connecting the
 - [ ] **Verify integration loaded.** Check **Settings → Devices & Services** — "Watt-O-Balancer" should appear without errors.
 - [ ] **Trigger a current change.** Change the power meter value (or wait for a real change) and confirm `sensor.*_current_set` updates.
 - [ ] **Check last action status.** In Developer Tools → States, confirm `sensor.*_last_action_status` shows `success`.
-- [ ] **Verify no error notifications.** Check the HA notifications bell — there should be no `ev_lb_action_failed` persistent notifications.
+- [ ] **Verify no error notifications.** Check the HA notifications bell — there should be no `watt_o_balancer_action_failed` persistent notifications.
 - [ ] **Test an overload.** Temporarily increase the power meter value above the service limit and confirm the charger stops. Then reduce it and confirm charging resumes.
 
 ---
@@ -296,8 +302,8 @@ sequence:
 
 - **Always test manually first.** Before connecting any script to the integration, test it from **Developer Tools → Actions** with realistic variable values.
 - **Use the diagnostic sensors.** Check `sensor.*_last_action_status`, `sensor.*_last_action_error`, and `sensor.*_action_latency` to monitor how your scripts are performing.
-- **Enable debug logs temporarily.** Add `custom_components.ev_lb: debug` to your logger config to see the full computation pipeline and action execution. See the [Logging Guide](06-logging-guide.md) for details.
-- **Monitor the events.** Use Developer Tools → Events to listen for `ev_lb_action_failed` while testing to catch failures in real time.
+- **Enable debug logs temporarily.** Add `custom_components.watt_o_balancer: debug` to your logger config to see the full computation pipeline and action execution. See the [Logging Guide](06-logging-guide.md) for details.
+- **Monitor the events.** Use Developer Tools → Events to listen for `watt_o_balancer_action_failed` while testing to catch failures in real time.
 
 ### Compatibility notes
 
@@ -329,7 +335,7 @@ automation:
       Sends the Watt-O-Balancer target current to the charger whenever it changes.
     trigger:
       - platform: state
-        entity_id: sensor.ev_charger_load_balancer_charging_current_set
+        entity_id: sensor.watt_o_balancer_charging_current_set
     condition:
       - condition: template
         value_template: >
@@ -363,11 +369,11 @@ automation:
 > - You want to add complex conditions (time-of-day, solar surplus thresholds, etc.) that decide *whether* to follow the balancer output.
 >
 > **Trade-offs compared to action scripts:**
-> - The integration cannot report action success/failure — diagnostic sensors like `last_action_status` and `action_latency` will not be populated, and `ev_lb_action_failed` events will not fire.
+> - The integration cannot report action success/failure — diagnostic sensors like `last_action_status` and `action_latency` will not be populated, and `watt_o_balancer_action_failed` events will not fire.
 > - Transition logic (start → set_current sequencing, duplicate suppression) must be handled inside your automation instead of being managed by the integration.
 > - Automation triggers are slightly less immediate than the integration's direct script calls, though the difference is negligible for most chargers.
 
-Replace `sensor.ev_charger_load_balancer_charging_current_set` with your actual entity ID (find it in **Developer Tools → States** by searching for `current_set`). Replace the `ocpp.*` actions with whatever services your charger integration exposes.
+Replace `sensor.watt_o_balancer_charging_current_set` with your actual entity ID (find it in **Developer Tools → States** by searching for `current_set`). Replace the `ocpp.*` actions with whatever services your charger integration exposes.
 
 ---
 
@@ -554,9 +560,9 @@ Ready-to-use YAML templates for all charger types are available in the [`docs/ex
 ### How to find the charger_id
 
 By default, `charger_id` is the config entry ID, visible in the Home Assistant URL when you view the integration:
-`/config/integrations/integration/ev_lb#<charger_id>`
+`/config/integrations/integration/watt_o_balancer#<charger_id>`
 
-You can also find it in **Developer Tools → States** by searching for any `ev_lb` entity and checking its `unique_id` prefix.
+You can also find it in **Developer Tools → States** by searching for any `watt_o_balancer` entity and checking its `unique_id` prefix.
 
 #### Overriding the charger_id
 

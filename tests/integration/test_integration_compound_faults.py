@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.common import (
     async_mock_service,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
@@ -70,7 +70,7 @@ def _entry_with_actions_and_fallback(behavior: str, fallback_a: float = 10.0) ->
             CONF_UNAVAILABLE_BEHAVIOR: behavior,
             CONF_UNAVAILABLE_FALLBACK_CURRENT: fallback_a,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 

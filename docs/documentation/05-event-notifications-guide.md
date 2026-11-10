@@ -8,7 +8,7 @@ The integration fires standard Home Assistant bus events when notable conditions
 
 ```mermaid
 flowchart LR
-    LB["⚡ Load Balancer<br/>detects fault or<br/>state change"] --> EB["📢 HA Event Bus<br/>(ev_lb_* events)"]
+    LB["⚡ Load Balancer<br/>detects fault or<br/>state change"] --> EB["📢 HA Event Bus<br/>(watt_o_balancer_* events)"]
     LB --> PN["🔔 Persistent<br/>Notifications<br/>(dashboard)"]
     EB --> AU["🤖 Your Automations"]
     AU --> MN["📱 Mobile Push"]
@@ -21,11 +21,11 @@ Five event types are available:
 
 | Event type | When it fires | Persistent notification |
 |---|---|---|
-| `ev_lb_meter_unavailable` | Power meter becomes unavailable and charging is stopped (stop mode) | ✅ Created |
-| `ev_lb_overload_stop` | Household load exceeds the service limit and charging is stopped | ✅ Created |
-| `ev_lb_fallback_activated` | Power meter becomes unavailable and fallback current is applied (set-current mode) | ✅ Created |
-| `ev_lb_charging_resumed` | Charging resumes after being stopped | ❌ (dismisses overload notification) |
-| `ev_lb_action_failed` | A charger action script fails | ✅ Created |
+| `watt_o_balancer_meter_unavailable` | Power meter becomes unavailable and charging is stopped (stop mode) | ✅ Created |
+| `watt_o_balancer_overload_stop` | Household load exceeds the service limit and charging is stopped | ✅ Created |
+| `watt_o_balancer_fallback_activated` | Power meter becomes unavailable and fallback current is applied (set-current mode) | ✅ Created |
+| `watt_o_balancer_charging_resumed` | Charging resumes after being stopped | ❌ (dismisses overload notification) |
+| `watt_o_balancer_action_failed` | A charger action script fails | ✅ Created |
 
 ---
 
@@ -33,7 +33,7 @@ Five event types are available:
 
 Every event includes `entry_id` (the config entry ID) plus condition-specific fields.
 
-### `ev_lb_meter_unavailable`
+### `watt_o_balancer_meter_unavailable`
 
 Fired when the power meter entity transitions to `unavailable` or `unknown` and the configured behavior is **stop**.
 
@@ -42,7 +42,7 @@ Fired when the power meter entity transitions to `unavailable` or `unknown` and 
 | `entry_id` | string | Config entry ID |
 | `power_meter_entity` | string | Entity ID of the power meter sensor |
 
-### `ev_lb_overload_stop`
+### `watt_o_balancer_overload_stop`
 
 Fired when household load exceeds the service limit and the charger is stopped from an active charging state.
 
@@ -52,7 +52,7 @@ Fired when household load exceeds the service limit and the charger is stopped f
 | `previous_current_a` | float | Charging current before the stop (A) |
 | `available_current_a` | float | Computed available headroom at the time of stop (A) |
 
-### `ev_lb_fallback_activated`
+### `watt_o_balancer_fallback_activated`
 
 Fired when the power meter becomes unavailable and the configured behavior is **set a specific current**.
 
@@ -62,7 +62,7 @@ Fired when the power meter becomes unavailable and the configured behavior is **
 | `power_meter_entity` | string | Entity ID of the power meter sensor |
 | `fallback_current_a` | float | Fallback current applied (A) |
 
-### `ev_lb_charging_resumed`
+### `watt_o_balancer_charging_resumed`
 
 Fired when charging resumes from a stopped state (0 A → > 0 A).
 
@@ -71,7 +71,7 @@ Fired when charging resumes from a stopped state (0 A → > 0 A).
 | `entry_id` | string | Config entry ID |
 | `current_a` | float | New charging current (A) |
 
-### `ev_lb_action_failed`
+### `watt_o_balancer_action_failed`
 
 Fired when a configured charger action script raises an error during execution.
 
@@ -120,7 +120,7 @@ automation:
   - alias: "EV charger overload alert"
     trigger:
       - platform: event
-        event_type: ev_lb_overload_stop
+        event_type: watt_o_balancer_overload_stop
     action:
       - action: notify.mobile_app_my_phone
         data:
@@ -137,7 +137,7 @@ automation:
   - alias: "EV charger meter lost"
     trigger:
       - platform: event
-        event_type: ev_lb_meter_unavailable
+        event_type: watt_o_balancer_meter_unavailable
     action:
       - action: notify.mobile_app_my_phone
         data:
@@ -154,7 +154,7 @@ automation:
   - alias: "EV charger resumed"
     trigger:
       - platform: event
-        event_type: ev_lb_charging_resumed
+        event_type: watt_o_balancer_charging_resumed
     action:
       - action: notify.mobile_app_my_phone
         data:
@@ -170,7 +170,7 @@ automation:
   - alias: "Flash light on EV fallback"
     trigger:
       - platform: event
-        event_type: ev_lb_fallback_activated
+        event_type: watt_o_balancer_fallback_activated
     action:
       - action: light.turn_on
         target:
@@ -186,11 +186,11 @@ automation:
   - alias: "EV charger fault alert"
     trigger:
       - platform: event
-        event_type: ev_lb_meter_unavailable
+        event_type: watt_o_balancer_meter_unavailable
       - platform: event
-        event_type: ev_lb_overload_stop
+        event_type: watt_o_balancer_overload_stop
       - platform: event
-        event_type: ev_lb_fallback_activated
+        event_type: watt_o_balancer_fallback_activated
     action:
       - action: notify.mobile_app_my_phone
         data:
@@ -211,7 +211,7 @@ automation:
   - alias: "EV charger action failed"
     trigger:
       - platform: event
-        event_type: ev_lb_action_failed
+        event_type: watt_o_balancer_action_failed
     action:
       - action: notify.mobile_app_my_phone
         data:
@@ -226,12 +226,12 @@ automation:
 
 ## Using events in Node-RED
 
-If you use the [Node-RED companion integration](https://github.com/zachowj/hass-node-red), you can listen for these events with an **events: all** node filtered by event type (e.g., `ev_lb_overload_stop`). The event payload is available in `msg.payload.event`.
+If you use the [Node-RED companion integration](https://github.com/zachowj/hass-node-red), you can listen for these events with an **events: all** node filtered by event type (e.g., `watt_o_balancer_overload_stop`). The event payload is available in `msg.payload.event`.
 
 ---
 
 ## Tips
 
-- **Test manually:** You can trigger a test event from **Developer Tools → Events** by firing `ev_lb_overload_stop` with a sample payload to verify your automations work before a real fault occurs.
+- **Test manually:** You can trigger a test event from **Developer Tools → Events** by firing `watt_o_balancer_overload_stop` with a sample payload to verify your automations work before a real fault occurs.
 - **Filter by entry_id:** If you plan to use multi-charger support in the future, filter automations by `trigger.event.data.entry_id` to target a specific charger.
 - **Combine with persistent notifications:** The integration already creates dashboard notifications for faults. Automations let you extend this to mobile alerts, Telegram, email, or any notification platform HA supports.

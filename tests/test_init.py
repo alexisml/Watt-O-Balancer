@@ -13,7 +13,7 @@ from homeassistant.config_entries import ConfigEntryState
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
@@ -22,7 +22,7 @@ from custom_components.ev_lb.const import (
     SERVICE_SET_LIMIT,
     UNAVAILABLE_BEHAVIOR_IGNORE,
 )
-from custom_components.ev_lb import _register_services
+from custom_components.watt_o_balancer import _register_services
 from conftest import setup_integration
 
 
@@ -86,7 +86,7 @@ async def test_coordinator_uses_options_over_data_for_electrical_params(
             CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             CONF_UNAVAILABLE_FALLBACK_CURRENT: 8.0,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
     await setup_integration(hass, entry)
 

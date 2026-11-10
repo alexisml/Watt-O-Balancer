@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.helpers.device_registry import DeviceInfo
 
-DOMAIN = "ev_lb"
+DOMAIN = "watt_o_balancer"
 
 # Platforms to set up
 PLATFORMS: list[Platform] = [
@@ -142,7 +142,7 @@ def get_device_info(entry: ConfigEntry) -> DeviceInfo:
     """Return shared DeviceInfo for all entities in a config entry."""
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
-        name="EV Charger Load Balancer",
-        manufacturer="ev_lb",
+        name="Watt-O-Balancer",
+        manufacturer="Watt-O-Balancer",
         model="Virtual Load Balancer",
     )

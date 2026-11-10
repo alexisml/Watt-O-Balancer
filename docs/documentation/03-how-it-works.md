@@ -72,7 +72,7 @@ automation:
     action:
       - action: number.set_value
         target:
-          entity_id: number.ev_charger_load_balancer_max_charger_current
+          entity_id: number.watt_o_balancer_max_charger_current
         data:
           value: "{{ states('sensor.solar_surplus_amps') | float(0) | round(0) }}"
 ```
@@ -89,7 +89,7 @@ automation:
     action:
       - action: number.set_value
         target:
-          entity_id: number.ev_charger_load_balancer_max_charger_current
+          entity_id: number.watt_o_balancer_max_charger_current
         data:
           value: 0
 
@@ -100,7 +100,7 @@ automation:
     action:
       - action: number.set_value
         target:
-          entity_id: number.ev_charger_load_balancer_max_charger_current
+          entity_id: number.watt_o_balancer_max_charger_current
         data:
           value: 32
 ```
@@ -117,7 +117,7 @@ automation:
     action:
       - action: number.set_value
         target:
-          entity_id: number.ev_charger_load_balancer_max_charger_current
+          entity_id: number.watt_o_balancer_max_charger_current
         data:
           value: 10
 
@@ -128,7 +128,7 @@ automation:
     action:
       - action: number.set_value
         target:
-          entity_id: number.ev_charger_load_balancer_max_charger_current
+          entity_id: number.watt_o_balancer_max_charger_current
         data:
           value: 32
 ```
@@ -139,7 +139,7 @@ In both cases, the load balancer continues to protect your service limit — the
 
 ## Entities reference
 
-All entities are grouped under a single device called **EV Charger Load Balancer** in **Settings → Devices**.
+All entities are grouped under a single device called **Watt-O-Balancer** in **Settings → Devices**.
 
 ### Sensors
 
@@ -203,7 +203,7 @@ All three buttons pass `charger_id` and route through the existing retry + expon
 
 | Service | What it does |
 |---|---|
-| `ev_lb.set_limit` | Manually override the charger current. Accepts `current_a` (float). The value is clamped to the charger's min/max range. If it falls below the minimum EV current, charging stops. **The override is one-shot** — the next power-meter event resumes automatic balancing. Useful for temporary limits via automations. |
+| `watt_o_balancer.set_limit` | Manually override the charger current. Accepts `current_a` (float). The value is clamped to the charger's min/max range. If it falls below the minimum EV current, charging stops. **The override is one-shot** — the next power-meter event resumes automatic balancing. Useful for temporary limits via automations. |
 
 ### Automatic charger recovery
 
@@ -218,7 +218,7 @@ When a **charger status sensor** is configured, the integration can automaticall
 **Controls:**
 
 - **Enable/disable per charger:** Use `switch.*_auto_recovery_on_charger_reconnect` to toggle this behavior. It is **on** by default.
-- **Event:** When recovery triggers, the integration fires an `ev_lb_charger_recovered` event with `entry_id` and `current_a` fields. Use this to build custom automations (e.g., send a notification).
+- **Event:** When recovery triggers, the integration fires an `watt_o_balancer_charger_recovered` event with `entry_id` and `current_a` fields. Use this to build custom automations (e.g., send a notification).
 - **Logging:** Recovery events are logged at INFO level with the message "Charger recovered from unavailable state — auto-retriggering set_current".
 
 **Conditions for auto-recovery to trigger:**
@@ -395,7 +395,7 @@ By default the coordinator estimates the EV's draw using the last commanded curr
 If you have a sensor that reports whether the charger is actively drawing current (e.g., an OCPP `charger_status` sensor), you can configure it in the integration options:
 
 ```
-Settings → Devices → EV Charger Load Balancer → Configure → Charger status sensor
+Settings → Devices → Watt-O-Balancer → Configure → Charger status sensor
 ```
 
 When a status sensor is configured:
@@ -582,9 +582,9 @@ When your power meter sensor transitions to `unavailable` or `unknown`, the inte
 ```mermaid
 flowchart TD
     A(["Power meter → unavailable / unknown"]) --> B{"Configured behavior?"}
-    B -- "Stop (default)" --> C["Set charger to 0 A<br/>Fire ev_lb_meter_unavailable event"]
+    B -- "Stop (default)" --> C["Set charger to 0 A<br/>Fire watt_o_balancer_meter_unavailable event"]
     B -- "Ignore" --> D["Keep last computed current<br/>No action taken"]
-    B -- "Set specific current" --> E["Apply fallback current<br/>(capped at charger max)<br/>Fire ev_lb_fallback_activated event"]
+    B -- "Set specific current" --> E["Apply fallback current<br/>(capped at charger max)<br/>Fire watt_o_balancer_fallback_activated event"]
     C --> F(["Wait for meter recovery"])
     D --> F
     E --> F
@@ -617,10 +617,10 @@ This means the charger is always kept within safe hardware limits, even during a
 
 ## Manual override
 
-The `ev_lb.set_limit` service lets you temporarily override the automatic balancing:
+The `watt_o_balancer.set_limit` service lets you temporarily override the automatic balancing:
 
 ```yaml
-action: ev_lb.set_limit
+action: watt_o_balancer.set_limit
 data:
   current_a: 16
 ```
@@ -667,7 +667,7 @@ sequenceDiagram
 4. The coordinator defers all meter health checks until **Home Assistant has fully started** (after `EVENT_HOMEASSISTANT_STARTED`). This ensures that dependent integrations — such as your energy monitor or smart meter — have had time to register their entities before the integration evaluates whether the power meter is available.
 5. Once HA is fully started: if the meter is unavailable, the configured fallback is applied immediately. If the meter is healthy, the integration waits for the first power-meter reading.
 
-> **Why defer until HA is fully started?** The power meter entity often comes from another integration (e.g., a cloud energy monitor, DSMR reader, or Shelly). That integration may not have finished loading when `ev_lb` starts. Checking the meter state too early would trigger spurious "meter unavailable" warnings and charger actions even though the meter is perfectly fine — it just hasn't connected yet.
+> **Why defer until HA is fully started?** The power meter entity often comes from another integration (e.g., a cloud energy monitor, DSMR reader, or Shelly). That integration may not have finished loading when `watt_o_balancer` starts. Checking the meter state too early would trigger spurious "meter unavailable" warnings and charger actions even though the meter is perfectly fine — it just hasn't connected yet.
 
 ---
 

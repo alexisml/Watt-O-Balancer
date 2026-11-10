@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.common import (
     async_mock_service,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     DEFAULT_MAX_CHARGER_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
     DOMAIN,
@@ -266,7 +266,7 @@ class TestMinEvCurrentBoundaries:
 
 
 class TestSetLimitBoundaryValues:
-    """Boundary tests for the ev_lb.set_limit service.
+    """Boundary tests for the watt_o_balancer.set_limit service.
 
     The service schema validates current_a ≥ 0. Values above charger max
     are clamped by the coordinator. Negative values are rejected.

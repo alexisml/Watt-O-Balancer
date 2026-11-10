@@ -21,7 +21,7 @@ from homeassistant.helpers.selector import EntitySelector
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
@@ -59,7 +59,7 @@ async def test_user_flow_success(hass: HomeAssistant) -> None:
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "EV Load Balancing (sensor.house_power_w)"
+    assert result["title"] == "Watt-O-Balancer (sensor.house_power_w)"
     assert result["data"] == {
         CONF_POWER_METER_ENTITY: "sensor.house_power_w",
         CONF_VOLTAGE: 230.0,
@@ -172,7 +172,7 @@ async def test_user_flow_second_instance_different_meter(hass: HomeAssistant) ->
         },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "EV Load Balancing (sensor.garage_power_w)"
+    assert result["title"] == "Watt-O-Balancer (sensor.garage_power_w)"
 
 
 async def test_power_meter_selector_filters_by_power_device_class(hass: HomeAssistant) -> None:
@@ -232,16 +232,16 @@ async def test_options_flow_saves_action_scripts(
         result["flow_id"],
         {
             CONF_POWER_METER_ENTITY: "sensor.house_power_w",
-            CONF_ACTION_SET_CURRENT: "script.ev_lb_set_current",
-            CONF_ACTION_STOP_CHARGING: "script.ev_lb_stop_charging",
-            CONF_ACTION_START_CHARGING: "script.ev_lb_start_charging",
+            CONF_ACTION_SET_CURRENT: "script.watt_o_balancer_set_current",
+            CONF_ACTION_STOP_CHARGING: "script.watt_o_balancer_stop_charging",
+            CONF_ACTION_START_CHARGING: "script.watt_o_balancer_start_charging",
         },
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_ACTION_SET_CURRENT] == "script.ev_lb_set_current"
-    assert result["data"][CONF_ACTION_STOP_CHARGING] == "script.ev_lb_stop_charging"
-    assert result["data"][CONF_ACTION_START_CHARGING] == "script.ev_lb_start_charging"
+    assert result["data"][CONF_ACTION_SET_CURRENT] == "script.watt_o_balancer_set_current"
+    assert result["data"][CONF_ACTION_STOP_CHARGING] == "script.watt_o_balancer_stop_charging"
+    assert result["data"][CONF_ACTION_START_CHARGING] == "script.watt_o_balancer_start_charging"
 
 
 async def test_options_flow_saves_charger_status_entity(
@@ -352,7 +352,7 @@ async def test_options_flow_prefills_charger_id(
             CONF_VOLTAGE: 230.0,
             CONF_CHARGER_ID: "existing_charger_id",
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
     entry.add_to_hass(hass)
 
@@ -514,7 +514,7 @@ async def test_options_flow_changes_power_meter(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert mock_config_entry_no_actions.data[CONF_POWER_METER_ENTITY] == "sensor.new_power_meter"
     assert mock_config_entry_no_actions.unique_id == "sensor.new_power_meter"
-    assert mock_config_entry_no_actions.title == "EV Load Balancing (sensor.new_power_meter)"
+    assert mock_config_entry_no_actions.title == "Watt-O-Balancer (sensor.new_power_meter)"
     # Power meter must not appear in options — it lives in entry.data
     assert CONF_POWER_METER_ENTITY not in mock_config_entry_no_actions.options
 
@@ -585,7 +585,7 @@ async def test_options_flow_power_meter_already_configured(
         domain=DOMAIN,
         data={CONF_POWER_METER_ENTITY: "sensor.other_power_meter", CONF_VOLTAGE: 230.0},
         unique_id="sensor.other_power_meter",
-        title="EV Load Balancing (sensor.other_power_meter)",
+        title="Watt-O-Balancer (sensor.other_power_meter)",
     )
     other_entry.add_to_hass(hass)
     mock_config_entry_no_actions.add_to_hass(hass)

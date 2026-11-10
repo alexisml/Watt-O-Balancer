@@ -7,7 +7,7 @@ Covers:
   redistribution, shutoff, disabled state, power sensor unavailable
 """
 
-from custom_components.ev_lb.load_balancer import (
+from custom_components.watt_o_balancer.load_balancer import (
     clamp_current,
     compute_available_current,
     distribute_current,

@@ -30,7 +30,7 @@ from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_CHARGER_STATUS_ENTITY,
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
@@ -56,7 +56,7 @@ def _make_status_sensor_entry(status_entity: str) -> MockConfigEntry:
             CONF_MAX_SERVICE_CURRENT: 32.0,
             CONF_CHARGER_STATUS_ENTITY: status_entity,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -90,7 +90,7 @@ class TestChargerStatusSensor:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_CHARGER_STATUS_ENTITY: status_entity,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Available")  # EV not charging
@@ -131,7 +131,7 @@ class TestChargerStatusSensor:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_CHARGER_STATUS_ENTITY: status_entity,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Charging")  # EV actively charging
@@ -197,7 +197,7 @@ class TestChargerStatusSensor:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
             },
             options={CONF_CHARGER_STATUS_ENTITY: status_entity},
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Available")  # EV not charging
@@ -229,7 +229,7 @@ class TestChargerStatusSensor:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_CHARGER_STATUS_ENTITY: status_entity,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Charging")
@@ -323,7 +323,7 @@ class TestThrottledEvFix:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_CHARGER_STATUS_ENTITY: status_entity,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Charging")
@@ -369,7 +369,7 @@ class TestThrottledEvFix:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_CHARGER_STATUS_ENTITY: status_entity,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Charging")
@@ -434,7 +434,7 @@ class TestThrottledEvFix:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_CHARGER_STATUS_ENTITY: status_entity,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Charging")
@@ -487,7 +487,7 @@ class TestChargerStatusSensorSubscription:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_CHARGER_STATUS_ENTITY: status_entity,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         hass.states.async_set(status_entity, "Charging")

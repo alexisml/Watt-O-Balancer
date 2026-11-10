@@ -112,10 +112,11 @@ The integration watches your home's power meter. When total service power change
 The integration is not in the HACS default store, so it has to be added as a
 custom repository.
 
-1. **Install** via [HACS](https://hacs.xyz/) → Integrations → ⋮ → Custom repositories, add `https://github.com/alexisml/Watt-O-Balancer` as an **Integration** — see [Installation & Setup](docs/documentation/02-installation-and-setup.md)
-2. **Configure** in Settings → Devices & Services → Add Integration → "Watt-O-Balancer"
-3. **Create action scripts** to control your charger — see [Action Scripts Guide](docs/documentation/04-action-scripts-guide.md)
-4. **Monitor** via dashboard sensors and [event notifications](docs/documentation/05-event-notifications-guide.md)
+1. **Add the repository** in [HACS](https://hacs.xyz/) → Integrations → ⋮ → Custom repositories: `https://github.com/alexisml/Watt-O-Balancer` as an **Integration** — see [Installation & Setup](docs/documentation/02-installation-and-setup.md)
+2. **Download** it from HACS, then **restart** Home Assistant
+3. **Configure** in Settings → Devices & Services → Add Integration → "EV Charger Load Balancing" (the name in the v2026.8.3 release; a build from `main` is called "Watt-O-Balancer")
+4. **Create action scripts** to control your charger — see [Action Scripts Guide](docs/documentation/04-action-scripts-guide.md)
+5. **Monitor** via dashboard sensors and [event notifications](docs/documentation/05-event-notifications-guide.md)
 
 ---
 

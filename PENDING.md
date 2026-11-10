@@ -144,9 +144,10 @@ The code is Apache 2.0. To carry it on:
 
 1. Fork the repository and update `codeowners`, `documentation` and
    `issue_tracker` in `manifest.json`.
-2. Decide whether to keep the `watt_o_balancer` domain. Keeping it lets
-   existing users switch to your fork without migrating, but they cannot have
-   both installed at once.
+2. Decide whether to keep the `watt_o_balancer` domain. There is no install
+   base to stay compatible with, so pick whichever name suits your fork; it
+   just cannot be installed alongside another integration using the same
+   domain.
 3. Run the checks the CI ran: `python -m pytest tests/ -v`, `ruff check .`,
    `pyright` and `codespell`. The
    [Development Guide](docs/documentation/08-development-guide.md) covers the

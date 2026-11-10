@@ -16,7 +16,8 @@
 # How to use:
 #   1. Add the rest_command above to your configuration.yaml and restart HA.
 #   2. In HA go to Settings → Automations & Scenes → Scripts → + Add Script.
-#   3. Switch to YAML mode and paste this content.
+#   3. Switch to YAML mode and paste this content. Save it; Home Assistant
+#      derives the entity ID script.watt_o_balancer_stop_charging from the alias.
 #   4. Replace the rest_command name if yours differs.
 #   5. Test from Developer Tools → Actions:
 #        Service: script.turn_on
@@ -24,7 +25,7 @@
 #        Data:    { variables: { charger_id: test } }
 #   6. Confirm your charger stops before wiring this to the integration.
 
-alias: EV LB - Stop Charging (REST)
+alias: Watt-O-Balancer - Stop Charging
 description: Stop EV charging via REST API
 mode: single
 fields:

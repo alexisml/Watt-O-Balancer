@@ -12,7 +12,8 @@
 #
 # How to use:
 #   1. In HA go to Settings → Automations & Scenes → Scripts → + Add Script.
-#   2. Switch to YAML mode and paste this content.
+#   2. Switch to YAML mode and paste this content. Save it; Home Assistant
+#      derives the entity ID script.watt_o_balancer_start_charging from the alias.
 #   3. Replace switch.ev_charger with your charger's switch entity ID.
 #   4. Test from Developer Tools → Actions:
 #        Service: script.turn_on
@@ -20,7 +21,7 @@
 #        Data:    { variables: { charger_id: test } }
 #   5. Confirm your charger resumes before wiring this to the integration.
 
-alias: EV LB - Start Charging (Switch)
+alias: Watt-O-Balancer - Start Charging
 description: Resume EV charging by turning on the charger switch
 mode: single
 fields:

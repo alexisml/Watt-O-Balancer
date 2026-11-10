@@ -50,7 +50,7 @@ class TestUnavailableBehaviorStop:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_STOP,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -85,7 +85,7 @@ class TestUnavailableBehaviorIgnore:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -123,7 +123,7 @@ class TestUnavailableBehaviorSetCurrent:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 50.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -155,7 +155,7 @@ class TestUnavailableBehaviorSetCurrent:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 6.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -193,7 +193,7 @@ class TestMeterRecovery:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 6.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -240,7 +240,7 @@ class TestParameterChangeWithUnavailableMeter:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 20.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -283,7 +283,7 @@ class TestParameterChangeWithUnavailableMeter:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -327,7 +327,7 @@ class TestParameterChangeWithUnavailableMeter:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -372,7 +372,7 @@ class TestParameterChangeWithUnavailableMeter:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_STOP,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -413,7 +413,7 @@ class TestParameterChangeWithUnavailableMeter:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -458,7 +458,7 @@ class TestParameterChangeWithUnavailableMeter:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 20.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "0")
         entry.add_to_hass(hass)
@@ -521,7 +521,7 @@ class TestStartupWithUnavailableMeter:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_STOP,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         # Register meter as unavailable BEFORE setup
         hass.states.async_set(POWER_METER, "unavailable")
@@ -550,7 +550,7 @@ class TestStartupWithUnavailableMeter:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 10.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "unavailable")
         entry.add_to_hass(hass)
@@ -576,7 +576,7 @@ class TestStartupWithUnavailableMeter:
                 CONF_MAX_SERVICE_CURRENT: 32.0,
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         hass.states.async_set(POWER_METER, "unavailable")
         entry.add_to_hass(hass)

@@ -26,7 +26,8 @@
 # How to use:
 #   1. Add the Modbus hub above to your configuration.yaml and restart HA.
 #   2. In HA go to Settings → Automations & Scenes → Scripts → + Add Script.
-#   3. Switch to YAML mode and paste this content.
+#   3. Switch to YAML mode and paste this content. Save it; Home Assistant
+#      derives the entity ID script.watt_o_balancer_set_current from the alias.
 #   4. Adjust hub, unit, address, and value formula for your charger.
 #   5. Test from Developer Tools → Actions:
 #        Service: script.turn_on
@@ -34,7 +35,7 @@
 #        Data:    { variables: { current_a: 10, current_w: 2300, charger_id: test } }
 #   6. Confirm your charger responds before wiring this to the integration.
 
-alias: EV LB - Set Current (Modbus)
+alias: Watt-O-Balancer - Set Current
 description: Set the EV charger current limit via Modbus register write
 mode: single
 fields:

@@ -70,7 +70,7 @@ def _entry_with_actions_and_fallback(behavior: str, fallback_a: float = 10.0) ->
             CONF_UNAVAILABLE_BEHAVIOR: behavior,
             CONF_UNAVAILABLE_FALLBACK_CURRENT: fallback_a,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 

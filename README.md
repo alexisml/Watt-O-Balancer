@@ -106,7 +106,7 @@ The integration watches your home's power meter. When total service power change
 
 ## Manual install (developer / local)
 
-1. Copy the `watt_o_balancer` integration folder into `custom_components/watt_o_balancer/` (the current integration domain; a future release may rename this to `watt_o_balancer`).
+1. Copy the `watt_o_balancer` integration folder into `custom_components/watt_o_balancer/`.
 2. Restart Home Assistant.
 3. Configure via the integration UI.
 

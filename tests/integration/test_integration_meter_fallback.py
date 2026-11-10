@@ -239,7 +239,7 @@ class TestParameterChangeDuringFallback:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 10.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         await setup_integration(hass, entry)
 
@@ -351,7 +351,7 @@ class TestMinEvCurrentChangeDuringFallback:
                 CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 10.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data

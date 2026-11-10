@@ -86,7 +86,7 @@ async def test_coordinator_uses_options_over_data_for_electrical_params(
             CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
             CONF_UNAVAILABLE_FALLBACK_CURRENT: 8.0,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
     await setup_integration(hass, entry)
 

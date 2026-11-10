@@ -62,7 +62,7 @@ def mock_config_entry_custom_charger_id() -> MockConfigEntry:
             CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
             CONF_CHARGER_ID: CUSTOM_CHARGER_ID,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -509,7 +509,7 @@ class TestPartialActionConfiguration:
                 CONF_ACTION_SET_CURRENT: SET_CURRENT_SCRIPT,
                 # CONF_ACTION_STOP_CHARGING and CONF_ACTION_START_CHARGING intentionally omitted
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         calls = async_mock_service(hass, "script", "turn_on")
         hass.states.async_set(POWER_METER, "0")

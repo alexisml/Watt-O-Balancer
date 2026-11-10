@@ -74,7 +74,7 @@ def mock_config_entry_with_actions() -> MockConfigEntry:
             CONF_ACTION_STOP_CHARGING: STOP_CHARGING_SCRIPT,
             CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -84,7 +84,7 @@ def mock_config_entry_no_actions() -> MockConfigEntry:
     return MockConfigEntry(
         domain=DOMAIN,
         data={**_BASE_CONFIG},
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -104,7 +104,7 @@ def mock_config_entry_fallback() -> MockConfigEntry:
             CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_SET_CURRENT,
             CONF_UNAVAILABLE_FALLBACK_CURRENT: 10.0,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -117,7 +117,7 @@ def mock_config_entry_ignore() -> MockConfigEntry:
             **_BASE_CONFIG,
             CONF_UNAVAILABLE_BEHAVIOR: UNAVAILABLE_BEHAVIOR_IGNORE,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -133,7 +133,7 @@ def mock_config_entry_with_charger_status() -> MockConfigEntry:
             CONF_ACTION_START_CHARGING: START_CHARGING_SCRIPT,
             CONF_CHARGER_STATUS_ENTITY: CHARGER_STATUS_SENSOR,
         },
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 

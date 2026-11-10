@@ -11,7 +11,8 @@
 #
 # How to use:
 #   1. In HA go to Settings → Automations & Scenes → Scripts → + Add Script.
-#   2. Switch to YAML mode and paste this content.
+#   2. Switch to YAML mode and paste this content. Save it; Home Assistant
+#      derives the entity ID script.watt_o_balancer_set_current from the alias.
 #   3. Adjust conn_id if your charger has multiple connectors (most use 1).
 #   4. Test from Developer Tools → Actions:
 #        Service: script.turn_on
@@ -19,7 +20,7 @@
 #        Data:    { variables: { current_a: 10, current_w: 2300, charger_id: test } }
 #   5. Confirm your charger responds before wiring this to the integration.
 
-alias: EV LB - Set Current (OCPP)
+alias: Watt-O-Balancer - Set Current
 description: Set the EV charger current limit via OCPP
 mode: single
 fields:

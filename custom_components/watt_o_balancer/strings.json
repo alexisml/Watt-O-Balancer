@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "EV Charger Load Balancing",
+        "title": "Watt-O-Balancer",
         "description": "Configure the power meter and electrical service parameters. Each instance monitors one power meter. Add multiple instances to balance chargers on separate circuits.",
         "data": {
           "power_meter_entity": "Power meter sensor",
@@ -40,7 +40,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "EV Charger Load Balancing Settings",
+        "title": "Watt-O-Balancer Settings",
         "description": "Update the integration settings.",
         "data": {
           "power_meter_entity": "Power meter sensor",

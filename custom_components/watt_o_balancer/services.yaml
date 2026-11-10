@@ -23,7 +23,7 @@ set_limit:
       name: Config entry ID
       description: >-
         Optional. The config entry ID of the load balancer instance to target
-        (found under Settings → Devices & services → EV Load Balancing →
+        (found under Settings → Devices & services → Watt-O-Balancer →
         entry details). When omitted, the override is applied to all instances.
       required: false
       example: "abc123def456"

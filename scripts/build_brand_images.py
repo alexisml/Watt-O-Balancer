@@ -403,7 +403,7 @@ def main() -> int:
                 scale *= LOGO_PX / height
                 _, height = rasterise(svg_document(3000, 620, body, scale=scale),
                                       path, profile)
-            else:
+            if height != LOGO_PX:
                 raise SystemExit(f"{name}: could not settle on a {LOGO_PX}px height")
             written.append(path)
 

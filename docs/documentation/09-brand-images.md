@@ -103,7 +103,7 @@ declares `"homeassistant": "2024.7.0"` in `hacs.json`, so users on older cores
 only get images from the CDN. Submitting upstream covers them.
 
 The upstream directory name must match the integration domain in
-`manifest.json` — that is `watt_o_balancer`, **not** `watt_o_balancer`. As of this
+`manifest.json` — that is `watt_o_balancer`, **not** the old `ev_lb`. As of this
 writing neither `custom_integrations/watt_o_balancer` nor `core_integrations/watt_o_balancer`
 exists upstream.
 
@@ -122,7 +122,7 @@ exists upstream.
 3. Commit and open the pull request:
 
    ```bash
-   cd ../brands && git checkout -b add-ev-lb && git add custom_integrations/watt_o_balancer && git commit -m "Add EV Charger Load Balancing (watt_o_balancer)" && gh pr create --fill
+   cd ../brands && git checkout -b add-watt-o-balancer && git add custom_integrations/watt_o_balancer && git commit -m "Add Watt-O-Balancer (watt_o_balancer)" && gh pr create --fill
    ```
 
 The pull request body should state the integration name, the domain, and a link

@@ -60,12 +60,18 @@ Every script receives variables automatically. You can reference them in your sc
 
 Go to **Settings → Automations & Scenes → Scripts → + Add Script**.
 
+Home Assistant derives a new script's entity ID from its `alias`, so the
+aliases below (`Watt-O-Balancer - Set Current`, and so on) produce the entity
+IDs used throughout this guide (`script.watt_o_balancer_set_current`, and so
+on). If you change an alias, check the resulting entity ID in the script's
+settings and use that instead.
+
 #### Example: `set_current` script for OCPP
 
 Create a script named `watt_o_balancer_set_current`:
 
 ```yaml
-alias: EV LB - Set Current
+alias: Watt-O-Balancer - Set Current
 description: Set the EV charger current limit via OCPP
 mode: single
 fields:
@@ -104,7 +110,7 @@ sequence:
 Create a script named `watt_o_balancer_stop_charging`:
 
 ```yaml
-alias: EV LB - Stop Charging
+alias: Watt-O-Balancer - Stop Charging
 description: Stop EV charging via OCPP
 mode: single
 fields:
@@ -124,7 +130,7 @@ sequence:
 Create a script named `watt_o_balancer_start_charging`:
 
 ```yaml
-alias: EV LB - Start Charging
+alias: Watt-O-Balancer - Start Charging
 description: Resume EV charging via OCPP
 mode: single
 fields:

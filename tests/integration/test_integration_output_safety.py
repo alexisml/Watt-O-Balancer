@@ -59,7 +59,7 @@ def _make_entry(
     return MockConfigEntry(
         domain=DOMAIN,
         data=data,
-        title="EV Load Balancing",
+        title="Watt-O-Balancer",
     )
 
 
@@ -330,7 +330,7 @@ class TestOutputNeverExceedsServiceLimit:
                 CONF_UNAVAILABLE_BEHAVIOR: "set_current",
                 CONF_UNAVAILABLE_FALLBACK_CURRENT: 32.0,
             },
-            title="EV Load Balancing",
+            title="Watt-O-Balancer",
         )
         await setup_integration(hass, entry)
         coordinator = entry.runtime_data

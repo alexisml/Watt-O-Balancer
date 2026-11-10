@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "EV Charger Load Balancing",
+        "title": "Watt-O-Balancer",
         "description": "Configure the power meter and electrical service parameters. This integration currently supports one charger. Multi-charger support is planned for a future release.",
         "data": {
           "power_meter_entity": "Power meter sensor",
@@ -31,13 +31,13 @@
       "entity_not_found": "The selected power meter entity was not found."
     },
     "abort": {
-      "already_configured": "EV Charger Load Balancing is already configured."
+      "already_configured": "Watt-O-Balancer is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "EV Charger Load Balancing Settings",
+        "title": "Watt-O-Balancer Settings",
         "description": "Update the integration settings.",
         "data": {
           "power_meter_entity": "Power meter sensor",

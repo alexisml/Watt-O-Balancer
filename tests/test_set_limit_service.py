@@ -413,7 +413,7 @@ class TestSetLimitMultiInstance:
                 CONF_VOLTAGE: 230.0,
                 CONF_MAX_SERVICE_CURRENT: 32.0,
             },
-            title="EV Load Balancing (sensor.house_power_w)",
+            title="Watt-O-Balancer (sensor.house_power_w)",
             unique_id=POWER_METER,
         )
         entry_b = MockConfigEntry(
@@ -423,7 +423,7 @@ class TestSetLimitMultiInstance:
                 CONF_VOLTAGE: 230.0,
                 CONF_MAX_SERVICE_CURRENT: 16.0,
             },
-            title="EV Load Balancing (sensor.garage_power_w)",
+            title="Watt-O-Balancer (sensor.garage_power_w)",
             unique_id=second_meter,
         )
 
@@ -471,7 +471,7 @@ class TestSetLimitMultiInstance:
                 CONF_VOLTAGE: 230.0,
                 CONF_MAX_SERVICE_CURRENT: 32.0,
             },
-            title="EV Load Balancing (sensor.house_power_w)",
+            title="Watt-O-Balancer (sensor.house_power_w)",
             unique_id=POWER_METER,
         )
         entry_b = MockConfigEntry(
@@ -481,7 +481,7 @@ class TestSetLimitMultiInstance:
                 CONF_VOLTAGE: 230.0,
                 CONF_MAX_SERVICE_CURRENT: 16.0,
             },
-            title="EV Load Balancing (sensor.garage_power_w)",
+            title="Watt-O-Balancer (sensor.garage_power_w)",
             unique_id=second_meter,
         )
 

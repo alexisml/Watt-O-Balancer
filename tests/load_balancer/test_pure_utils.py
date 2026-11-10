@@ -10,7 +10,7 @@ Covers:
   while the meter is already offline
 """
 
-from custom_components.ev_lb.load_balancer import (
+from custom_components.watt_o_balancer.load_balancer import (
     clamp_to_safe_output,
     compute_fallback_reapply,
     resolve_balancer_state,

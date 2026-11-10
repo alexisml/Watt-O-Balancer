@@ -13,7 +13,7 @@ from homeassistant.config_entries import ConfigEntryState
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_UNAVAILABLE_BEHAVIOR,
     CONF_UNAVAILABLE_FALLBACK_CURRENT,
     CONF_VOLTAGE,
@@ -22,7 +22,7 @@ from custom_components.ev_lb.const import (
     SERVICE_SET_LIMIT,
     UNAVAILABLE_BEHAVIOR_IGNORE,
 )
-from custom_components.ev_lb import _register_services
+from custom_components.watt_o_balancer import _register_services
 from conftest import setup_integration
 
 

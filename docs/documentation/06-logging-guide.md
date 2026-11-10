@@ -10,7 +10,7 @@ Add the following to your Home Assistant `configuration.yaml`:
 logger:
   default: warning
   logs:
-    custom_components.ev_lb: debug
+    custom_components.watt_o_balancer: debug
 ```
 
 Restart Home Assistant. Debug-level logs for this integration will appear in **Settings → System → Logs**.
@@ -53,7 +53,7 @@ When load balancing is disabled:
 DEBUG Power meter changed but load balancing is disabled — skipping
 ```
 
-Manual override via `ev_lb.set_limit`:
+Manual override via `watt_o_balancer.set_limit`:
 ```
 DEBUG Manual override: requested=20.0 A, clamped=20.0 A
 ```
@@ -93,4 +93,4 @@ Use these sensors in automations or dashboards to monitor the integration's beha
 
 ## Logging wrapper
 
-All modules in this integration obtain their logger via `custom_components.ev_lb._log.get_logger()` instead of calling `logging.getLogger()` directly. This gives us a single place to change logging behavior in the future (structured output, rate-limiting, etc.) without modifying every module.
+All modules in this integration obtain their logger via `custom_components.watt_o_balancer._log.get_logger()` instead of calling `logging.getLogger()` directly. This gives us a single place to change logging behavior in the future (structured output, rate-limiting, etc.) without modifying every module.

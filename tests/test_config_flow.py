@@ -21,7 +21,7 @@ from homeassistant.helpers.selector import EntitySelector
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
@@ -232,16 +232,16 @@ async def test_options_flow_saves_action_scripts(
         result["flow_id"],
         {
             CONF_POWER_METER_ENTITY: "sensor.house_power_w",
-            CONF_ACTION_SET_CURRENT: "script.ev_lb_set_current",
-            CONF_ACTION_STOP_CHARGING: "script.ev_lb_stop_charging",
-            CONF_ACTION_START_CHARGING: "script.ev_lb_start_charging",
+            CONF_ACTION_SET_CURRENT: "script.watt_o_balancer_set_current",
+            CONF_ACTION_STOP_CHARGING: "script.watt_o_balancer_stop_charging",
+            CONF_ACTION_START_CHARGING: "script.watt_o_balancer_start_charging",
         },
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_ACTION_SET_CURRENT] == "script.ev_lb_set_current"
-    assert result["data"][CONF_ACTION_STOP_CHARGING] == "script.ev_lb_stop_charging"
-    assert result["data"][CONF_ACTION_START_CHARGING] == "script.ev_lb_start_charging"
+    assert result["data"][CONF_ACTION_SET_CURRENT] == "script.watt_o_balancer_set_current"
+    assert result["data"][CONF_ACTION_STOP_CHARGING] == "script.watt_o_balancer_stop_charging"
+    assert result["data"][CONF_ACTION_START_CHARGING] == "script.watt_o_balancer_start_charging"
 
 
 async def test_options_flow_saves_charger_status_entity(

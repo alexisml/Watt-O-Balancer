@@ -1,16 +1,16 @@
 """Tests for the manual override service and observability features (PR-6).
 
 Tests cover:
-- ev_lb.set_limit service sets charger current to the requested value
-- ev_lb.set_limit clamps the value at the charger maximum
-- ev_lb.set_limit stops charging when the requested value is below minimum EV current
-- ev_lb.set_limit triggers the appropriate action scripts (set_current, stop, resume)
-- ev_lb.set_limit override is one-shot — the next power meter event resumes automatic balancing
-- ev_lb.set_limit with entry_id targets only that instance; other instances are unaffected
-- ev_lb.set_limit with an unknown entry_id is a silent no-op — no instance is affected
-- ev_lb.set_limit without entry_id broadcasts to all instances
+- watt_o_balancer.set_limit service sets charger current to the requested value
+- watt_o_balancer.set_limit clamps the value at the charger maximum
+- watt_o_balancer.set_limit stops charging when the requested value is below minimum EV current
+- watt_o_balancer.set_limit triggers the appropriate action scripts (set_current, stop, resume)
+- watt_o_balancer.set_limit override is one-shot — the next power meter event resumes automatic balancing
+- watt_o_balancer.set_limit with entry_id targets only that instance; other instances are unaffected
+- watt_o_balancer.set_limit with an unknown entry_id is a silent no-op — no instance is affected
+- watt_o_balancer.set_limit without entry_id broadcasts to all instances
 - last_action_reason sensor reflects the correct reason for each type of update
-- ev_lb.set_limit service is unregistered when all entries are unloaded
+- watt_o_balancer.set_limit service is unregistered when all entries are unloaded
 """
 
 from homeassistant.core import HomeAssistant
@@ -20,7 +20,7 @@ from pytest_homeassistant_custom_component.common import (
     async_mock_service,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_VOLTAGE,
@@ -42,7 +42,7 @@ from conftest import (
 
 
 # ---------------------------------------------------------------------------
-# ev_lb.set_limit service — basic behavior
+# watt_o_balancer.set_limit service — basic behavior
 # ---------------------------------------------------------------------------
 
 
@@ -159,7 +159,7 @@ class TestSetLimitService:
 
 
 # ---------------------------------------------------------------------------
-# ev_lb.set_limit — action script integration
+# watt_o_balancer.set_limit — action script integration
 # ---------------------------------------------------------------------------
 
 
@@ -222,7 +222,7 @@ class TestSetLimitActions:
 
 
 # ---------------------------------------------------------------------------
-# ev_lb.set_limit — one-shot behavior
+# watt_o_balancer.set_limit — one-shot behavior
 # ---------------------------------------------------------------------------
 
 
@@ -293,7 +293,7 @@ class TestLastActionReasonSensor:
         hass: HomeAssistant,
         mock_config_entry_no_actions: MockConfigEntry,
     ) -> None:
-        """Reason shows 'manual_override' after calling ev_lb.set_limit."""
+        """Reason shows 'manual_override' after calling watt_o_balancer.set_limit."""
         await setup_integration(hass, mock_config_entry_no_actions)
 
         await hass.services.async_call(
@@ -361,7 +361,7 @@ class TestLastActionReasonSensor:
 
 
 class TestServiceLifecycle:
-    """ev_lb.set_limit service is registered on setup and removed on unload."""
+    """watt_o_balancer.set_limit service is registered on setup and removed on unload."""
 
     async def test_service_registered_on_setup(
         self,
@@ -388,7 +388,7 @@ class TestServiceLifecycle:
 
 
 # ---------------------------------------------------------------------------
-# ev_lb.set_limit — multi-instance independence
+# watt_o_balancer.set_limit — multi-instance independence
 # ---------------------------------------------------------------------------
 
 

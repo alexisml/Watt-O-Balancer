@@ -16,7 +16,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     DEFAULT_MAX_CHARGER_CURRENT,
     DEFAULT_MAX_SERVICE_CURRENT,
     DEFAULT_MIN_EV_CURRENT,
@@ -50,8 +50,8 @@ class TestDeviceRegistration:
             config_entry_id=mock_config_entry.entry_id,
         )
         assert device is not None
-        assert device.name == "EV Charger Load Balancer"
-        assert device.manufacturer == "ev_lb"
+        assert device.name == "Watt-O-Balancer"
+        assert device.manufacturer == "Watt-O-Balancer"
 
     async def test_all_entities_linked_to_device(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
@@ -213,7 +213,7 @@ class TestSensorEntities:
         entity_id = ent_reg.async_get_entity_id(
             "sensor", DOMAIN, f"{mock_config_entry.entry_id}_available_current"
         )
-        assert entity_id == "sensor.ev_charger_load_balancer_available_current"
+        assert entity_id == "sensor.watt_o_balancer_available_current"
 
     async def test_current_offset_to_max_sensor_initial_value(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry
@@ -240,7 +240,7 @@ class TestSensorEntities:
         entity_id = ent_reg.async_get_entity_id(
             "sensor", DOMAIN, f"{mock_config_entry.entry_id}_current_offset_to_max"
         )
-        assert entity_id == "sensor.ev_charger_load_balancer_current_offset_to_max"
+        assert entity_id == "sensor.watt_o_balancer_current_offset_to_max"
 
     async def test_current_offset_to_max_sensor_updates_on_charging(
         self, hass: HomeAssistant, mock_config_entry: MockConfigEntry

@@ -16,7 +16,7 @@ from homeassistant.helpers import entity_registry as er
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_ACTION_SET_CURRENT,
     CONF_ACTION_START_CHARGING,
     CONF_ACTION_STOP_CHARGING,
@@ -33,17 +33,17 @@ from custom_components.ev_lb.const import (
 sys.path.insert(0, os.path.dirname(__file__))
 
 # Patch paths for persistent-notification helpers used across multiple test modules
-PN_CREATE = "custom_components.ev_lb.coordinator.pn_async_create"
-PN_DISMISS = "custom_components.ev_lb.coordinator.pn_async_dismiss"
+PN_CREATE = "custom_components.watt_o_balancer.coordinator.pn_async_create"
+PN_DISMISS = "custom_components.watt_o_balancer.coordinator.pn_async_dismiss"
 
 # -----------------------------------------------------------------------
 # Shared constants
 # -----------------------------------------------------------------------
 
 POWER_METER = "sensor.house_power_w"
-SET_CURRENT_SCRIPT = "script.ev_lb_set_current"
-STOP_CHARGING_SCRIPT = "script.ev_lb_stop_charging"
-START_CHARGING_SCRIPT = "script.ev_lb_start_charging"
+SET_CURRENT_SCRIPT = "script.watt_o_balancer_set_current"
+STOP_CHARGING_SCRIPT = "script.watt_o_balancer_stop_charging"
+START_CHARGING_SCRIPT = "script.watt_o_balancer_start_charging"
 CHARGER_STATUS_SENSOR = "sensor.charger_status"
 
 _BASE_CONFIG = {

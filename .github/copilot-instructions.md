@@ -2,7 +2,7 @@
 
 ## Repository context
 
-This repository contains a custom Home Assistant (HACS) integration for dynamic EV charger load balancing. The integration is under `custom_components/ev_lb/`.
+This repository contains a custom Home Assistant (HACS) integration for dynamic EV charger load balancing. The integration is under `custom_components/watt_o_balancer/`.
 
 ## Rules for the coding agent
 
@@ -33,7 +33,7 @@ All research plans, design notes, and development artifacts MUST be placed under
 
 ### Integration structure
 
-The integration lives in `custom_components/ev_lb/` and follows the standard Home Assistant custom component layout:
+The integration lives in `custom_components/watt_o_balancer/` and follows the standard Home Assistant custom component layout:
 - `manifest.json` — HA/HACS metadata
 - `__init__.py` — entry setup/unload
 - `config_flow.py` — Config Flow UI

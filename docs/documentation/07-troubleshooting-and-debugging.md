@@ -12,7 +12,7 @@ Before diving into specifics, run through this checklist:
 - [ ] Is the power meter sensor reporting valid values? Check **Developer Tools → States** and search for your meter entity.
 - [ ] Is load balancing enabled? Check `switch.*_load_balancing_enabled` — is it **On**?
 - [ ] Are your action scripts working independently? Test them from **Developer Tools → Services**.
-- [ ] Check **Settings → System → Logs** for any warnings or errors mentioning `ev_lb`.
+- [ ] Check **Settings → System → Logs** for any warnings or errors mentioning `watt_o_balancer`.
 
 ---
 
@@ -42,9 +42,9 @@ flowchart TD
 **Symptoms:** You search for "Watt-O-Balancer" in Add Integration but nothing comes up.
 
 **Causes and fixes:**
-1. **Integration not installed.** Verify the `custom_components/ev_lb/` folder exists in your HA config directory (usually `/config/custom_components/ev_lb/`).
+1. **Integration not installed.** Verify the `custom_components/watt_o_balancer/` folder exists in your HA config directory (usually `/config/custom_components/watt_o_balancer/`).
 2. **Home Assistant not restarted.** Custom integrations are only discovered after a restart. Go to **Settings → System → Restart**.
-3. **Installation error.** Check **Settings → System → Logs** for any errors mentioning `ev_lb` or `custom_components`.
+3. **Installation error.** Check **Settings → System → Logs** for any errors mentioning `watt_o_balancer` or `custom_components`.
 
 ### "Already configured" error
 
@@ -69,7 +69,7 @@ flowchart TD
 
 **Steps to diagnose:**
 1. **Check if scripts are configured.** Go to **Settings → Devices & Services → Watt-O-Balancer → Configure**. Are the action script fields filled in?
-2. **Test scripts independently.** Go to **Developer Tools → Services**, search for your script (e.g., `script.ev_lb_set_current`), provide test variables (`current_a: 10`, `charger_id: test`), and run it. Does the charger respond?
+2. **Test scripts independently.** Go to **Developer Tools → Services**, search for your script (e.g., `script.watt_o_balancer_set_current`), provide test variables (`current_a: 10`, `charger_id: test`), and run it. Does the charger respond?
 3. **Check for warnings.** Look in **Settings → System → Logs** for messages like `Action set_current failed via script.*`.
 4. **Verify your charger integration.** The problem may be in your charger integration (OCPP, Modbus, etc.), not in this integration. Test the charger integration independently.
 
@@ -124,7 +124,7 @@ Add to your `configuration.yaml`:
 logger:
   default: warning
   logs:
-    custom_components.ev_lb: debug
+    custom_components.watt_o_balancer: debug
 ```
 
 Restart Home Assistant. Debug logs appear in **Settings → System → Logs**.
@@ -156,7 +156,7 @@ When load balancing is disabled:
 DEBUG Power meter changed but load balancing is disabled — skipping
 ```
 
-Manual override via `ev_lb.set_limit`:
+Manual override via `watt_o_balancer.set_limit`:
 ```
 DEBUG Manual override: requested=20.0 A, clamped=20.0 A
 ```
@@ -228,11 +228,11 @@ The integration fires HA events for fault conditions. Use these in automations f
 
 | Event | When it fires |
 |---|---|
-| `ev_lb_meter_unavailable` | Power meter went offline (stop mode) |
-| `ev_lb_overload_stop` | Charging stopped due to overload |
-| `ev_lb_fallback_activated` | Fallback current applied (meter unavailable, set-current mode) |
-| `ev_lb_charging_resumed` | Charging resumed after being stopped |
-| `ev_lb_action_failed` | A charger action script failed |
+| `watt_o_balancer_meter_unavailable` | Power meter went offline (stop mode) |
+| `watt_o_balancer_overload_stop` | Charging stopped due to overload |
+| `watt_o_balancer_fallback_activated` | Fallback current applied (meter unavailable, set-current mode) |
+| `watt_o_balancer_charging_resumed` | Charging resumed after being stopped |
+| `watt_o_balancer_action_failed` | A charger action script failed |
 
 See the [Event Notifications Guide](05-event-notifications-guide.md) for payloads and automation examples.
 
@@ -245,7 +245,7 @@ When filing a bug report on [GitHub](https://github.com/alexisml/ha-ev-charger-b
 1. **Home Assistant version** (Settings → About).
 2. **Integration version** (Settings → Devices & Services → Watt-O-Balancer → version).
 3. **Debug logs** covering the problem (see [Enabling debug logs](#enabling-debug-logs) above).
-4. **Entity states** at the time of the issue (screenshot from Developer Tools → States, filtered by `ev_lb`).
+4. **Entity states** at the time of the issue (screenshot from Developer Tools → States, filtered by `watt_o_balancer`).
 5. **Your configuration** — power meter entity, voltage, service current, unavailable behavior, action scripts.
 6. **Steps to reproduce** — what you did, what you expected, what happened instead.
 

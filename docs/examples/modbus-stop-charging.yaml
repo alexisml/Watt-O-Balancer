@@ -18,7 +18,7 @@
 #   4. Adjust hub, unit, address for your charger.
 #   5. Test from Developer Tools → Actions:
 #        Service: script.turn_on
-#        Target:  script.ev_lb_stop_charging
+#        Target:  script.watt_o_balancer_stop_charging
 #        Data:    { variables: { charger_id: test } }
 #   6. Confirm your charger stops before wiring this to the integration.
 

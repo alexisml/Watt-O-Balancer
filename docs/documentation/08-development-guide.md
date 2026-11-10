@@ -10,7 +10,7 @@ This guide is for contributors and developers who want to understand the integra
 
 ```
 ha-ev-charger-balancer/
-├── custom_components/ev_lb/     # The Home Assistant integration
+├── custom_components/watt_o_balancer/     # The Home Assistant integration
 │   ├── __init__.py              # Entry setup/unload, service registration
 │   ├── _log.py                  # Logging wrapper
 │   ├── binary_sensor.py         # Binary sensor entities (active, meter status, fallback)
@@ -21,7 +21,7 @@ ha-ev-charger-balancer/
 │   ├── manifest.json            # HA/HACS metadata
 │   ├── number.py                # Number entities (max charger current, min EV current)
 │   ├── sensor.py                # Sensor entities (current set, available, diagnostics)
-│   ├── services.yaml            # Service definitions (ev_lb.set_limit)
+│   ├── services.yaml            # Service definitions (watt_o_balancer.set_limit)
 │   ├── strings.json             # English UI strings
 │   ├── switch.py                # Switch entity (load balancing enabled)
 │   └── translations/            # Localized UI strings
@@ -31,7 +31,7 @@ ha-ev-charger-balancer/
 │   ├── test_config_flow.py      # Config flow tests
 │   ├── test_init.py             # Setup/unload tests
 │   ├── test_logging.py          # Logging behavior tests
-│   ├── test_set_limit_service.py # ev_lb.set_limit service tests
+│   ├── test_set_limit_service.py # watt_o_balancer.set_limit service tests
 │   └── ...                      # Integration/e2e tests
 ├── docs/
 │   ├── documentation/           # User-facing documentation
@@ -58,7 +58,7 @@ flowchart TD
     PM["🔌 Power Meter<br/>(sensor entity)"] -->|state_changed event| CO["⚡ Coordinator<br/>(coordinator.py)"]
     NUM["🔢 Number Entities<br/>(max current, min current)"] -->|value changed| CO
     SW["🔘 Switch Entity<br/>(enabled/disabled)"] -->|toggled| CO
-    SVC["🛠️ ev_lb.set_limit<br/>(service call)"] -->|manual override| CO
+    SVC["🛠️ watt_o_balancer.set_limit<br/>(service call)"] -->|manual override| CO
 
     CO -->|compute| LB["📐 Load Balancer<br/>(load_balancer.py)<br/>Pure functions, no HA dependency"]
     LB -->|target current| CO
@@ -66,7 +66,7 @@ flowchart TD
     CO -->|dispatcher signal| SENS["📊 Sensor Entities<br/>(current set, available,<br/>state, reason)"]
     CO -->|dispatcher signal| BSENS["🔴🟢 Binary Sensors<br/>(active, meter status,<br/>fallback active)"]
     CO -->|script.turn_on| SCRIPTS["📜 Action Scripts<br/>(user-configured)<br/>set_current / stop / start"]
-    CO -->|bus event| EVENTS["📢 HA Event Bus<br/>(ev_lb_* events)"]
+    CO -->|bus event| EVENTS["📢 HA Event Bus<br/>(watt_o_balancer_* events)"]
     CO -->|create/dismiss| NOTIF["🔔 Persistent<br/>Notifications"]
 
     SCRIPTS -->|charger commands| CHARGER["🚗 EV Charger<br/>(OCPP / Modbus / REST / etc.)"]
@@ -159,7 +159,7 @@ Ruff reads its configuration from `pyproject.toml`. Run `ruff format .` (without
 docker run --rm \
   -v "$(pwd)/custom_components":/github/workspace/custom_components:ro \
   ghcr.io/home-assistant/hassfest:latest \
-  --integration-path /github/workspace/custom_components/ev_lb
+  --integration-path /github/workspace/custom_components/watt_o_balancer
 ```
 
 Hassfest validates the integration's `manifest.json`, service definitions, and other Home Assistant-specific metadata. The `script.hassfest` module is not shipped in the PyPI `homeassistant` package, so the Docker image is the supported way to run it locally.

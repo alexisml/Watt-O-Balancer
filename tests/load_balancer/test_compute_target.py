@@ -5,7 +5,7 @@ Tests verify that target never exceeds available, that the EV draw is
 correctly isolated from total meter draw, and that overloads produce None.
 """
 
-from custom_components.ev_lb.load_balancer import compute_target_current
+from custom_components.watt_o_balancer.load_balancer import compute_target_current
 
 
 class TestComputeTargetCurrent:

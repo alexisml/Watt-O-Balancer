@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     CONF_MAX_SERVICE_CURRENT,
     CONF_POWER_METER_ENTITY,
     CONF_UNAVAILABLE_BEHAVIOR,
@@ -26,7 +26,7 @@ from custom_components.ev_lb.const import (
     UNAVAILABLE_BEHAVIOR_SET_CURRENT,
     UNAVAILABLE_BEHAVIOR_STOP,
 )
-from custom_components.ev_lb.coordinator import EvLoadBalancerCoordinator
+from custom_components.watt_o_balancer.coordinator import EvLoadBalancerCoordinator
 from conftest import POWER_METER, setup_integration, get_entity_id
 
 

@@ -20,7 +20,7 @@ comment:
 flags:
   unittests:
     paths:
-      - custom_components/ev_lb/
+      - custom_components/watt_o_balancer/
     carryforward: true
 
 ignore:

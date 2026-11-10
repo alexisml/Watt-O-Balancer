@@ -22,7 +22,7 @@ from typing import Optional
 
 import pytest
 
-from custom_components.ev_lb.load_balancer import (
+from custom_components.watt_o_balancer.load_balancer import (
     apply_ramp_up_limit,
     clamp_to_safe_output,
     compute_available_current,
@@ -31,7 +31,7 @@ from custom_components.ev_lb.load_balancer import (
     distribute_current,
     resolve_fallback_current,
 )
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     MAX_CHARGER_CURRENT,
     MAX_RAMP_UP_STEP,
     MAX_RAMP_UP_TIME,

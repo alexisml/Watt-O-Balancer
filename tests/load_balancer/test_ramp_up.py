@@ -11,7 +11,7 @@ Tests are organised into two classes:
 - TestApplyRampUpLimitStepped — step-size capping and multi-step scenarios
 """
 
-from custom_components.ev_lb.load_balancer import apply_ramp_up_limit
+from custom_components.watt_o_balancer.load_balancer import apply_ramp_up_limit
 
 
 class TestApplyRampUpLimitBasic:

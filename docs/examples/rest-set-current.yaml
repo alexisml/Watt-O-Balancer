@@ -24,7 +24,7 @@
 #   4. Replace the rest_command name if yours differs.
 #   5. Test from Developer Tools → Actions:
 #        Service: script.turn_on
-#        Target:  script.ev_lb_set_current
+#        Target:  script.watt_o_balancer_set_current
 #        Data:    { variables: { current_a: 10, current_w: 2300, charger_id: test } }
 #   6. Confirm your charger responds before wiring this to the integration.
 

@@ -31,7 +31,7 @@ jobs:
       - name: Run unit tests
         run: |
           mkdir -p results
-          python -m pytest tests/ -v --junitxml=results/junit.xml -o junit_family=legacy --cov=custom_components/ev_lb --cov-report=xml:results/coverage.xml --cov-fail-under=90
+          python -m pytest tests/ -v --junitxml=results/junit.xml -o junit_family=legacy --cov=custom_components/watt_o_balancer --cov-report=xml:results/coverage.xml --cov-fail-under=90
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2.22.0
@@ -78,7 +78,7 @@ jobs:
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ vars.BADGE_GIST_ID }}
-          filename: ev_lb_test_count.json
+          filename: watt_o_balancer_test_count.json
           label: Tests
           message: ${{ env.TEST_COUNT }} passed
           color: brightgreen
@@ -90,7 +90,7 @@ jobs:
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ vars.BADGE_GIST_ID }}
-          filename: ev_lb_loc.json
+          filename: watt_o_balancer_loc.json
           label: Lines of code
           message: ${{ env.LOC }}
           color: blue

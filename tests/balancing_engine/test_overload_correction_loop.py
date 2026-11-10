@@ -23,7 +23,7 @@ from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import SAFETY_MAX_POWER_METER_W
+from custom_components.watt_o_balancer.const import SAFETY_MAX_POWER_METER_W
 from conftest import POWER_METER, setup_integration
 
 

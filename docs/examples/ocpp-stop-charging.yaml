@@ -13,7 +13,7 @@
 #   3. Adjust conn_id if your charger has multiple connectors (most use 1).
 #   4. Test from Developer Tools → Actions:
 #        Service: script.turn_on
-#        Target:  script.ev_lb_stop_charging
+#        Target:  script.watt_o_balancer_stop_charging
 #        Data:    { variables: { charger_id: test } }
 #   5. Confirm your charger stops before wiring this to the integration.
 

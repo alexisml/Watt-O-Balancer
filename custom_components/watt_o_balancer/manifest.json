@@ -1,6 +1,6 @@
 {
-  "domain": "ev_lb",
-  "name": "EV Charger Load Balancing",
+  "domain": "watt_o_balancer",
+  "name": "Watt-O-Balancer",
   "codeowners": [
     "@alexisml"
   ],

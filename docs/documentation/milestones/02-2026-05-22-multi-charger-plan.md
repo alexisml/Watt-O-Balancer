@@ -269,7 +269,7 @@ Single-charger entries configured before multi-charger support was added continu
 
 | Item | Notes |
 |---|---|
-| Per-charger sensor entities | `sensor.ev_lb_charger_N_current_set` etc. Currently only the aggregate is reported. |
+| Per-charger sensor entities | `sensor.watt_o_balancer_charger_N_current_set` etc. Currently only the aggregate is reported. |
 | Per-charger `min`/`max` current | Currently global. Per-charger limits would require extending the number entities and distribution algorithm inputs. |
 | More than 3 chargers | There is no algorithmic hard limit. The remaining work is mostly in the Configure UI / config model, which needs a repeatable `chargers` list inside one config entry. Each charger's `charger_status_sensor` must be unique. The shared `power_meter_entity` stays at the config-entry level, matching today's single-charger entry model where the power meter can already be changed via Configure. |
 | Charger groups / sub-circuits | Not scoped. Would require grouping chargers by sub-circuit before the distribution step. |

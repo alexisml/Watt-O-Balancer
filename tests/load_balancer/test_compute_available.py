@@ -4,7 +4,7 @@ Covers basic formula correctness, default voltage, different voltages,
 negative available (overload), and boundary inputs.
 """
 
-from custom_components.ev_lb.load_balancer import (
+from custom_components.watt_o_balancer.load_balancer import (
     VOLTAGE_DEFAULT,
     compute_available_current,
 )

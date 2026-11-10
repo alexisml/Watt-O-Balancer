@@ -17,7 +17,7 @@ from pytest_homeassistant_custom_component.common import (
     async_mock_service,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     ACTION_MAX_RETRIES,
     EVENT_ACTION_FAILED,
 )

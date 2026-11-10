@@ -43,7 +43,7 @@ jobs:
           python3 scripts/bump_version.py --prerelease "$BRANCH" --apply
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add custom_components/ev_lb/manifest.json
+          git add custom_components/watt_o_balancer/manifest.json
           git diff --cached --quiet || git commit -m "Bump version to $VERSION"
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
@@ -57,8 +57,8 @@ jobs:
       - name: Create release zip
         if: steps.tag_check.outputs.exists == 'false'
         run: |
-          cd custom_components/ev_lb
-          zip -r ../../ev_lb.zip .
+          cd custom_components/watt_o_balancer
+          zip -r ../../watt_o_balancer.zip .
 
       - name: Create GitHub Pre-release
         if: steps.tag_check.outputs.exists == 'false'
@@ -67,4 +67,4 @@ jobs:
           tag_name: "v${{ steps.version.outputs.version }}"
           prerelease: true
           generate_release_notes: true
-          files: ev_lb.zip
+          files: watt_o_balancer.zip

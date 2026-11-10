@@ -17,7 +17,7 @@ from conftest import (
     setup_integration,
 )
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     DOMAIN,
     EVENT_CHARGER_RECOVERED,
 )
@@ -71,7 +71,7 @@ class TestAutoRecovery:
     async def test_auto_recovery_fires_event(
         self, hass: HomeAssistant, mock_config_entry_with_charger_status: MockConfigEntry
     ) -> None:
-        """Recovery fires ev_lb_charger_recovered event with entry_id and current."""
+        """Recovery fires watt_o_balancer_charger_recovered event with entry_id and current."""
         async_mock_service(hass, "script", "turn_on")
         await _setup_with_charger_status(hass, mock_config_entry_with_charger_status)
         events = collect_events(hass, EVENT_CHARGER_RECOVERED)

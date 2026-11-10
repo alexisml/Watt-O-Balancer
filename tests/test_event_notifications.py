@@ -17,7 +17,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ev_lb.const import (
+from custom_components.watt_o_balancer.const import (
     EVENT_ACTION_FAILED,
     EVENT_CHARGING_RESUMED,
     EVENT_FALLBACK_ACTIVATED,

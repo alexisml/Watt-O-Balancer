@@ -480,7 +480,7 @@ class EvLoadBalancerCoordinator:
                 )
                 self.hass.async_create_task(
                     self.async_retrigger_set_current(),
-                    "ev_lb_auto_recovery_retrigger",
+                    "watt_o_balancer_auto_recovery_retrigger",
                 )
 
         new_ev_charging = self._is_ev_charging()
@@ -590,7 +590,7 @@ class EvLoadBalancerCoordinator:
         self._recompute(service_power_w, REASON_PARAMETER_CHANGE)
 
     # ------------------------------------------------------------------
-    # Manual override via ev_lb.set_limit service
+    # Manual override via watt_o_balancer.set_limit service
     # ------------------------------------------------------------------
 
     @callback

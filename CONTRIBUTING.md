@@ -37,7 +37,7 @@ Use the **Bug Report** issue template. Include:
 - Home Assistant version and platform (e.g. Home Assistant OS 12.x on Raspberry Pi 4)
 - Integration version (from Settings → Devices & Services)
 - A clear description of what happened versus what you expected
-- Relevant log output (Settings → System → Logs, filter for `ev_lb`)
+- Relevant log output (Settings → System → Logs, filter for `watt_o_balancer`)
 - Steps to reproduce
 
 ---

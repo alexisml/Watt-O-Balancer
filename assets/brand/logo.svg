@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3000 620" width="3000" height="620">
+  <g transform="translate(1395.3 263.8) scale(0.4090)">
+  <path d="M 137.2 374.8 A 168 168 0 1 1 374.8 374.8" fill="none" stroke="#7D8C44" stroke-width="72"/>
+  <path d="M 137.2 137.2 A 168 168 0 0 1 374.8 374.8" fill="none" stroke="#E8A33D" stroke-width="72"/>
+  <path d="M 374.8 137.2 A 168 168 0 0 1 374.8 374.8" fill="none" stroke="#C75B29" stroke-width="72"/>
+  <circle cx="256" cy="256" r="124" fill="#F4E3C1"/>
+  <path d="M 264.0 155.0 L 220.0 241.0 L 254.0 241.0 L 236.0 305.0 L 302.0 215.0 L 260.0 215.0 L 288.0 155.0 Z" fill="#C75B29"/>
+  <g transform="translate(256 306) scale(0.56)"><path d="M -132 26 Q -140 26 -140 12 L -140 -2 Q -140 -12 -128 -14 L -84 -20 L -66 -50 Q -60 -62 -44 -62 L 24 -62 Q 44 -62 50 -48 L 66 -18 L 120 -8 Q 140 -4 140 14 L 140 16 Q 140 26 132 26 Z" fill="#3B2416"/><path d="M -150 40 A 62 62 0 0 1 -26 40 Z" fill="#3B2416"/><path d="M 22 40 A 62 62 0 0 1 146 40 Z" fill="#3B2416"/><rect x="-38" y="16" width="68" height="24" rx="8" fill="#3B2416"/><circle cx="-88" cy="40" r="44" fill="#3B2416"/><circle cx="84" cy="40" r="44" fill="#3B2416"/><circle cx="-88" cy="40" r="17" fill="#F4E3C1"/><circle cx="84" cy="40" r="17" fill="#F4E3C1"/></g>
+  <path d="M 354.6 70.6 L 296.8 128.2 L 339.2 150.7 Z" fill="#F4E3C1"/>
+  </g>
+  <text x="1408" y="420" text-anchor="end" font-family="American Typewriter" font-weight="700" font-size="150" letter-spacing="2" fill="#3B2416">WATT-</text>
+  <text x="1592" y="420" text-anchor="start" font-family="American Typewriter" font-weight="700" font-size="150" letter-spacing="2" fill="#3B2416">-BALANCER</text>
+  <rect x="885" y="460" width="1683" height="22" rx="11" fill="#E8A33D"/>
+  <text x="1726" y="548" text-anchor="middle" font-family="Futura" font-weight="700" font-size="44" letter-spacing="16" fill="#E8A33D">EV LOAD BALANCING</text>
+</svg>

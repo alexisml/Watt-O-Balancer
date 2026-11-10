@@ -33,7 +33,7 @@ This integration is a **software load balancer** that adjusts EV charger current
 
 - Unauthorized control of charger settings (e.g. bypassing manual override)
 - Sensitive data exposure through logs or events
-- Dependency vulnerabilities in packages listed in `tests/requirements.txt` or `custom_components/ev_lb/manifest.json`
+- Dependency vulnerabilities in packages listed in `tests/requirements.txt` or `custom_components/watt_o_balancer/manifest.json`
 
 Issues related to the Home Assistant platform itself or third-party charger hardware are out of scope — please report those to the relevant upstream projects.
 
